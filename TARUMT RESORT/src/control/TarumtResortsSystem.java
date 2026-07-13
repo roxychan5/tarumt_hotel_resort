@@ -9,10 +9,10 @@ import utility.MessageUI;
 public class TarumtResortsSystem {
 
   private final TarumtResortsUI mainUI = new TarumtResortsUI();
-  private final HousekeepingTaskLog housekeepingModule = new HousekeepingTaskLog();
-  private final FrontDeskService frontDeskModule = new FrontDeskService();
-  private final VipLoyaltyAllocation vipLoyaltyModule = new VipLoyaltyAllocation();
   private final WalkInBooking walkInBookingModule = new WalkInBooking();
+  private final VipLoyaltyAllocation vipLoyaltyModule = new VipLoyaltyAllocation();
+  private final FrontDeskService frontDeskModule = new FrontDeskService();
+  private final HousekeepingTaskLog housekeepingModule = new HousekeepingTaskLog();
 
   public void runSystem() {
     mainUI.displayWelcomeBanner();
@@ -24,16 +24,16 @@ public class TarumtResortsSystem {
           MessageUI.displayExitMessage();
           break;
         case 1:
-          housekeepingModule.runHousekeepingModule();
+          walkInBookingModule.runWalkInBookingModule();
           break;
         case 2:
-          frontDeskModule.runFrontDeskModule();
-          break;
-        case 3:
           vipLoyaltyModule.runVipLoyaltyModule();
           break;
+        case 3:
+          frontDeskModule.runFrontDeskModule();
+          break;
         case 4:
-          walkInBookingModule.runWalkInBookingModule();
+          housekeepingModule.runHousekeepingModule();
           break;
         default:
           MessageUI.displayInvalidChoiceMessage();

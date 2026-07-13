@@ -20,10 +20,10 @@ public class TarumtResortsUI {
 
   public int getMainMenuChoice() {
     ConsoleUI.displaySubHeader("MAIN MODULE MENU");
-    System.out.println("  1. Housekeeping & Task Log          [Linear ADT]");
-    System.out.println("  2. Front-Desk Service               [Non-Linear ADT & Searching]");
-    System.out.println("  3. VIP & Loyalty Tier Allocation    [Non-Linear ADT]");
-    System.out.println("  4. Walk-In & Standard Booking       [Linear ADT]");
+    System.out.println("  1. Walk-In & Standard Booking       [Linear ADT]");
+    System.out.println("  2. VIP & Loyalty Tier Allocation    [Non-Linear ADT]");
+    System.out.println("  3. Front-Desk Service               [Non-Linear ADT & Searching]");
+    System.out.println("  4. Housekeeping & Task Log          [Linear ADT]");
     System.out.println("  0. Exit System");
     System.out.print("\nEnter choice: ");
     int choice = scanner.nextInt();
