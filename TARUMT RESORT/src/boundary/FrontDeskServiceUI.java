@@ -1,5 +1,6 @@
 package boundary;
 
+import entity.GuestRecord;
 import java.util.Scanner;
 import utility.ConsoleUI;
 
@@ -40,8 +41,30 @@ public class FrontDeskServiceUI {
     System.out.println(result);
   }
 
+  public void displayGuestDetails(GuestRecord guestRecord) {
+    ConsoleUI.displaySubHeader("COMPLETE GUEST INFORMATION");
+    System.out.println(guestRecord.toFullDetailsString());
+  }
+
+  public void displayBillingDetails(GuestRecord guestRecord) {
+    ConsoleUI.displaySubHeader("GUEST BILLING DETAILS");
+    System.out.println(guestRecord.toBillingString());
+  }
+
+  public void displayRoomAvailability(String output) {
+    ConsoleUI.displaySubHeader("ROOM AVAILABILITY");
+    System.out.println(output);
+  }
+
   public void displayGuestList(String output) {
     ConsoleUI.displaySubHeader("GUEST RECORDS");
-    System.out.println(output.isEmpty() ? "  (No records - awaiting team integration)" : output);
+    if (output.isEmpty()) {
+      System.out.println("  (No guest records found)");
+    } else {
+      ConsoleUI.displayTableHeader(
+          String.format("%-12s %-20s %-10s %-10s %s\n",
+              "Confirm No.", "Guest Name", "Room", "Type", "Outstanding"));
+      System.out.println(output);
+    }
   }
 }
