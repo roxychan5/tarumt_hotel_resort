@@ -13,10 +13,8 @@ public class ProductDAO {
   
   public void saveToFile(ListInterface<Product> productList) {
     File file = new File(fileName);
-    try {
-      ObjectOutputStream ooStream = new ObjectOutputStream(new FileOutputStream(file));
+    try (ObjectOutputStream ooStream = new ObjectOutputStream(new FileOutputStream(file))) {
       ooStream.writeObject(productList);
-      ooStream.close();
     } catch (FileNotFoundException ex) {
       System.out.println("\nFile not found");
     } catch (IOException ex) {
@@ -24,21 +22,19 @@ public class ProductDAO {
     }
   }
 
+  @SuppressWarnings("unchecked")
   public ListInterface<Product> retrieveFromFile() {
     File file = new File(fileName);
     ListInterface<Product> productList = new ArrayList<>();
-    try {
-      ObjectInputStream oiStream = new ObjectInputStream(new FileInputStream(file));
-      productList = (ArrayList<Product>) (oiStream.readObject());
-      oiStream.close();
+    try (ObjectInputStream oiStream = new ObjectInputStream(new FileInputStream(file))) {
+      productList = (ListInterface<Product>) oiStream.readObject();
     } catch (FileNotFoundException ex) {
       System.out.println("\nNo such file.");
     } catch (IOException ex) {
       System.out.println("\nCannot read from file.");
     } catch (ClassNotFoundException ex) {
       System.out.println("\nClass not found.");
-    } finally {
-      return productList;
     }
+    return productList;
   }
 }

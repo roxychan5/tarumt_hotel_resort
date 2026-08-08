@@ -17,6 +17,7 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
     this(DEFAULT_CAPACITY);
   }
 
+  @SuppressWarnings("unchecked")
   public ArrayList(int initialCapacity) {
     numberOfEntries = 0;
     array = (T[]) new Object[initialCapacity];
@@ -123,6 +124,7 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
     return false;
   }
 
+  @SuppressWarnings("unchecked")
   private void doubleArray() {
     T[] oldArray = array;
     array = (T[]) new Object[oldArray.length * 2];
