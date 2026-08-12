@@ -326,9 +326,13 @@ public class HousekeepingTaskLog {
       taskList.add(loadedTasks.getEntry(i));
       String taskId = loadedTasks.getEntry(i).getTaskId();
       if (taskId.startsWith("HK")) {
-        int id = Integer.parseInt(taskId.substring(2));
-        if (id >= taskCounter) {
-          taskCounter = id;
+        try {
+          int id = Integer.parseInt(taskId.substring(2));
+          if (id >= taskCounter) {
+            taskCounter = id;
+          }
+        } catch (NumberFormatException ex) {
+          MessageUI.displayErrorMessage("Ignoring invalid task ID in saved data: " + taskId);
         }
       }
     }

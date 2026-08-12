@@ -3,8 +3,8 @@ package boundary;
 import entity.HousekeepingTask;
 import entity.Room;
 import entity.RoomStatus;
-import java.util.Scanner;
 import utility.ConsoleUI;
+import utility.MessageUI;
 
 /**
  * Boundary class for the Housekeeping and Task Log module.
@@ -13,44 +13,65 @@ import utility.ConsoleUI;
  */
 public class HousekeepingTaskLogUI {
 
-  private final Scanner scanner = new Scanner(System.in);
-
   public int getMenuChoice() {
     ConsoleUI.displaySubHeader("HOUSEKEEPING & TASK LOG MODULE");
-    System.out.println("  1. View Task Queue (Sequential Log)");
-    System.out.println("  2. Add New Cleaning Task");
-    System.out.println("  3. Advance Room Status");
-    System.out.println("  4. Roll Back Last Status Change  [Stack ADT]");
-    System.out.println("  5. Handle Late Check-Out");
-    System.out.println("  6. View All Room Statuses");
-    System.out.println("  7. Report: Tasks by Status");
-    System.out.println("  8. Report: Staff Workload Summary");
-    System.out.println("  0. Back to Main Menu");
-    System.out.print("\nEnter choice: ");
-    int choice = scanner.nextInt();
-    scanner.nextLine();
-    return choice;
+    ConsoleUI.displayMenuOption(1, "View Task Queue", "Sequential task log");
+    ConsoleUI.displayMenuOption(2, "Add Cleaning Task", "Create and assign a task");
+    ConsoleUI.displayMenuOption(3, "Advance Room Status", "Move to next cleaning stage");
+    ConsoleUI.displayMenuOption(4, "Roll Back Last Status Change", "Stack ADT");
+    ConsoleUI.displayMenuOption(5, "Handle Late Check-Out", "Reset a room to Dirty");
+    ConsoleUI.displayMenuOption(6, "View Room Status Board");
+    ConsoleUI.displayMenuOption(7, "Tasks by Status Report");
+    ConsoleUI.displayMenuOption(8, "Staff Workload Summary");
+    System.out.println("  " + "-".repeat(72));
+    ConsoleUI.displayMenuOption(0, "Back to Main Menu");
+    return ConsoleUI.readMenuChoice("\nSelect an option > ");
   }
 
   public String inputRoomNumber() {
-    System.out.print("Enter room number (e.g. R101): ");
-    return scanner.nextLine().trim().toUpperCase();
+    while (true) {
+      System.out.print("Enter room number (e.g. R101): ");
+      String value = ConsoleUI.readLine().trim().toUpperCase();
+      if (value.matches("R[0-9]{3,4}")) {
+        return value;
+      }
+      MessageUI.displayErrorMessage("Room number must be R followed by 3 or 4 digits (for example, R101).");
+    }
   }
 
   public String inputAssignedStaff() {
-    System.out.print("Enter assigned staff ID (e.g. HK001): ");
-    return scanner.nextLine().trim().toUpperCase();
+    while (true) {
+      System.out.print("Enter assigned staff ID (e.g. HK001): ");
+      String value = ConsoleUI.readLine().trim().toUpperCase();
+      if (value.matches("HK[0-9]{3,5}")) {
+        return value;
+      }
+      MessageUI.displayErrorMessage("Staff ID must be HK followed by 3 to 5 digits (for example, HK001).");
+    }
   }
 
   public String inputTaskType() {
-    System.out.println("Task types: CHECKOUT_CLEAN, DEEP_CLEAN, TURNDOWN, INSPECTION");
-    System.out.print("Enter task type: ");
-    return scanner.nextLine().trim().toUpperCase();
+    System.out.println("Task types: 1. CHECKOUT_CLEAN  2. DEEP_CLEAN  3. TURNDOWN  4. INSPECTION");
+    while (true) {
+      switch (ConsoleUI.readMenuChoice("Select task type: ")) {
+        case 1: return "CHECKOUT_CLEAN";
+        case 2: return "DEEP_CLEAN";
+        case 3: return "TURNDOWN";
+        case 4: return "INSPECTION";
+        default: MessageUI.displayErrorMessage("Select a task type from 1 to 4.");
+      }
+    }
   }
 
   public String inputRollbackReason() {
-    System.out.print("Enter reason for rollback: ");
-    return scanner.nextLine().trim();
+    while (true) {
+      System.out.print("Enter reason for rollback (at least 5 characters): ");
+      String value = ConsoleUI.readLine().trim();
+      if (value.length() >= 5) {
+        return value;
+      }
+      MessageUI.displayErrorMessage("A rollback reason must contain at least 5 characters.");
+    }
   }
 
   public RoomStatus inputTargetStatus() {
@@ -59,9 +80,7 @@ public class HousekeepingTaskLogUI {
     System.out.println("  2. Cleaning In Progress");
     System.out.println("  3. Inspected");
     System.out.println("  4. Ready for Check-In");
-    System.out.print("Enter choice: ");
-    int choice = scanner.nextInt();
-    scanner.nextLine();
+    int choice = ConsoleUI.readMenuChoice("Enter choice: ");
     switch (choice) {
       case 1:
         return RoomStatus.DIRTY;
@@ -100,21 +119,21 @@ public class HousekeepingTaskLogUI {
   }
 
   public void displayTaskDetails(HousekeepingTask task) {
-    System.out.println("\nTask Details");
-    System.out.println("  Task ID   : " + task.getTaskId());
-    System.out.println("  Room      : " + task.getRoomNumber());
-    System.out.println("  Staff     : " + task.getAssignedStaff());
-    System.out.println("  Task Type : " + task.getTaskType());
-    System.out.println("  Status    : " + task.getCurrentStatus().getLabel());
-    System.out.println("  Logged At : " + task.getLoggedAt());
+    ConsoleUI.displayDetailPanel("TASK CREATED",
+        "Task ID   : " + task.getTaskId(),
+        "Room      : " + task.getRoomNumber(),
+        "Staff     : " + task.getAssignedStaff(),
+        "Task Type : " + task.getTaskType(),
+        "Status    : " + task.getCurrentStatus().getLabel(),
+        "Logged At : " + task.getLoggedAt());
   }
 
   public void displayRoomDetails(Room room) {
-    System.out.println("\nRoom Details");
-    System.out.println("  Room No. : " + room.getRoomNumber());
-    System.out.println("  Type     : " + room.getRoomType());
-    System.out.println("  Floor    : " + room.getFloor());
-    System.out.println("  Status   : " + room.getStatus().getLabel());
+    ConsoleUI.displayDetailPanel("ROOM DETAILS",
+        "Room No. : " + room.getRoomNumber(),
+        "Type     : " + room.getRoomType(),
+        "Floor    : " + room.getFloor(),
+        "Status   : " + room.getStatus().getLabel());
   }
 
   public void displayReport(String title, String content) {
@@ -123,6 +142,7 @@ public class HousekeepingTaskLogUI {
   }
 
   public void displayStatusFlowGuide() {
-    System.out.println("\nStatus Flow: Dirty -> Cleaning In Progress -> Inspected -> Ready for Check-In");
+    ConsoleUI.displayDetailPanel("ROOM STATUS FLOW",
+        "Dirty  ->  Cleaning In Progress  ->  Inspected  ->  Ready for Check-In");
   }
 }

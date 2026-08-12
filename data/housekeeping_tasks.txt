@@ -1,0 +1,2 @@
+taskId	roomNumber	assignedStaff	taskType	status	loggedAt
+HK1001	R101	HK000	CHECKOUT_CLEAN	CLEANING_IN_PROGRESS	2026-08-13T01:12:13.3596175

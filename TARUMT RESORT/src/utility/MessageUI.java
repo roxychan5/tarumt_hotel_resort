@@ -8,34 +8,27 @@ package utility;
 public class MessageUI {
 
   public static void displayInvalidChoiceMessage() {
-    System.out.println("\n*** Invalid choice. Please try again. ***");
+    displayErrorMessage("Invalid choice. Please select an option shown in the menu.");
   }
 
   public static void displayExitMessage() {
-    System.out.println("\nThank you for using TARUMT Resorts System. Goodbye!");
+    ConsoleUI.displayDetailPanel("SESSION ENDED", "Thank you for using TARUMT Resorts Management System.", "Goodbye!");
   }
 
   public static void displaySuccessMessage(String message) {
-    System.out.println("\n>> " + message);
+    System.out.println("\n[OK] " + message);
   }
 
   public static void displayErrorMessage(String message) {
-    System.out.println("\n!! " + message);
+    System.out.println("\n[ERROR] " + message);
   }
 
   public static void displayInfoMessage(String message) {
-    System.out.println("\n-- " + message);
+    System.out.println("\n[INFO] " + message);
   }
 
   public static void pressEnterToContinue() {
-    System.out.print("\nPress ENTER to continue...");
-    try {
-      System.in.read();
-      while (System.in.available() > 0) {
-        System.in.read();
-      }
-    } catch (Exception ex) {
-      // Ignore input errors in prototype
-    }
+    System.out.print("\nPress ENTER to continue... ");
+    ConsoleUI.readLine();
   }
 }

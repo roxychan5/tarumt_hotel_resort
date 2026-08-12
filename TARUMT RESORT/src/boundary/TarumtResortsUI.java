@@ -1,6 +1,5 @@
 package boundary;
 
-import java.util.Scanner;
 import utility.ConsoleUI;
 
 /**
@@ -10,24 +9,19 @@ import utility.ConsoleUI;
  */
 public class TarumtResortsUI {
 
-  private final Scanner scanner = new Scanner(System.in);
-
   public void displayWelcomeBanner() {
-    ConsoleUI.displayHeader("TARUMT RESORTS MANAGEMENT SYSTEM");
-    System.out.println("  Luxury Hospitality Chain - Console Prototype");
-    System.out.println("  BMCS2063 Data Structures & Algorithms Assignment");
+    ConsoleUI.displayHeader("TARUMT");
+    ConsoleUI.displayDetailPanel("WELCOME", "Luxury Hospitality Chain", "Select a module below to begin.");
   }
 
   public int getMainMenuChoice() {
     ConsoleUI.displaySubHeader("MAIN MODULE MENU");
-    System.out.println("  1. Walk-In & Standard Booking       [Linear ADT]");
-    System.out.println("  2. VIP & Loyalty Tier Allocation    [Non-Linear ADT]");
-    System.out.println("  3. Front-Desk Service               [Non-Linear ADT & Searching]");
-    System.out.println("  4. Housekeeping & Task Log          [Linear ADT]");
-    System.out.println("  0. Exit System");
-    System.out.print("\nEnter choice: ");
-    int choice = scanner.nextInt();
-    scanner.nextLine();
-    return choice;
+    ConsoleUI.displayMenuOption(1, "Walk-In & Standard Booking", "Linear ADT");
+    ConsoleUI.displayMenuOption(2, "VIP & Loyalty Tier Allocation", "Non-Linear ADT");
+    ConsoleUI.displayMenuOption(3, "Front-Desk Service", "Search & service tools");
+    ConsoleUI.displayMenuOption(4, "Housekeeping & Task Log", "Task queue & room statuses");
+    System.out.println("  " + "-".repeat(72));
+    ConsoleUI.displayMenuOption(0, "Exit System");
+    return ConsoleUI.readMenuChoice("\nSelect an option > ");
   }
 }

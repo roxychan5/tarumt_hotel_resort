@@ -1,0 +1,2 @@
+roomNumber	previousStatus	newStatus	reason	changedAt
+R101	DIRTY	CLEANING_IN_PROGRESS	Status advanced by supervisor	2026-08-13T01:12:27.7387179

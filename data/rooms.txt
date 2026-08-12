@@ -1,0 +1,6 @@
+roomNumber	roomType	floor	status
+R101	Standard	1	CLEANING_IN_PROGRESS
+R102	Standard	1	CLEANING_IN_PROGRESS
+R201	Deluxe	2	INSPECTED
+R301	Suite	3	READY_FOR_CHECK_IN
+R302	Suite	3	DIRTY

@@ -5,9 +5,17 @@ BMCS2063 Data Structures & Algorithms - Console Prototype
 
 HOW TO RUN
 ----------
-1. Open the ECBDemo project in NetBeans.
-2. Set main class to: control.TarumtResortsSystem
-3. Press F6 (Run) or right-click project -> Run.
+Option A (Windows): double-click run.bat in the TARUMT RESORT folder.
+
+Option B (command prompt, from the TARUMT RESORT folder):
+  javac -d build\classes src\adt\*.java src\boundary\*.java src\control\*.java src\dao\*.java src\entity\*.java src\utility\*.java
+  java -cp build\classes control.TarumtResortsSystem
+
+Option C (NetBeans): open the TARUMT RESORT folder as the project, set the
+main class to control.TarumtResortsSystem, then press F6.
+
+You need a JDK (not only a JRE). The program does not require Apache Ant to
+run by using Option A or B.
 
 MODULES
 -------
@@ -29,11 +37,13 @@ ECB ARCHITECTURE
 - dao/       : File persistence
 - utility/   : Common helpers
 
-DATA FILES (auto-created on first run)
+DATA FILES (readable text files, auto-created on first save)
 --------------------------------------
-- rooms.dat
-- housekeeping_tasks.dat
-- status_history.dat
+- data\rooms.txt
+- data\housekeeping_tasks.txt
+- data\status_history.txt
+- data\guest_records.txt
+- data\products.txt
 
 SAMPLE ROOMS (seeded on first run)
 ----------------------------------
