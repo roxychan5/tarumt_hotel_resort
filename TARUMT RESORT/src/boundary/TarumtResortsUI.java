@@ -9,19 +9,22 @@ import utility.ConsoleUI;
  */
 public class TarumtResortsUI {
 
-  public void displayWelcomeBanner() {
-    ConsoleUI.displayHeader("TARUMT");
-    ConsoleUI.displayDetailPanel("WELCOME", "Luxury Hospitality Chain", "Select a module below to begin.");
+  private static final String[] MAIN_MENU_OPTIONS = {
+      "Walk-In & Standard Booking",
+      "Loyalty & Rewards",
+      "Housekeeping & Task Log",
+      "Front-Desk Service"
+  };
+
+  public void displayMainMenuScreen() {
+    ConsoleUI.clearScreen();
+    ConsoleUI.displayGlitchBanner();
+    ConsoleUI.displayNeonMenuBox("TARUMT RESORTS SYSTEM", MAIN_MENU_OPTIONS, "Exit");
   }
 
   public int getMainMenuChoice() {
-    ConsoleUI.displaySubHeader("MAIN MODULE MENU");
-    ConsoleUI.displayMenuOption(1, "Walk-In & Standard Booking", "Linear ADT");
-    ConsoleUI.displayMenuOption(2, "VIP & Loyalty Tier Allocation", "Non-Linear ADT");
-    ConsoleUI.displayMenuOption(3, "Front-Desk Service", "Search & service tools");
-    ConsoleUI.displayMenuOption(4, "Housekeeping & Task Log", "Task queue & room statuses");
-    System.out.println("  " + "-".repeat(72));
-    ConsoleUI.displayMenuOption(0, "Exit System");
-    return ConsoleUI.readMenuChoice("\nSelect an option > ");
+    displayMainMenuScreen();
+    return ConsoleUI.readMenuChoice(
+        ConsoleUI.centeredPrompt(ConsoleUI.SKY_BLUE + "choice (0-4): " + ConsoleUI.RESET));
   }
 }

@@ -1,6 +1,7 @@
 package control;
 
 import boundary.TarumtResortsUI;
+import utility.ConsoleUI;
 import utility.MessageUI;
 
 /**
@@ -15,7 +16,7 @@ public class TarumtResortsSystem {
   private final HousekeepingTaskLog housekeepingModule = new HousekeepingTaskLog();
 
   public void runSystem() {
-    mainUI.displayWelcomeBanner();
+    ConsoleUI.enableAnsiColors();
     int choice;
     do {
       choice = mainUI.getMainMenuChoice();
@@ -30,10 +31,10 @@ public class TarumtResortsSystem {
           vipLoyaltyModule.runVipLoyaltyModule();
           break;
         case 3:
-          frontDeskModule.runFrontDeskModule();
+          housekeepingModule.runHousekeepingModule();
           break;
         case 4:
-          housekeepingModule.runHousekeepingModule();
+          frontDeskModule.runFrontDeskModule();
           break;
         default:
           MessageUI.displayInvalidChoiceMessage();

@@ -12,7 +12,262 @@ public class ConsoleUI {
   private static final Scanner INPUT = new Scanner(System.in);
   private static final int WIDTH = 78;
 
+  public static final String RESET = "\033[0m";
+  public static final String BOLD = "\033[1m";
+  public static final String CYAN = "\033[96m";
+  public static final String LIGHT_BLUE = "\033[94m";
+  public static final String SKY_BLUE = "\033[38;5;117m";
+  public static final String ICE_BLUE = "\033[38;5;195m";
+  public static final String STEEL_BLUE = "\033[38;5;39m";
+  public static final String DEEP_BLUE = "\033[38;5;33m";
+  public static final String MAGENTA = "\033[95m";
+  public static final String PURPLE = "\033[35m";
+  public static final String WHITE = "\033[97m";
+  public static final String RED = "\033[91m";
+  public static final String DIM = "\033[2m";
+  public static final String NAVY_BG = "\033[48;5;17m";
+
+  private static final String[] BANNER_GRADIENT = {
+      WHITE, ICE_BLUE, CYAN, SKY_BLUE, LIGHT_BLUE, STEEL_BLUE
+  };
+  private static final String[] BANNER_GLOW = {
+      ICE_BLUE, CYAN, SKY_BLUE, LIGHT_BLUE, STEEL_BLUE, DEEP_BLUE
+  };
+
+  private static final String BANNER_GAP = "    ";
+  private static final String[] BANNER_TARUMT = {
+      "████████╗  █████╗  ██████╗  ██╗   ██╗ ███╗   ███╗ ████████╗",
+      "╚══██╔══╝ ██╔══██╗ ██╔══██╗ ██║   ██║ ████╗ ████║ ╚══██╔══╝",
+      "   ██║    ███████║ ██████╔╝ ██║   ██║ ██╔████╔██║    ██║",
+      "   ██║    ██╔══██║ ██╔══██╗ ██║   ██║ ██║╚██╔╝██║    ██║",
+      "   ██║    ██║  ██║ ██║  ██║ ╚██████╔╝ ██║ ╚═╝ ██║    ██║",
+      "   ╚═╝    ╚═╝  ╚═╝ ╚═╝  ╚═╝  ╚═════╝  ╚═╝     ╚═╝    ╚═╝"
+  };
+  private static final String[] BANNER_RESORTS = {
+      "██████╗  ███████╗ ██████╗  ██████╗  ██████╗  ████████╗ ███████╗",
+      "██╔══██╗ ██╔════╝ ██╔════╝ ██╔══██╗ ██╔══██╗ ╚══██╔══╝ ██╔════╝",
+      "██████╔╝ █████╗   ███████╗ ██║  ██║ ██████╔╝    ██║    ███████╗",
+      "██╔══██╗ ██╔══╝   ╚════██║ ██║  ██║ ██╔══██╗    ██║    ╚════██║",
+      "██║  ██║ ███████╗ ███████║ ╚█████╔╝ ██║  ██║    ██║    ███████║",
+      "╚═╝  ╚═╝ ╚══════╝ ╚══════╝  ╚════╝  ╚═╝  ╚═╝    ╚═╝    ╚══════╝"
+  };
+  private static final int TARUMT_BLOCK_WIDTH = maxLineWidth(BANNER_TARUMT);
+  private static final int RESORTS_BLOCK_WIDTH = maxLineWidth(BANNER_RESORTS);
+  private static final String[] GLITCH_BANNER = buildGlitchBanner();
+
+  private static final int TERMINAL_WIDTH = resolveScreenWidth();
+  private static final int BANNER_WIDTH = computeBannerWidth();
+  private static final int MENU_BOX_WIDTH = 54;
+  private static final int LAYOUT_WIDTH = Math.max(BANNER_WIDTH, MENU_BOX_WIDTH);
+
   private ConsoleUI() {
+  }
+
+  /** Clears the terminal and moves the cursor to the top-left corner. */
+  public static void clearScreen() {
+    System.out.print("\033[H\033[2J\033[3J");
+    System.out.flush();
+  }
+
+  /** Enables ANSI colors and UTF-8 output on Windows terminals when supported. */
+  public static void enableAnsiColors() {
+    if (!System.getProperty("os.name", "").toLowerCase().contains("win")) {
+      return;
+    }
+    try {
+      ProcessBuilder builder = new ProcessBuilder(
+          "powershell",
+          "-NoProfile",
+          "-Command",
+          "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+              + "[Console]::InputEncoding = [System.Text.Encoding]::UTF8");
+      builder.redirectErrorStream(true);
+      builder.start().waitFor();
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+    } catch (Exception ignored) {
+      // ANSI and UTF-8 may still work in Windows Terminal / VS Code integrated terminal.
+    }
+  }
+
+  /** Prints the gradient banner used on the main menu. */
+  public static void displayGlitchBanner() {
+    System.out.println();
+    for (int i = 0; i < BANNER_TARUMT.length; i++) {
+      printGradientBannerLine(i);
+    }
+    System.out.print(RESET);
+    System.out.println();
+  }
+
+  /**
+   * Displays a neon-styled menu box with a title and numbered options.
+   *
+   * @param title     header text inside the box
+   * @param options   menu labels indexed from 1
+   * @param exitLabel label for option 0
+   */
+  public static void displayNeonMenuBox(String title, String[] options, String exitLabel) {
+    int innerWidth = 52;
+    String borderColor = SKY_BLUE + BOLD;
+    String top = borderColor + "╔" + repeat('═', innerWidth) + "╗" + RESET;
+    String divider = borderColor + "╠" + repeat('═', innerWidth) + "╣" + RESET;
+    String bottom = borderColor + "╚" + repeat('═', innerWidth) + "╝" + RESET;
+
+    System.out.println(padToCenter(top));
+    System.out.println(padToCenter(formatBoxLineCentered(title, innerWidth, ICE_BLUE + BOLD)));
+    System.out.println(padToCenter(divider));
+
+    for (int i = 0; i < options.length; i++) {
+      String entry = String.format("%d. %s", i + 1, options[i]);
+      System.out.println(padToCenter(formatBoxLine(entry, innerWidth, WHITE)));
+    }
+
+    System.out.println(padToCenter(formatBoxLine("0. " + exitLabel, innerWidth, RED + BOLD)));
+    System.out.println(padToCenter(bottom));
+    System.out.println();
+  }
+
+  /** Returns a prompt string padded so it appears centered on screen. */
+  public static String centeredPrompt(String prompt) {
+    return padToCenter(prompt);
+  }
+
+  private static String[] buildGlitchBanner() {
+    String[] banner = new String[BANNER_TARUMT.length];
+    for (int i = 0; i < BANNER_TARUMT.length; i++) {
+      banner[i] = padRight(BANNER_TARUMT[i], TARUMT_BLOCK_WIDTH)
+          + BANNER_GAP
+          + padRight(BANNER_RESORTS[i], RESORTS_BLOCK_WIDTH);
+    }
+    return banner;
+  }
+
+  private static int maxLineWidth(String[] lines) {
+    int maxWidth = 0;
+    for (String line : lines) {
+      maxWidth = Math.max(maxWidth, line.length());
+    }
+    return maxWidth;
+  }
+
+  private static String padRight(String text, int width) {
+    if (text.length() >= width) {
+      return text;
+    }
+    return text + repeat(' ', width - text.length());
+  }
+
+  private static int computeBannerWidth() {
+    int maxWidth = 0;
+    for (String line : GLITCH_BANNER) {
+      maxWidth = Math.max(maxWidth, line.length());
+    }
+    return maxWidth;
+  }
+
+  private static int centerWidth() {
+    return Math.max(TERMINAL_WIDTH, LAYOUT_WIDTH);
+  }
+
+  private static int resolveScreenWidth() {
+    if (System.getProperty("os.name", "").toLowerCase().contains("win")) {
+      try {
+        ProcessBuilder builder = new ProcessBuilder(
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "(Get-Host).UI.RawUI.WindowSize.Width");
+        builder.redirectErrorStream(true);
+        Process process = builder.start();
+        try (Scanner scanner = new Scanner(process.getInputStream()).useDelimiter("\\A")) {
+          if (process.waitFor() == 0 && scanner.hasNext()) {
+            int width = Integer.parseInt(scanner.next().trim());
+            if (width > 0) {
+              return width;
+            }
+          }
+        }
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+      } catch (Exception ignored) {
+        // Fall back to default width below.
+      }
+    }
+
+    String columns = System.getenv("COLUMNS");
+    if (columns != null) {
+      try {
+        int width = Integer.parseInt(columns.trim());
+        if (width > 0) {
+          return width;
+        }
+      } catch (NumberFormatException ignored) {
+        // Fall back to default width below.
+      }
+    }
+    return 120;
+  }
+
+  private static void printGradientBannerLine(int index) {
+    String tarumt = padRight(BANNER_TARUMT[index], TARUMT_BLOCK_WIDTH);
+    String resorts = padRight(BANNER_RESORTS[index], RESORTS_BLOCK_WIDTH);
+    String content = tarumt + BANNER_GAP + resorts;
+
+    if (content.trim().isEmpty()) {
+      System.out.println();
+      return;
+    }
+
+    int leftPad = Math.max(0, (centerWidth() - content.length()) / 2);
+    String basePad = repeat(' ', leftPad);
+    String rowColor = BANNER_GRADIENT[index];
+    String glowColor = BANNER_GLOW[index];
+
+    System.out.print("\033[2K\r");
+    System.out.println(NAVY_BG + glowColor + basePad + " " + rowColor + content + RESET);
+    System.out.print("\033[1A\033[2K\r");
+    System.out.println(NAVY_BG + rowColor + BOLD + basePad + content + RESET);
+  }
+
+  private static String formatBoxLineCentered(String text, int innerWidth, String color) {
+    String plain = stripAnsi(text);
+    if (plain.length() > innerWidth) {
+      plain = plain.substring(0, innerWidth - 3) + "...";
+    }
+    int padding = innerWidth - plain.length();
+    int leftPad = padding / 2;
+    int rightPad = padding - leftPad;
+    return borderColorLine(
+        repeat(' ', leftPad) + color + plain + RESET + repeat(' ', rightPad));
+  }
+
+  private static String formatBoxLine(String text, int innerWidth, String color) {
+    String plain = stripAnsi(text);
+    if (plain.length() > innerWidth) {
+      plain = plain.substring(0, innerWidth - 3) + "...";
+      text = plain;
+    }
+    int padding = innerWidth - plain.length();
+    return borderColorLine(color + text + RESET + repeat(' ', padding));
+  }
+
+  private static String borderColorLine(String content) {
+    return SKY_BLUE + BOLD + "║" + RESET + content + SKY_BLUE + BOLD + "║" + RESET;
+  }
+
+  private static String padToCenter(String line) {
+    String plain = stripAnsi(line);
+    int width = centerWidth();
+    if (plain.length() >= width) {
+      return line;
+    }
+    int leftPad = (width - plain.length()) / 2;
+    return repeat(' ', leftPad) + line;
+  }
+
+  private static String stripAnsi(String text) {
+    return text.replaceAll("\033\\[[0-9;]*m", "");
   }
 
   public static void displayHeader(String title) {

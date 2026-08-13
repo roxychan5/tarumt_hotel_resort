@@ -1,2 +1,2 @@
 roomNumber	previousStatus	newStatus	reason	changedAt
-R101	DIRTY	CLEANING_IN_PROGRESS	Status advanced by supervisor	2026-08-13T01:12:27.7387179
+R102	CLEANING_IN_PROGRESS	DIRTY	Late check-out requested	2026-08-13T15:50:33.4655779
