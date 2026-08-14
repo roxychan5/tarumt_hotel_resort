@@ -1,1 +1,2 @@
 W001|huixuan|0123456789|Standard|2
+W002|yiching|0123456789|Suite|4
