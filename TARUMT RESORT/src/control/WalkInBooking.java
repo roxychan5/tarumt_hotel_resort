@@ -38,11 +38,14 @@ public class WalkInBooking {
     private final ArrayList<WalkInGuest> walkInList
             = new ArrayList<>();
 
+    private static final String DATA_DIRECTORY
+            = "data";
+
     private static final String BOOKING_FILE
-            = "standard_bookings.txt";
+            = DATA_DIRECTORY + File.separator + "standard_bookings.txt";
 
     private static final String WALK_IN_FILE
-            = "walk_in_guests.txt";
+            = DATA_DIRECTORY + File.separator + "walk_in_guests.txt";
 
     private int nextBookingNumber = 1;
     private int nextWalkInNumber = 1;
@@ -360,6 +363,8 @@ public class WalkInBooking {
      */
     private void saveBookingsToFile() {
 
+        ensureDataDirectoryExists();
+
         try (BufferedWriter writer = new BufferedWriter(
                 new FileWriter(BOOKING_FILE))) {
 
@@ -459,6 +464,8 @@ public class WalkInBooking {
      * Saves all walk-in guests to a text file.
      */
     private void saveWalkInsToFile() {
+
+        ensureDataDirectoryExists();
 
         try (BufferedWriter writer = new BufferedWriter(
                 new FileWriter(WALK_IN_FILE))) {
@@ -584,6 +591,13 @@ public class WalkInBooking {
 
         } catch (NumberFormatException e) {
             // Ignore invalid ID.
+        }
+    }
+
+    private void ensureDataDirectoryExists() {
+        File directory = new File(DATA_DIRECTORY);
+        if (!directory.exists()) {
+            directory.mkdirs();
         }
     }
 }
