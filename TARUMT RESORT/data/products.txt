@@ -1,0 +1,4 @@
+productNumber	productName	quantity
+S1001	Pencil	50
+N3401	Notebook	20
+C7239	Calculator	35

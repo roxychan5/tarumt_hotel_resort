@@ -20,7 +20,6 @@ import utility.MessageUI;
 public class FrontDeskService {
 
   private final ListInterface<GuestRecord> guestRecords = new ArrayList<>();
-  private final ListInterface<Room> roomCatalogue = new ArrayList<>();
   private final SearchTreeInterface<String, GuestRecord> guestSearchTree =
       new BinarySearchTree<>();
   private final FrontDeskDAO frontDeskDAO = new FrontDeskDAO();
@@ -28,11 +27,7 @@ public class FrontDeskService {
   private final FrontDeskServiceUI frontDeskUI = new FrontDeskServiceUI();
 
   public FrontDeskService() {
-    seedRoomCatalogue();
     loadData();
-    if (guestRecords.isEmpty()) {
-      seedSampleGuestRecords();
-    }
     rebuildGuestSearchTree();
   }
 
@@ -139,13 +134,6 @@ public class FrontDeskService {
         return room;
       }
     }
-
-    for (int index = 1; index <= roomCatalogue.getNumberOfEntries(); index++) {
-      Room room = roomCatalogue.getEntry(index);
-      if (room.getRoomNumber().equalsIgnoreCase(roomNumber)) {
-        return room;
-      }
-    }
     return null;
   }
 
@@ -182,46 +170,6 @@ public class FrontDeskService {
       GuestRecord guestRecord = guestRecords.getEntry(index);
       guestSearchTree.insert(guestRecord.getConfirmationNumber(), guestRecord);
     }
-  }
-
-  private void seedSampleGuestRecords() {
-    guestRecords.add(new GuestRecord("10234567", "Aiman Hakim", "010101-14-5678",
-        "012-3456789", "R101", "Standard", "2026-08-08", "2026-08-10",
-        2, 180.00, 180.00));
-    guestRecords.add(new GuestRecord("23456789", "Lim Mei Xin", "A12345678",
-        "016-2228899", "R201", "Deluxe", "2026-08-08", "2026-08-11",
-        3, 260.00, 780.00));
-    guestRecords.add(new GuestRecord("34567890", "Siti Nurhaliza", "990909-10-4321",
-        "019-8887766", "R301", "Suite", "2026-08-09", "2026-08-12",
-        3, 420.00, 500.00));
-    guestRecords.add(new GuestRecord("45678901", "Daniel Tan", "D7654321",
-        "011-12345678", "R302", "Suite", "2026-08-10", "2026-08-11",
-        1, 420.00, 0.00));
-    frontDeskDAO.saveGuestRecords(guestRecords);
-  }
-
-  private void seedRoomCatalogue() {
-    roomCatalogue.clear();
-    roomCatalogue.add(new Room("R101", "Standard", 1, RoomStatus.DIRTY));
-    roomCatalogue.add(new Room("R102", "Standard", 1, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R103", "Standard", 1, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R104", "Standard", 1, RoomStatus.CLEANING_IN_PROGRESS));
-    roomCatalogue.add(new Room("R201", "Deluxe", 2, RoomStatus.INSPECTED));
-    roomCatalogue.add(new Room("R202", "Deluxe", 2, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R203", "Deluxe", 2, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R204", "Deluxe", 2, RoomStatus.DIRTY));
-    roomCatalogue.add(new Room("R301", "Suite", 3, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R302", "Suite", 3, RoomStatus.DIRTY));
-    roomCatalogue.add(new Room("R303", "Suite", 3, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R304", "Suite", 3, RoomStatus.CLEANING_IN_PROGRESS));
-    roomCatalogue.add(new Room("R401", "Family", 4, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R402", "Family", 4, RoomStatus.INSPECTED));
-    roomCatalogue.add(new Room("R403", "Family", 4, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R501", "Executive", 5, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R502", "Executive", 5, RoomStatus.CLEANING_IN_PROGRESS));
-    roomCatalogue.add(new Room("R503", "Executive", 5, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R601", "Presidential", 6, RoomStatus.READY_FOR_CHECK_IN));
-    roomCatalogue.add(new Room("R602", "Presidential", 6, RoomStatus.INSPECTED));
   }
 
   public static void main(String[] args) {
