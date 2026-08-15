@@ -7,7 +7,9 @@ import utility.ConsoleUI;
 import utility.MessageUI;
 
 /**
- * Boundary class for the Housekeeping and Task Log module.
+ * Boundary class for the Housekeeping and Task Log module. It exposes the
+ * Linear ADT features to supervisors: the sequential task list and the LIFO
+ * status-change stack used for rollback and history preview.
  *
  * @author Chan Rou Xuan
  */
@@ -18,11 +20,16 @@ public class HousekeepingTaskLogUI {
     ConsoleUI.displayMenuOption(1, "View Task Queue", "Sequential task log");
     ConsoleUI.displayMenuOption(2, "Add Cleaning Task", "Create and assign a task");
     ConsoleUI.displayMenuOption(3, "Advance Room Status", "Move to next cleaning stage");
-    ConsoleUI.displayMenuOption(4, "Roll Back Last Status Change", "Stack ADT");
-    ConsoleUI.displayMenuOption(5, "Handle Late Check-Out", "Reset a room to Dirty");
-    ConsoleUI.displayMenuOption(6, "View Room Status Board");
-    ConsoleUI.displayMenuOption(7, "Tasks by Status Report");
-    ConsoleUI.displayMenuOption(8, "Staff Workload Summary");
+    ConsoleUI.displayMenuOption(4, "Undo Last Status Change", "Undo stack (LIFO)");
+    ConsoleUI.displayMenuOption(5, "Redo Last Status Change", "Redo stack (LIFO)");
+    ConsoleUI.displayMenuOption(6, "Roll Back Multiple Changes", "Bulk LIFO rollback");
+    ConsoleUI.displayMenuOption(7, "Roll Back Specific Room", "Latest change for one room");
+    ConsoleUI.displayMenuOption(8, "View Status Change History", "Preview undo stack");
+    ConsoleUI.displayMenuOption(9, "View Stack Statistics", "Undo/redo stack totals");
+    ConsoleUI.displayMenuOption(10, "Handle Late Check-Out", "Reset a room to Dirty");
+    ConsoleUI.displayMenuOption(11, "View Room Status Board");
+    ConsoleUI.displayMenuOption(12, "Tasks by Status Report");
+    ConsoleUI.displayMenuOption(13, "Staff Workload Summary");
     System.out.println("  " + "-".repeat(72));
     ConsoleUI.displayMenuOption(0, "Back to Main Menu");
     return ConsoleUI.readMenuChoice("\nSelect an option > ");
@@ -71,6 +78,18 @@ public class HousekeepingTaskLogUI {
         return value;
       }
       MessageUI.displayErrorMessage("A rollback reason must contain at least 5 characters.");
+    }
+  }
+
+  public int inputRollbackCount(int availableChanges) {
+    while (true) {
+      int count = ConsoleUI.readMenuChoice(
+          "Number of latest changes to roll back (1-" + availableChanges + "): ");
+      if (count >= 1 && count <= availableChanges) {
+        return count;
+      }
+      MessageUI.displayErrorMessage(
+          "Enter a rollback count from 1 to " + availableChanges + ".");
     }
   }
 

@@ -4,7 +4,8 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * Stores a status change for rollback using the stack ADT.
+ * Stores one room-status transition pushed onto the Housekeeping Linear Stack
+ * ADT. The record contains the previous status required for LIFO rollback.
  *
  * @author Your Name
  */

@@ -15,15 +15,21 @@ import utility.MessageUI;
 
 /**
  * Control class for Housekeeping and Task Log module.
- * Uses List ADT for sequential task log and Stack ADT for status rollback.
+ * Uses Linear ADTs: an ArrayList for the sequential task/room log and a
+ * two LinkedStacks for LIFO undo/redo, bulk rollback and history preview.
  *
  * @author Chan Rou Xuan
  */
 public class HousekeepingTaskLog {
 
+  // Linear List ADT: rooms remain in their registered sequential order.
   private final ListInterface<Room> roomList = new ArrayList<>();
+  // Linear List ADT: each new cleaning task is appended to the task log.
   private final ListInterface<HousekeepingTask> taskList = new ArrayList<>();
-  private final StackInterface<StatusChangeRecord> statusHistory = new LinkedStack<>();
+  // Linear Stack ADT: newest applied change is at the top for immediate LIFO undo.
+  private final StackInterface<StatusChangeRecord> undoStack = new LinkedStack<>();
+  // Second Linear Stack ADT: undone changes are held here for LIFO redo.
+  private final StackInterface<StatusChangeRecord> redoStack = new LinkedStack<>();
   private final HousekeepingDAO housekeepingDAO = new HousekeepingDAO();
   private final HousekeepingTaskLogUI housekeepingUI = new HousekeepingTaskLogUI();
   private int taskCounter = 1000;
@@ -54,19 +60,34 @@ public class HousekeepingTaskLog {
           advanceRoomStatus();
           break;
         case 4:
-          rollbackLastChange();
+          undoLastChange();
           break;
         case 5:
-          handleLateCheckout();
+          redoLastChange();
           break;
         case 6:
+          rollbackMultipleChanges();
+          break;
+        case 7:
+          rollbackSpecificRoom();
+          break;
+        case 8:
+          displayStatusHistory();
+          break;
+        case 9:
+          displayStackStatistics();
+          break;
+        case 10:
+          handleLateCheckout();
+          break;
+        case 11:
           housekeepingUI.listRoomStatuses(getAllRooms());
           MessageUI.pressEnterToContinue();
           break;
-        case 7:
+        case 12:
           generateTasksByStatusReport();
           break;
-        case 8:
+        case 13:
           generateStaffWorkloadReport();
           break;
         default:
@@ -123,27 +144,51 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
-  private void rollbackLastChange() {
-    if (statusHistory.isEmpty()) {
-      MessageUI.displayErrorMessage("No status changes to roll back.");
+  /** Moves the latest applied change from the undo stack to the redo stack. */
+  private void undoLastChange() {
+    if (undoStack.isEmpty()) {
+      MessageUI.displayErrorMessage("No housekeeping changes available to undo.");
       return;
     }
 
     String reason = housekeepingUI.inputRollbackReason();
-    StatusChangeRecord record = statusHistory.pop();
+    StatusChangeRecord record = undoStack.pop();
     Room room = findRoom(record.getRoomNumber());
     if (room == null) {
       MessageUI.displayErrorMessage("Room no longer exists. Rollback cancelled.");
-      statusHistory.push(record);
+      undoStack.push(record);
       return;
     }
 
     room.setStatus(record.getPreviousStatus());
     syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus());
+    redoStack.push(record);
     saveData();
 
-    System.out.println("\nRolled back: " + record);
-    MessageUI.displaySuccessMessage("Schedule rolled back. Reason: " + reason);
+    System.out.println("\nUndone: " + record);
+    MessageUI.displaySuccessMessage("Latest change undone. Reason: " + reason);
+    housekeepingUI.displayRoomDetails(room);
+    MessageUI.pressEnterToContinue();
+  }
+
+  /** Reapplies the latest undone change, moving it back to the undo stack. */
+  private void redoLastChange() {
+    if (redoStack.isEmpty()) {
+      MessageUI.displayErrorMessage("No housekeeping changes available to redo.");
+      return;
+    }
+    StatusChangeRecord record = redoStack.pop();
+    Room room = findRoom(record.getRoomNumber());
+    if (room == null) {
+      MessageUI.displayErrorMessage("Room no longer exists. Redo cancelled.");
+      redoStack.push(record);
+      return;
+    }
+    room.setStatus(record.getNewStatus());
+    syncTaskStatus(record.getRoomNumber(), record.getNewStatus());
+    undoStack.push(record);
+    saveData();
+    MessageUI.displaySuccessMessage("Latest change redone.");
     housekeepingUI.displayRoomDetails(room);
     MessageUI.pressEnterToContinue();
   }
@@ -169,6 +214,104 @@ public class HousekeepingTaskLog {
 
     housekeepingUI.displayRoomDetails(room);
     MessageUI.displaySuccessMessage("Late check-out handled. Room reset to Dirty.");
+    MessageUI.pressEnterToContinue();
+  }
+
+  /** Restores several consecutive status changes in LIFO order. */
+  private void rollbackMultipleChanges() {
+    if (undoStack.isEmpty()) {
+      MessageUI.displayErrorMessage("No status changes to roll back.");
+      return;
+    }
+
+    int count = housekeepingUI.inputRollbackCount(undoStack.getSize());
+    for (int i = 0; i < count; i++) {
+      StatusChangeRecord record = undoStack.pop();
+      Room room = findRoom(record.getRoomNumber());
+      if (room != null) {
+        room.setStatus(record.getPreviousStatus());
+        syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus());
+      }
+      redoStack.push(record);
+    }
+    saveData();
+    MessageUI.displaySuccessMessage(
+        count + " latest status change(s) rolled back in LIFO order.");
+    MessageUI.pressEnterToContinue();
+  }
+
+  /** Displays the rollback stack without changing its order or contents. */
+  private void displayStatusHistory() {
+    if (undoStack.isEmpty()) {
+      MessageUI.displayInfoMessage("No status change history available.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    StackInterface<StatusChangeRecord> temporaryStack = new LinkedStack<>();
+    StringBuilder output = new StringBuilder();
+    output.append("Latest change is shown first (LIFO).\n\n");
+    int position = 1;
+    while (!undoStack.isEmpty()) {
+      StatusChangeRecord record = undoStack.pop();
+      output.append(position++).append(". ").append(record).append('\n');
+      temporaryStack.push(record);
+    }
+    while (!temporaryStack.isEmpty()) {
+      undoStack.push(temporaryStack.pop());
+    }
+    output.append("\nTotal changes available for undo: ").append(undoStack.getSize());
+    housekeepingUI.displayReport("HOUSEKEEPING STATUS CHANGE HISTORY", output.toString());
+    MessageUI.pressEnterToContinue();
+  }
+
+  /** Uses O(1) stack sizes and peek to make the two-stack design visible. */
+  private void displayStackStatistics() {
+    StringBuilder output = new StringBuilder();
+    output.append("Undoable changes : ").append(undoStack.getSize()).append('\n');
+    output.append("Redoable changes : ").append(redoStack.getSize()).append('\n');
+    output.append("Latest undo item : ");
+    output.append(undoStack.isEmpty() ? "None" : undoStack.peek()).append('\n');
+    output.append("Latest redo item : ");
+    output.append(redoStack.isEmpty() ? "None" : redoStack.peek());
+    housekeepingUI.displayReport("UNDO / REDO STACK STATISTICS", output.toString());
+    MessageUI.pressEnterToContinue();
+  }
+
+  /** Removes only the latest status change for the requested room. */
+  private void rollbackSpecificRoom() {
+    String roomNumber = housekeepingUI.inputRoomNumber();
+    Room room = findRoom(roomNumber);
+    if (room == null) {
+      MessageUI.displayErrorMessage("Room not found. Rollback cancelled.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+    StackInterface<StatusChangeRecord> temporaryStack = new LinkedStack<>();
+    StatusChangeRecord target = null;
+    while (!undoStack.isEmpty()) {
+      StatusChangeRecord record = undoStack.pop();
+      if (record.getRoomNumber().equalsIgnoreCase(roomNumber)) {
+        target = record;
+        break;
+      }
+      temporaryStack.push(record);
+    }
+    // Restoring temporary entries preserves the original order of all other records.
+    while (!temporaryStack.isEmpty()) {
+      undoStack.push(temporaryStack.pop());
+    }
+    if (target == null) {
+      MessageUI.displayErrorMessage("No undoable status history was found for " + roomNumber + ".");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+    room.setStatus(target.getPreviousStatus());
+    syncTaskStatus(roomNumber, target.getPreviousStatus());
+    redoStack.push(target);
+    saveData();
+    MessageUI.displaySuccessMessage("Latest status change for " + roomNumber + " was rolled back.");
+    housekeepingUI.displayRoomDetails(room);
     MessageUI.pressEnterToContinue();
   }
 
@@ -261,9 +404,12 @@ public class HousekeepingTaskLog {
 
   private void recordStatusChange(String roomNumber, RoomStatus previous,
       RoomStatus current, String reason) {
+    // Push every change so rollback always starts with the latest action.
     StatusChangeRecord record = new StatusChangeRecord(
         roomNumber, previous, current, reason, LocalDateTime.now());
-    statusHistory.push(record);
+    undoStack.push(record);
+    // A new change makes previously undone actions invalid, as in standard undo/redo.
+    redoStack.clear();
   }
 
   private void syncTaskStatus(String roomNumber, RoomStatus status) {
@@ -315,6 +461,7 @@ public class HousekeepingTaskLog {
     ListInterface<Room> loadedRooms = housekeepingDAO.retrieveRooms();
     ListInterface<HousekeepingTask> loadedTasks = housekeepingDAO.retrieveTasks();
     StackInterface<StatusChangeRecord> loadedHistory = housekeepingDAO.retrieveHistory();
+    StackInterface<StatusChangeRecord> loadedRedoHistory = housekeepingDAO.retrieveRedoHistory();
 
     roomList.clear();
     for (int i = 1; i <= loadedRooms.getNumberOfEntries(); i++) {
@@ -337,19 +484,28 @@ public class HousekeepingTaskLog {
       }
     }
 
-    statusHistory.clear();
+    undoStack.clear();
     StackInterface<StatusChangeRecord> tempStack = new LinkedStack<>();
     while (!loadedHistory.isEmpty()) {
       tempStack.push(loadedHistory.pop());
     }
     while (!tempStack.isEmpty()) {
-      statusHistory.push(tempStack.pop());
+      undoStack.push(tempStack.pop());
+    }
+
+    redoStack.clear();
+    while (!loadedRedoHistory.isEmpty()) {
+      tempStack.push(loadedRedoHistory.pop());
+    }
+    while (!tempStack.isEmpty()) {
+      redoStack.push(tempStack.pop());
     }
   }
 
   private void saveData() {
     housekeepingDAO.saveRooms(roomList);
     housekeepingDAO.saveTasks(taskList);
-    housekeepingDAO.saveHistory(statusHistory);
+    housekeepingDAO.saveHistory(undoStack);
+    housekeepingDAO.saveRedoHistory(redoStack);
   }
 }

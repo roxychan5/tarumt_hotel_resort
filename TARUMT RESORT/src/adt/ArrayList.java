@@ -1,8 +1,10 @@
 package adt;
 
 /**
- * @author Frank M. Carrano
- * @version 2.0
+ * Array-based implementation of the Linear List ADT. Housekeeping uses this
+ * class to preserve the sequential order of rooms and cleaning tasks.
+ *
+ * @author Chan Rou Xuan
  */
 
 import java.io.Serializable;
@@ -25,6 +27,7 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
 
   @Override
   public boolean add(T newEntry) {
+    // Appending keeps newly logged housekeeping tasks at the end of the list.
     if (isArrayFull()) {
       doubleArray();
     }

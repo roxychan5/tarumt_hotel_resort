@@ -1,10 +1,11 @@
 package adt;
 
 /**
- * Interface for the ADT list.
- * Adapted from Frank M. Carrano, Data Structures and Algorithms in Java.
+ * Generic Linear ADT contract used by the Housekeeping module for its sequential task log and room-status collection. Entries are addressed in
+ * their stored order using one-based positions.
+ * Adapted from Data Structures and Algorithms in Java.
  *
- * @author Your Name
+ * @author Chan Rou Xuan
  */
 public interface ListInterface<T> {
 

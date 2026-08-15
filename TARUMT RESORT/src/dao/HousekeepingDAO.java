@@ -18,7 +18,11 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-/** Text-file persistence for the Housekeeping and Task Log module. */
+/**
+ * Text-file persistence for the Housekeeping Linear ADTs. The sequential
+ * room/task lists and LIFO status-history stack are reconstructed when the
+ * module starts and saved as readable text files when data changes.
+ */
 public class HousekeepingDAO {
 
   private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
@@ -26,6 +30,7 @@ public class HousekeepingDAO {
   private static final Path ROOM_FILE = DATA_DIRECTORY.resolve("rooms.txt");
   private static final Path TASK_FILE = DATA_DIRECTORY.resolve("housekeeping_tasks.txt");
   private static final Path HISTORY_FILE = DATA_DIRECTORY.resolve("status_history.txt");
+  private static final Path REDO_FILE = DATA_DIRECTORY.resolve("redo_history.txt");
 
   public void saveRooms(ListInterface<Room> rooms) {
     try (BufferedWriter writer = openWriter(ROOM_FILE)) {
@@ -98,6 +103,15 @@ public class HousekeepingDAO {
   }
 
   public void saveHistory(StackInterface<StatusChangeRecord> history) {
+    saveStack(history, HISTORY_FILE);
+  }
+
+  /** Saves the second Linear Stack ADT used for redo operations. */
+  public void saveRedoHistory(StackInterface<StatusChangeRecord> history) {
+    saveStack(history, REDO_FILE);
+  }
+
+  private void saveStack(StackInterface<StatusChangeRecord> history, Path file) {
     ListInterface<StatusChangeRecord> records = new ArrayList<>();
     StackInterface<StatusChangeRecord> restore = new LinkedStack<>();
     while (!history.isEmpty()) {
@@ -107,7 +121,7 @@ public class HousekeepingDAO {
     }
     while (!restore.isEmpty()) history.push(restore.pop());
 
-    try (BufferedWriter writer = openWriter(HISTORY_FILE)) {
+    try (BufferedWriter writer = openWriter(file)) {
       writer.write("roomNumber\tpreviousStatus\tnewStatus\treason\tchangedAt");
       writer.newLine();
       for (int i = 1; i <= records.getNumberOfEntries(); i++) {
@@ -118,15 +132,24 @@ public class HousekeepingDAO {
         writer.newLine();
       }
     } catch (IOException ex) {
-      displaySaveError(HISTORY_FILE, ex);
+      displaySaveError(file, ex);
     }
   }
 
   public StackInterface<StatusChangeRecord> retrieveHistory() {
+    return retrieveStack(HISTORY_FILE);
+  }
+
+  /** Restores the redo stack, preserving its LIFO order from the text file. */
+  public StackInterface<StatusChangeRecord> retrieveRedoHistory() {
+    return retrieveStack(REDO_FILE);
+  }
+
+  private StackInterface<StatusChangeRecord> retrieveStack(Path file) {
     ListInterface<StatusChangeRecord> records = new ArrayList<>();
     StackInterface<StatusChangeRecord> history = new LinkedStack<>();
-    if (!Files.exists(HISTORY_FILE)) return history;
-    try (BufferedReader reader = Files.newBufferedReader(HISTORY_FILE, StandardCharsets.UTF_8)) {
+    if (!Files.exists(file)) return history;
+    try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
       reader.readLine();
       String line;
       while ((line = reader.readLine()) != null) {
@@ -138,7 +161,7 @@ public class HousekeepingDAO {
       }
       for (int i = records.getNumberOfEntries(); i >= 1; i--) history.push(records.getEntry(i));
     } catch (IOException | IllegalArgumentException ex) {
-      displayReadError(HISTORY_FILE, ex);
+      displayReadError(file, ex);
       history.clear();
     }
     return history;

@@ -5,7 +5,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Represents a housekeeping cleaning task in the task log.
+ * Represents one entry in the Housekeeping sequential task log (Linear List
+ * ADT). The controller appends tasks in logging order.
  *
  * @author Your Name
  */

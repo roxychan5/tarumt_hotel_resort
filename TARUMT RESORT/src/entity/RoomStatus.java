@@ -1,7 +1,8 @@
 package entity;
 
 /**
- * Represents the cleaning lifecycle of a hotel room.
+ * Represents the ordered cleaning lifecycle applied to rooms in the
+ * Housekeeping Linear ADT module.
  *
  * @author Your Name
  */

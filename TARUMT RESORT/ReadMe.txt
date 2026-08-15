@@ -21,6 +21,9 @@ MODULES
 -------
 1. VIP & Loyalty Tier Priority Room Allocation (Non-Linear ADT)
 2. Housekeeping & Task Log (Linear ADT)
+   - Two-stack undo/redo for room-status changes
+   - Bulk and room-specific LIFO rollback
+   - Stack history preview and undo/redo statistics
    - List ADT: sequential task queue
    - Stack ADT: instant rollback of status changes
    - Status flow: Dirty -> Cleaning In Progress -> Inspected -> Ready for Check-In
@@ -45,6 +48,7 @@ DATA FILES (readable text files, auto-created on first save)
 - data\rooms.txt
 - data\housekeeping_tasks.txt
 - data\status_history.txt
+- data\redo_history.txt
 - data\guest_records.txt
 - data\products.txt
 - data\loyalty_members.txt

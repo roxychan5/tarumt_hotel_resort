@@ -4,7 +4,8 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Represents a hotel room in TARUMT Resorts.
+ * Represents a hotel room stored in Housekeeping's sequential Linear List
+ * ADT. Its status is updated as the cleaning workflow advances or rolls back.
  *
  * @author Your Name
  */
