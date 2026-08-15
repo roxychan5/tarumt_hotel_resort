@@ -10,8 +10,18 @@ import entity.HousekeepingTask;
 import entity.Room;
 import entity.RoomStatus;
 import entity.StatusChangeRecord;
+import java.awt.Color;
+import java.io.File;
+import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import utility.MessageUI;
+import utility.PdfReportEngine;
 
 /**
  * Control class for Housekeeping and Task Log module.
@@ -317,45 +327,448 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // REPORT 1 — Housekeeping Operational Summary
+  //   Algorithm: Binary search (date range) + Bubble sort (status priority)
+  //              Multi-criteria filter (date + status + room type)
+  // ═══════════════════════════════════════════════════════════════════════
   private void generateTasksByStatusReport() {
-    RoomStatus[] statuses = RoomStatus.values();
-    StringBuilder report = new StringBuilder();
-    report.append(String.format("%-24s %8s\n", "Status", "Count"));
-    report.append("----------------------------------------\n");
+    housekeepingUI.displayReportIntro(
+        "REPORT 1: HOUSEKEEPING OPERATIONAL SUMMARY",
+        "Combines binary search on sorted tasks and bubble sort by status priority.\n"
+        + "  Filters tasks by date range, status, and room type for targeted analysis.");
 
-    for (RoomStatus status : statuses) {
-      int count = countTasksByStatus(status);
-      report.append(String.format("%-24s %8d\n", status.getLabel(), count));
+    // ── Step 1: Collect filter criteria from supervisor ───────────────────
+    String[] filters = housekeepingUI.inputReport1Filters();
+    String fromDateStr  = filters[0];   // "yyyy-MM-dd" or empty
+    String toDateStr    = filters[1];   // "yyyy-MM-dd" or empty
+    String statusFilter = filters[2];   // RoomStatus name or "ALL"
+    String roomTypeFilter = filters[3]; // "Standard","Deluxe","Suite" or "ALL"
+
+    LocalDate fromDate = fromDateStr.isEmpty() ? null : LocalDate.parse(fromDateStr);
+    LocalDate toDate   = toDateStr.isEmpty()   ? null : LocalDate.parse(toDateStr);
+
+    // ── Step 2: Sort all tasks by loggedAt (bubble sort) ─────────────────
+    //           Required so binary search can work on a sorted array.
+    int n = taskList.getNumberOfEntries();
+    HousekeepingTask[] sorted = new HousekeepingTask[n];
+    for (int i = 0; i < n; i++) sorted[i] = taskList.getEntry(i + 1);
+
+    // Bubble sort ascending by loggedAt
+    for (int i = 0; i < n - 1; i++) {
+      for (int j = 0; j < n - i - 1; j++) {
+        if (sorted[j].getLoggedAt().isAfter(sorted[j + 1].getLoggedAt())) {
+          HousekeepingTask tmp = sorted[j];
+          sorted[j] = sorted[j + 1];
+          sorted[j + 1] = tmp;
+        }
+      }
     }
 
-    housekeepingUI.displayReport("REPORT 1: TASKS BY STATUS", report.toString());
+    // ── Step 3: Binary search to find date range boundaries ───────────────
+    //           Locate the first index >= fromDate and last index <= toDate.
+    int lo = 0, hi = n - 1;
+    int startIdx = 0, endIdx = n - 1;
+
+    if (fromDate != null) {
+      // Binary search: find leftmost task with loggedAt >= fromDate
+      lo = 0; hi = n - 1; startIdx = n;
+      while (lo <= hi) {
+        int mid = (lo + hi) / 2;
+        if (!sorted[mid].getLoggedAt().toLocalDate().isBefore(fromDate)) {
+          startIdx = mid; hi = mid - 1;
+        } else {
+          lo = mid + 1;
+        }
+      }
+    }
+
+    if (toDate != null) {
+      // Binary search: find rightmost task with loggedAt <= toDate
+      lo = 0; hi = n - 1; endIdx = -1;
+      while (lo <= hi) {
+        int mid = (lo + hi) / 2;
+        if (!sorted[mid].getLoggedAt().toLocalDate().isAfter(toDate)) {
+          endIdx = mid; lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+    }
+
+    // ── Step 4: Multi-criteria filter within the date range ───────────────
+    java.util.List<HousekeepingTask> filtered = new java.util.ArrayList<>();
+    for (int i = startIdx; i <= endIdx && i < n; i++) {
+      HousekeepingTask t = sorted[i];
+      boolean passStatus   = statusFilter.equals("ALL")
+          || t.getCurrentStatus().name().equals(statusFilter);
+      boolean passRoomType = roomTypeFilter.equals("ALL");
+      if (!passRoomType) {
+        Room room = findRoom(t.getRoomNumber());
+        passRoomType = room != null && room.getRoomType().equalsIgnoreCase(roomTypeFilter);
+      }
+      if (passStatus && passRoomType) filtered.add(t);
+    }
+
+    // ── Step 5: Bubble sort the filtered tasks by status priority ─────────
+    //           Priority: DIRTY > CLEANING_IN_PROGRESS > INSPECTED > READY
+    int fn = filtered.size();
+    for (int i = 0; i < fn - 1; i++) {
+      for (int j = 0; j < fn - i - 1; j++) {
+        if (filtered.get(j).getCurrentStatus().ordinal()
+            > filtered.get(j + 1).getCurrentStatus().ordinal()) {
+          HousekeepingTask tmp = filtered.get(j);
+          filtered.set(j, filtered.get(j + 1));
+          filtered.set(j + 1, tmp);
+        }
+      }
+    }
+
+    // ── Step 6: Build console report ─────────────────────────────────────
+    StringBuilder consoleReport = new StringBuilder();
+    consoleReport.append(String.format("  Filter — Date: %s to %s | Status: %s | Room Type: %s%n",
+        fromDateStr.isEmpty() ? "(any)" : fromDateStr,
+        toDateStr.isEmpty()   ? "(any)" : toDateStr,
+        statusFilter, roomTypeFilter));
+    consoleReport.append("\n");
+    consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
+        "Task ID", "Room", "Staff", "Task Type", "Status", "Logged"));
+    consoleReport.append("  " + "-".repeat(88) + "\n");
+
+    Map<String,Integer> statusCount  = new LinkedHashMap<>();
+    Map<String,Integer> roomTypeCount = new LinkedHashMap<>();
+    for (RoomStatus rs : RoomStatus.values()) statusCount.put(rs.getLabel(), 0);
+
+    for (HousekeepingTask t : filtered) {
+      Room room = findRoom(t.getRoomNumber());
+      String rType = room != null ? room.getRoomType() : "Unknown";
+      consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
+          t.getTaskId(), t.getRoomNumber(), t.getAssignedStaff(),
+          t.getTaskType(), t.getCurrentStatus().getLabel(),
+          t.getLoggedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+      statusCount.merge(t.getCurrentStatus().getLabel(), 1, Integer::sum);
+      roomTypeCount.merge(rType, 1, Integer::sum);
+    }
+
+    consoleReport.append("\n  STATUS SUMMARY\n");
+    consoleReport.append("  " + "-".repeat(40) + "\n");
+    for (Map.Entry<String,Integer> e : statusCount.entrySet()) {
+      consoleReport.append(String.format("  %-24s %4d%n", e.getKey(), e.getValue()));
+    }
+    consoleReport.append(String.format("%n  Total tasks matching criteria: %d%n", filtered.size()));
+
+    housekeepingUI.displayReport("REPORT 1: HOUSEKEEPING OPERATIONAL SUMMARY",
+        consoleReport.toString());
+
+    // ── Step 7: Export to PDF ─────────────────────────────────────────────
+    if (housekeepingUI.confirmPdfExport()) {
+      exportReport1ToPdf(filtered, statusCount, roomTypeCount,
+          fromDateStr, toDateStr, statusFilter, roomTypeFilter);
+    }
     MessageUI.pressEnterToContinue();
   }
 
+  private void exportReport1ToPdf(java.util.List<HousekeepingTask> filtered,
+      Map<String,Integer> statusCount, Map<String,Integer> roomTypeCount,
+      String fromDate, String toDate, String statusFilter, String roomTypeFilter) {
+    try {
+      String outDir = "output" + File.separator + "pdf";
+      new File(outDir).mkdirs();
+      String timestamp = LocalDateTime.now()
+          .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+      String outPath = outDir + File.separator + "housekeeping_summary_" + timestamp + ".pdf";
+
+      PdfReportEngine pdf = new PdfReportEngine();
+
+      // Cover page
+      String period = (fromDate.isEmpty() ? "All dates" : fromDate)
+          + " to " + (toDate.isEmpty() ? "All dates" : toDate);
+      pdf.addCoverPage(
+          "Housekeeping Operational Summary",
+          "Tasks by Status | Room Type Distribution | Filtered Analysis",
+          period, "Housekeeping Supervisor");
+
+      // Content page 1 — KPIs + bar chart
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Report Overview");
+      pdf.addKpiRow("Report Type",   "Housekeeping Operational Summary", null);
+      pdf.addKpiRow("Date Range",    period, null);
+      pdf.addKpiRow("Status Filter", statusFilter, null);
+      pdf.addKpiRow("Room Type Filter", roomTypeFilter, null);
+      pdf.addKpiRow("Tasks Matched", String.valueOf(filtered.size()),
+          filtered.isEmpty() ? PdfReportEngine.DANGER : PdfReportEngine.SUCCESS);
+      pdf.addDivider();
+
+      // KPI cards
+      long dirty    = statusCount.getOrDefault("Dirty", 0);
+      long cleaning = statusCount.getOrDefault("Cleaning In Progress", 0);
+      long inspected= statusCount.getOrDefault("Inspected", 0);
+      long ready    = statusCount.getOrDefault("Ready for Check-In", 0);
+      pdf.addSectionHeading("Key Performance Indicators");
+      pdf.addKpiCards(
+          new String[]{"Dirty", "Cleaning In Progress", "Inspected", "Ready for Check-In"},
+          new String[]{String.valueOf(dirty), String.valueOf(cleaning),
+                       String.valueOf(inspected), String.valueOf(ready)},
+          new Color[]{ PdfReportEngine.DANGER, PdfReportEngine.WARNING,
+                       PdfReportEngine.ACCENT_BLUE, PdfReportEngine.SUCCESS });
+      pdf.addSpace(10);
+
+      // Bar chart — tasks per status
+      String[] sLabels = statusCount.keySet().toArray(new String[0]);
+      double[] sValues = statusCount.values().stream()
+          .mapToDouble(Integer::doubleValue).toArray();
+      pdf.addBarChart("Tasks by Status", sLabels, sValues, "Number of Tasks");
+
+      // Donut chart — room type distribution
+      if (!roomTypeCount.isEmpty()) {
+        String[] rtLabels = roomTypeCount.keySet().toArray(new String[0]);
+        double[] rtValues = roomTypeCount.values().stream()
+            .mapToDouble(Integer::doubleValue).toArray();
+        pdf.addSectionHeading("Room Type Distribution");
+        pdf.addDonutChart("Tasks by Room Type", rtLabels, rtValues);
+      }
+
+      // Detailed data table
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Detailed Task List (Sorted by Status Priority)");
+      pdf.addBodyText(
+          "Tasks are sorted using Bubble Sort by status urgency: Dirty > Cleaning > Inspected > Ready.",
+          9);
+      pdf.addSpace(6);
+
+      String[] headers = {"Task ID","Room","Staff","Task Type","Status","Logged At"};
+      float[] colW = {60, 50, 60, 90, 110, 120};
+      java.util.List<String[]> rows = new java.util.ArrayList<>();
+      DateTimeFormatter dtFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+      for (HousekeepingTask t : filtered) {
+        rows.add(new String[]{
+            t.getTaskId(), t.getRoomNumber(), t.getAssignedStaff(),
+            t.getTaskType(), t.getCurrentStatus().getLabel(),
+            t.getLoggedAt().format(dtFmt)
+        });
+      }
+      if (rows.isEmpty()) {
+        pdf.addBodyText("  No tasks match the selected filter criteria.", 10);
+      } else {
+        pdf.addTable(headers, rows, colW);
+      }
+
+      pdf.save(outPath);
+      housekeepingUI.displayPdfExportSuccess(outPath);
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("PDF export failed: " + ex.getMessage());
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // REPORT 2 — Staff Workload & Performance Analysis
+  //   Algorithm: Linear search (collect unique staff IDs + filter by prefix)
+  //              Insertion sort (workload descending)
+  //              Multi-criteria filter (staff prefix + status completion rate)
+  // ═══════════════════════════════════════════════════════════════════════
   private void generateStaffWorkloadReport() {
+    housekeepingUI.displayReportIntro(
+        "REPORT 2: STAFF WORKLOAD & PERFORMANCE ANALYSIS",
+        "Uses insertion sort to rank staff by total workload (descending).\n"
+        + "  Filters by staff ID prefix and completion threshold for targeted review.");
+
+    // ── Step 1: Collect filter criteria ───────────────────────────────────
+    String[] filters = housekeepingUI.inputReport2Filters();
+    String staffPrefix       = filters[0]; // e.g. "HK" or empty for all
+    int    minTasksThreshold = Integer.parseInt(filters[1]); // minimum tasks
+
+    // ── Step 2: Linear search — collect unique staff IDs matching prefix ──
     ListInterface<String> staffIds = new ArrayList<>();
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       String staffId = taskList.getEntry(i).getAssignedStaff();
-      if (!staffIds.contains(staffId)) {
+      boolean matchPrefix = staffPrefix.isEmpty()
+          || staffId.toUpperCase().startsWith(staffPrefix.toUpperCase());
+      if (matchPrefix && !staffIds.contains(staffId)) {
         staffIds.add(staffId);
       }
     }
 
-    sortStaffByWorkload(staffIds);
+    // ── Step 3: Insertion sort — rank staff by total tasks (descending) ───
+    int m = staffIds.getNumberOfEntries();
+    String[] staffArr = new String[m];
+    for (int i = 0; i < m; i++) staffArr[i] = staffIds.getEntry(i + 1);
 
-    StringBuilder report = new StringBuilder();
-    report.append(String.format("%-12s %8s %8s\n", "Staff ID", "Tasks", "Pending"));
-    report.append("----------------------------------------\n");
-
-    for (int i = 1; i <= staffIds.getNumberOfEntries(); i++) {
-      String staffId = staffIds.getEntry(i);
-      int totalTasks = countTasksForStaff(staffId);
-      int pendingTasks = countPendingTasksForStaff(staffId);
-      report.append(String.format("%-12s %8d %8d\n", staffId, totalTasks, pendingTasks));
+    for (int i = 1; i < m; i++) {
+      String key = staffArr[i];
+      int keyTasks = countTasksForStaff(key);
+      int j = i - 1;
+      while (j >= 0 && countTasksForStaff(staffArr[j]) < keyTasks) {
+        staffArr[j + 1] = staffArr[j];
+        j--;
+      }
+      staffArr[j + 1] = key;
     }
 
-    housekeepingUI.displayReport("REPORT 2: STAFF WORKLOAD SUMMARY", report.toString());
+    // ── Step 4: Multi-criteria filter — apply minimum tasks threshold ──────
+    java.util.List<String> qualifiedStaff = new java.util.ArrayList<>();
+    for (String s : staffArr) {
+      if (countTasksForStaff(s) >= minTasksThreshold) {
+        qualifiedStaff.add(s);
+      }
+    }
+
+    // ── Step 5: Build console report ──────────────────────────────────────
+    StringBuilder consoleReport = new StringBuilder();
+    consoleReport.append(String.format(
+        "  Filter — Staff Prefix: \"%s\" | Min Tasks: %d%n%n",
+        staffPrefix.isEmpty() ? "(all)" : staffPrefix, minTasksThreshold));
+    consoleReport.append(String.format("  %-3s %-12s %6s %8s %12s %s%n",
+        "#", "Staff ID", "Total", "Pending", "Completed", "Load Status"));
+    consoleReport.append("  " + "-".repeat(60) + "\n");
+
+    int rank = 1;
+    int totalTasks = 0, totalPending = 0;
+    for (String staffId : qualifiedStaff) {
+      int tasks   = countTasksForStaff(staffId);
+      int pending = countPendingTasksForStaff(staffId);
+      int completed = tasks - pending;
+      totalTasks += tasks; totalPending += pending;
+      String flag = tasks > 3 ? "[OVERLOADED]" : tasks > 1 ? "[OPTIMAL]" : "[LIGHT]";
+      consoleReport.append(String.format("  %-3d %-12s %6d %8d %12d %s%n",
+          rank++, staffId, tasks, pending, completed, flag));
+    }
+    if (qualifiedStaff.isEmpty()) {
+      consoleReport.append("  (No staff matching filter criteria)\n");
+    } else {
+      consoleReport.append("  " + "-".repeat(60) + "\n");
+      consoleReport.append(String.format("  %-3s %-12s %6d %8d%n",
+          "", "TOTAL", totalTasks, totalPending));
+    }
+
+    housekeepingUI.displayReport("REPORT 2: STAFF WORKLOAD & PERFORMANCE ANALYSIS",
+        consoleReport.toString());
+
+    // ── Step 6: Export to PDF ─────────────────────────────────────────────
+    if (housekeepingUI.confirmPdfExport()) {
+      exportReport2ToPdf(qualifiedStaff, staffPrefix, minTasksThreshold,
+          totalTasks, totalPending);
+    }
     MessageUI.pressEnterToContinue();
+  }
+
+  private void exportReport2ToPdf(java.util.List<String> qualifiedStaff,
+      String staffPrefix, int minTasks, int totalTasks, int totalPending) {
+    try {
+      String outDir = "output" + File.separator + "pdf";
+      new File(outDir).mkdirs();
+      String timestamp = LocalDateTime.now()
+          .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+      String outPath = outDir + File.separator + "staff_workload_" + timestamp + ".pdf";
+
+      PdfReportEngine pdf = new PdfReportEngine();
+
+      // Cover page
+      pdf.addCoverPage(
+          "Staff Workload & Performance Analysis",
+          "Insertion Sort Ranking | Pending vs Completed | Load Status Flags",
+          "Current business cycle", "Housekeeping Supervisor");
+
+      // Content page 1 — summary + horizontal bar chart
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Report Overview");
+      pdf.addKpiRow("Report Type",       "Staff Workload & Performance Analysis", null);
+      pdf.addKpiRow("Staff Prefix Filter", staffPrefix.isEmpty() ? "All Staff" : staffPrefix, null);
+      pdf.addKpiRow("Min Tasks Threshold", String.valueOf(minTasks), null);
+      pdf.addKpiRow("Staff Evaluated",    String.valueOf(qualifiedStaff.size()),
+          PdfReportEngine.ACCENT_BLUE);
+      pdf.addKpiRow("Total Tasks",        String.valueOf(totalTasks), null);
+      pdf.addKpiRow("Total Pending",      String.valueOf(totalPending),
+          totalPending > 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
+      pdf.addDivider();
+
+      // KPI cards
+      pdf.addSectionHeading("Key Performance Indicators");
+      int totalCompleted = totalTasks - totalPending;
+      int pct = totalTasks > 0 ? (totalCompleted * 100 / totalTasks) : 0;
+      pdf.addKpiCards(
+          new String[]{"Staff Evaluated", "Total Tasks", "Pending", "Completion Rate"},
+          new String[]{String.valueOf(qualifiedStaff.size()),
+                       String.valueOf(totalTasks),
+                       String.valueOf(totalPending),
+                       pct + "%"},
+          new Color[]{ PdfReportEngine.BRAND_TEAL, PdfReportEngine.ACCENT_BLUE,
+                       PdfReportEngine.WARNING, PdfReportEngine.SUCCESS });
+      pdf.addSpace(10);
+
+      // Horizontal bar chart — total vs pending per staff
+      if (!qualifiedStaff.isEmpty()) {
+        String[] labels = qualifiedStaff.toArray(new String[0]);
+        double[] totals  = new double[labels.length];
+        double[] pending = new double[labels.length];
+        for (int i = 0; i < labels.length; i++) {
+          totals[i]  = countTasksForStaff(labels[i]);
+          pending[i] = countPendingTasksForStaff(labels[i]);
+        }
+        pdf.addSectionHeading("Staff Workload Comparison (Insertion Sort — Highest First)");
+        pdf.addBodyText(
+            "Staff ranked by total tasks using Insertion Sort (descending). "
+            + "Blue = Total Tasks, Orange = Pending Tasks.", 9);
+        pdf.addSpace(4);
+        pdf.addHorizontalBarChart("Total vs Pending Tasks per Staff",
+            labels, new double[][]{totals, pending},
+            new String[]{"Total Tasks", "Pending Tasks"});
+      }
+
+      // Detailed ranked table
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Staff Performance Ranking");
+      pdf.addBodyText(
+          "Sorted by total workload (descending). Flags: [OVERLOADED] >3 tasks, "
+          + "[OPTIMAL] 2-3 tasks, [LIGHT] 1 task.", 9);
+      pdf.addSpace(6);
+
+      String[] headers = {"Rank","Staff ID","Total Tasks","Pending","Completed","Load Status"};
+      float[] colW = {35, 70, 70, 60, 70, 90};
+      java.util.List<String[]> rows = new java.util.ArrayList<>();
+      int rank = 1;
+      for (String staffId : qualifiedStaff) {
+        int tasks     = countTasksForStaff(staffId);
+        int pendingN  = countPendingTasksForStaff(staffId);
+        int completedN= tasks - pendingN;
+        String flag   = tasks > 3 ? "OVERLOADED" : tasks > 1 ? "OPTIMAL" : "LIGHT";
+        rows.add(new String[]{
+            String.valueOf(rank++), staffId,
+            String.valueOf(tasks), String.valueOf(pendingN),
+            String.valueOf(completedN), flag
+        });
+      }
+      if (rows.isEmpty()) {
+        pdf.addBodyText("No staff matched the filter criteria.", 10);
+      } else {
+        pdf.addTable(headers, rows, colW);
+      }
+
+      // Recommendations section
+      pdf.addSpace(12);
+      pdf.addSectionHeading("Management Recommendations");
+      long overloaded = qualifiedStaff.stream()
+          .filter(s -> countTasksForStaff(s) > 3).count();
+      long light = qualifiedStaff.stream()
+          .filter(s -> countTasksForStaff(s) == 1).count();
+      pdf.addBodyText(
+          overloaded > 0
+          ? overloaded + " staff member(s) are OVERLOADED. Consider task redistribution."
+          : "All staff are within manageable workload limits.", 10);
+      pdf.addBodyText(
+          light > 0
+          ? light + " staff member(s) have LIGHT workloads and may accept additional tasks."
+          : "No staff with light workload detected.", 10);
+      pdf.addBodyText(
+          totalPending > 0
+          ? "Action required: " + totalPending + " task(s) remain pending. "
+            + "Review priority rooms with Dirty or Cleaning status."
+          : "All tasks are completed. Excellent housekeeping performance!", 10);
+
+      pdf.save(outPath);
+      housekeepingUI.displayPdfExportSuccess(outPath);
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("PDF export failed: " + ex.getMessage());
+    }
   }
 
   private void sortStaffByWorkload(ListInterface<String> staffIds) {
