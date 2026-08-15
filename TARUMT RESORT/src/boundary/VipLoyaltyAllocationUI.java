@@ -1,12 +1,9 @@
 package boundary;
 
-import java.util.Scanner;
 import utility.ConsoleUI;
 
 /** Boundary class for VIP and loyalty tier room allocation. */
 public class VipLoyaltyAllocationUI {
-
-  private final Scanner scanner = new Scanner(System.in);
 
   public int getMenuChoice() {
     ConsoleUI.displaySubHeader("VIP & LOYALTY TIER ALLOCATION MODULE");
@@ -61,7 +58,7 @@ public class VipLoyaltyAllocationUI {
   private int readInt(String prompt) {
     while (true) {
       System.out.print(prompt);
-      String input = scanner.nextLine().trim();
+      String input = ConsoleUI.readLine().trim();
       try {
         return Integer.parseInt(input);
       } catch (NumberFormatException ex) {
@@ -72,6 +69,6 @@ public class VipLoyaltyAllocationUI {
 
   private String readText(String prompt) {
     System.out.print(prompt);
-    return scanner.nextLine().trim();
+    return ConsoleUI.readLine().trim();
   }
 }

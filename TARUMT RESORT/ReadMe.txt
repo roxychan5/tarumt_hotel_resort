@@ -19,14 +19,17 @@ run by using Option A or B.
 
 MODULES
 -------
-1. Housekeeping & Task Log (Fully implemented - Linear ADT)
+1. VIP & Loyalty Tier Priority Room Allocation (Non-Linear ADT)
+2. Housekeeping & Task Log (Linear ADT)
    - List ADT: sequential task queue
    - Stack ADT: instant rollback of status changes
    - Status flow: Dirty -> Cleaning In Progress -> Inspected -> Ready for Check-In
 
-2. Front-Desk Service (Interface stub for team integration)
-3. VIP & Loyalty Tier Allocation (Interface stub for team integration)
-4. Walk-In & Standard Booking (Interface stub for team integration)
+3. Front-Desk Service (Non-Linear ADT & Searching)
+4. Loyalty & Rewards Service
+   - Member profiles and personalised promotions
+   - Points accumulation, redemption and tier progression
+   - Notifications for expiring points and tier upgrades
 
 ECB ARCHITECTURE
 ----------------
@@ -44,6 +47,7 @@ DATA FILES (readable text files, auto-created on first save)
 - data\status_history.txt
 - data\guest_records.txt
 - data\products.txt
+- data\loyalty_members.txt
 - data\standard_bookings.txt
 - data\walk_in_guests.txt
 

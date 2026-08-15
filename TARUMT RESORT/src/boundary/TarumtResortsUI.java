@@ -10,10 +10,10 @@ import utility.ConsoleUI;
 public class TarumtResortsUI {
 
   private static final String[] MAIN_MENU_OPTIONS = {
-      "Walk-In & Standard Booking",
-      "Loyalty & Rewards",
+      "VIP & Loyalty Tier Priority Room Allocation",
       "Housekeeping & Task Log",
-      "Front-Desk Service"
+      "Front-Desk Service",
+      "Loyalty & Rewards Service"
   };
 
   public void displayMainMenuScreen() {

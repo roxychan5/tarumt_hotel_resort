@@ -1,7 +1,6 @@
 package boundary;
 
 import entity.GuestRecord;
-import java.util.Scanner;
 import utility.ConsoleUI;
 
 /**
@@ -11,8 +10,6 @@ import utility.ConsoleUI;
  */
 public class FrontDeskServiceUI {
 
-  private final Scanner scanner = new Scanner(System.in);
-
   public int getMenuChoice() {
     ConsoleUI.displaySubHeader("FRONT-DESK SERVICE MODULE");
     System.out.println("  1. Search Guest by Confirmation No. (8-digit)");
@@ -20,20 +17,17 @@ public class FrontDeskServiceUI {
     System.out.println("  3. View Guest Billing Details");
     System.out.println("  4. List All Guest Records");
     System.out.println("  0. Back to Main Menu");
-    System.out.print("\nEnter choice: ");
-    int choice = scanner.nextInt();
-    scanner.nextLine();
-    return choice;
+    return ConsoleUI.readMenuChoice("\nEnter choice: ");
   }
 
   public String inputConfirmationNumber() {
     System.out.print("Enter 8-digit confirmation number: ");
-    return scanner.nextLine().trim();
+    return ConsoleUI.readLine().trim();
   }
 
   public String inputRoomNumber() {
     System.out.print("Enter room number: ");
-    return scanner.nextLine().trim().toUpperCase();
+    return ConsoleUI.readLine().trim().toUpperCase();
   }
 
   public void displaySearchResult(String result) {
