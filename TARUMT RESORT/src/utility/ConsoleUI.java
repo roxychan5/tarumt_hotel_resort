@@ -301,6 +301,13 @@ public class ConsoleUI {
     System.out.printf("  [%d] %s%n", number, title);
   }
 
+  /** Prints a compact label that groups related actions in a console menu. */
+  public static void displayMenuSection(String title) {
+    System.out.println();
+    System.out.println("  " + repeat('-', 74));
+    System.out.println("  " + title.toUpperCase());
+  }
+
   public static void displayDetailPanel(String title, String... lines) {
     System.out.println();
     printBorder('-');

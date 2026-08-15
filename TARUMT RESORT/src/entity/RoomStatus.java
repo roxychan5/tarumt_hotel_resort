@@ -4,7 +4,7 @@ package entity;
  * Represents the ordered cleaning lifecycle applied to rooms in the
  * Housekeeping Linear ADT module.
  *
- * @author Your Name
+ * @author Chan Rou Xuan
  */
 public enum RoomStatus {
   DIRTY("Dirty"),

@@ -250,7 +250,8 @@ public class HousekeepingTaskLog {
 
     StackInterface<StatusChangeRecord> temporaryStack = new LinkedStack<>();
     StringBuilder output = new StringBuilder();
-    output.append("Latest change is shown first (LIFO).\n\n");
+    output.append("TOP (latest applied change / next item to undo)\n");
+    output.append("--------------------------------------------------\n");
     int position = 1;
     while (!undoStack.isEmpty()) {
       StatusChangeRecord record = undoStack.pop();
@@ -260,6 +261,7 @@ public class HousekeepingTaskLog {
     while (!temporaryStack.isEmpty()) {
       undoStack.push(temporaryStack.pop());
     }
+    output.append("BOTTOM\n");
     output.append("\nTotal changes available for undo: ").append(undoStack.getSize());
     housekeepingUI.displayReport("HOUSEKEEPING STATUS CHANGE HISTORY", output.toString());
     MessageUI.pressEnterToContinue();

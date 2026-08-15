@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
  * Stores one room-status transition pushed onto the Housekeeping Linear Stack
  * ADT. The record contains the previous status required for LIFO rollback.
  *
- * @author Your Name
+ * @author Chan Rou Xuan
  */
 public class StatusChangeRecord implements Serializable {
 

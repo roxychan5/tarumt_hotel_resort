@@ -8,7 +8,7 @@ import java.time.format.DateTimeFormatter;
  * Represents one entry in the Housekeeping sequential task log (Linear List
  * ADT). The controller appends tasks in logging order.
  *
- * @author Your Name
+ * @author Chan Rou Xuan
  */
 public class HousekeepingTask implements Serializable {
 

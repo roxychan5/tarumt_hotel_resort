@@ -6,7 +6,7 @@ package adt;
  * available for rollback.
  * Adapted from Frank M. Carrano, Data Structures and Algorithms in Java.
  *
- * @author Your Name
+ * @author Chan Rou Xuan
  */
 public interface StackInterface<T> {
 

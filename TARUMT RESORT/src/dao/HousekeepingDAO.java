@@ -22,6 +22,8 @@ import java.time.format.DateTimeFormatter;
  * Text-file persistence for the Housekeeping Linear ADTs. The sequential
  * room/task lists and LIFO status-history stack are reconstructed when the
  * module starts and saved as readable text files when data changes.
+ *
+ * @author Chan Rou Xuan
  */
 public class HousekeepingDAO {
 

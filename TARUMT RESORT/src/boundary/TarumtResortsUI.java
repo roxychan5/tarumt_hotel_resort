@@ -5,7 +5,6 @@ import utility.ConsoleUI;
 /**
  * Main system menu for TARUMT Resorts console application.
  *
- * @author Your Name
  */
 public class TarumtResortsUI {
 
