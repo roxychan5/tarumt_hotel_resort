@@ -84,7 +84,7 @@ public class HousekeepingTask implements Serializable {
 
   @Override
   public String toString() {
-    return String.format("%-8s %-8s %-16s %-14s %-22s %s",
+    return String.format("%-8s %-8s %-10s %-16s %-22s %s",
         taskId, roomNumber, assignedStaff, taskType,
         currentStatus.getLabel(), loggedAt.format(FORMATTER));
   }

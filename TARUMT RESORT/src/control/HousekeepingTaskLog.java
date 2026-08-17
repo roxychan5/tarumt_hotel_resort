@@ -16,7 +16,6 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +58,7 @@ public class HousekeepingTaskLog {
         case 0:
           MessageUI.displayInfoMessage("Returning to main menu...");
           break;
+        // ── Task Management (1-5) ──────────────────────────────────────
         case 1:
           housekeepingUI.listTaskQueue(getAllTasks());
           MessageUI.pressEnterToContinue();
@@ -70,34 +70,42 @@ public class HousekeepingTaskLog {
           advanceRoomStatus();
           break;
         case 4:
-          undoLastChange();
+          searchTaskById();
           break;
         case 5:
-          redoLastChange();
+          deleteTaskById();
           break;
+        // ── Status Change Control (6-11) ───────────────────────────────
         case 6:
-          rollbackMultipleChanges();
+          undoLastChange();
           break;
         case 7:
-          rollbackSpecificRoom();
+          redoLastChange();
           break;
         case 8:
-          displayStatusHistory();
+          rollbackMultipleChanges();
           break;
         case 9:
-          displayStackStatistics();
+          rollbackSpecificRoom();
           break;
         case 10:
-          handleLateCheckout();
+          displayStatusHistory();
           break;
         case 11:
+          displayStackSummary();
+          break;
+        // ── Operations & Reports (12-15) ───────────────────────────────
+        case 12:
+          handleLateCheckout();
+          break;
+        case 13:
           housekeepingUI.listRoomStatuses(getAllRooms());
           MessageUI.pressEnterToContinue();
           break;
-        case 12:
+        case 14:
           generateTasksByStatusReport();
           break;
-        case 13:
+        case 15:
           generateStaffWorkloadReport();
           break;
         default:
@@ -107,37 +115,225 @@ public class HousekeepingTaskLog {
   }
 
   private void addCleaningTask() {
+    // ── Show the occupied rooms so supervisor knows what's unavailable ───
+    housekeepingUI.displayActiveRooms(getActiveRoomSummary());
+
     String roomNumber = housekeepingUI.inputRoomNumber();
     Room room = findRoom(roomNumber);
     if (room == null) {
-      MessageUI.displayErrorMessage("Room not found.");
+      MessageUI.displayErrorMessage("Room " + roomNumber + " not found.");
+      MessageUI.pressEnterToContinue();
       return;
     }
 
-    String staffId = housekeepingUI.inputAssignedStaff();
+    // ── Guard: only DIRTY rooms with no existing task can receive a new task ──
+    String activeStaff = "";
+    String activeTask  = "";
+    for (int i = taskList.getNumberOfEntries(); i >= 1; i--) {
+      HousekeepingTask t = taskList.getEntry(i);
+      if (t.getRoomNumber().equalsIgnoreCase(roomNumber)) {
+        activeStaff = t.getAssignedStaff();
+        activeTask  = t.getTaskId();
+        break;
+      }
+    }
+
+    if (room.getStatus() != RoomStatus.DIRTY || !activeTask.isEmpty()) {
+      MessageUI.displayErrorMessage(
+          "Room " + roomNumber + " already has an active assignment - status: "
+          + room.getStatus().getLabel()
+          + (activeTask.isEmpty() ? ""
+              : ". Task: " + activeTask + " (Staff: " + activeStaff + ")"));
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    // ── Auto-assign: pick staff with fewest active tasks ─────────────────
+    String staffId = autoAssignStaff();
+    housekeepingUI.displayAutoAssign(staffId);
+
     String taskType = housekeepingUI.inputTaskType();
     taskCounter++;
-    String taskId = "HK" + taskCounter;
+    String taskId = "T" + taskCounter;
 
     HousekeepingTask task = new HousekeepingTask(
         taskId, roomNumber, staffId, taskType, room.getStatus(), LocalDateTime.now());
     taskList.add(task);
+
+    // Room is now occupied by a cleaning task — move it out of DIRTY so
+    // a duplicate task cannot be created for the same room until cleanup.
+    RoomStatus previousStatus = room.getStatus();
+    if (previousStatus == RoomStatus.DIRTY) {
+      recordStatusChange(roomNumber, previousStatus, RoomStatus.CLEANING_IN_PROGRESS,
+          "Cleaning task " + taskId + " assigned");
+      room.setStatus(RoomStatus.CLEANING_IN_PROGRESS);
+      syncTaskStatus(roomNumber, RoomStatus.CLEANING_IN_PROGRESS);
+    }
+
     saveData();
     housekeepingUI.displayTaskDetails(task);
     MessageUI.displaySuccessMessage("Cleaning task added to sequential log.");
     MessageUI.pressEnterToContinue();
   }
 
+  /**
+   * Auto-assign: returns the staff ID with the fewest active (non-DIRTY room) tasks.
+   * If no staff history exists, falls back to a default pool HK001-HK005.
+   */
+  private String autoAssignStaff() {
+    // Build workload: staffId -> count of tasks whose room is NOT DIRTY
+    java.util.LinkedHashMap<String, Integer> workload = new java.util.LinkedHashMap<>();
+    // Seed default staff so they appear even with 0 tasks
+    String[] defaultStaff = {"HK001", "HK002", "HK003", "HK004", "HK005"};
+    for (String s : defaultStaff) workload.put(s, 0);
+
+    for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
+      HousekeepingTask t = taskList.getEntry(i);
+      Room r = findRoom(t.getRoomNumber());
+      if (r != null && r.getStatus() != RoomStatus.DIRTY) {
+        // This staff member has an active assignment
+        workload.merge(t.getAssignedStaff(), 1, Integer::sum);
+      } else if (!workload.containsKey(t.getAssignedStaff())) {
+        workload.put(t.getAssignedStaff(), 0);
+      }
+    }
+
+    // Pick staff with minimum active tasks (alphabetical tiebreak)
+    String best = null;
+    int min = Integer.MAX_VALUE;
+    for (java.util.Map.Entry<String, Integer> e : workload.entrySet()) {
+      if (e.getValue() < min || (e.getValue() == min && e.getKey().compareTo(best) < 0)) {
+        min  = e.getValue();
+        best = e.getKey();
+      }
+    }
+    return best != null ? best : "HK001";
+  }
+
+
+  /**
+   * Returns a formatted table of rooms NOT in DIRTY status.
+   * Uses \n (not %n) so lines never contain \r on Windows.
+   * Columns: TaskId(8) Room(8) Staff(8) Status(21) Type  — visible len == string len
+   */
+  private String getActiveRoomSummary() {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
+      Room r = roomList.getEntry(i);
+      if (r.getStatus() != RoomStatus.DIRTY) {
+        String taskId = "-";
+        String staff  = "-";
+        for (int j = taskList.getNumberOfEntries(); j >= 1; j--) {
+          HousekeepingTask t = taskList.getEntry(j);
+          if (t.getRoomNumber().equalsIgnoreCase(r.getRoomNumber())) {
+            taskId = t.getTaskId();
+            staff  = t.getAssignedStaff();
+            break;
+          }
+        }
+        // \n only — no \r, so line.length() == visible chars exactly
+        sb.append(String.format("%-8s %-8s %-8s %-21s %s\n",
+            taskId, r.getRoomNumber(), staff,
+            r.getStatus().getLabel(), r.getRoomType()));
+      }
+    }
+    return sb.toString();
+  }
+
+  /** 4 — Search task log by Task ID (linear search). Shows list first. */
+  private void searchTaskById() {
+    // Show the full task list first so user can see available IDs
+    housekeepingUI.listTaskQueue(getAllTasks());
+    String query = housekeepingUI.inputTaskId("Search");
+    HousekeepingTask found = null;
+    for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
+      HousekeepingTask t = taskList.getEntry(i);
+      if (t.getTaskId().equalsIgnoreCase(query)) {
+        found = t;
+        break;
+      }
+    }
+    if (found == null) {
+      MessageUI.displayErrorMessage("No task found with ID: " + query);
+    } else {
+      housekeepingUI.displayTaskDetails(found);
+      MessageUI.displaySuccessMessage("Task found.");
+    }
+    MessageUI.pressEnterToContinue();
+  }
+
+  /** 15 — Delete a task from the log by Task ID, with confirmation. */
+  private void deleteTaskById() {
+    housekeepingUI.listTaskQueue(getAllTasks());
+    String query = housekeepingUI.inputTaskId("Delete");
+
+    // Linear search for the task
+    int foundIndex = -1;
+    HousekeepingTask found = null;
+    for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
+      HousekeepingTask t = taskList.getEntry(i);
+      if (t.getTaskId().equalsIgnoreCase(query)) {
+        foundIndex = i;
+        found = t;
+        break;
+      }
+    }
+
+    if (found == null) {
+      MessageUI.displayErrorMessage("No task found with ID: " + query);
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    // Show what will be deleted and confirm
+    housekeepingUI.displayTaskDetails(found);
+    if (!housekeepingUI.confirmDelete("task " + found.getTaskId())) {
+      MessageUI.displayInfoMessage("Delete cancelled.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    String roomNumber = found.getRoomNumber();
+    taskList.remove(foundIndex);
+
+    // If no remaining tasks for this room, reset room back to DIRTY
+    boolean hasOtherTasks = false;
+    for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
+      if (taskList.getEntry(i).getRoomNumber().equalsIgnoreCase(roomNumber)) {
+        hasOtherTasks = true;
+        break;
+      }
+    }
+    if (!hasOtherTasks) {
+      Room room = findRoom(roomNumber);
+      if (room != null) {
+        room.setStatus(RoomStatus.DIRTY);
+      }
+    }
+
+    saveData();
+    MessageUI.displaySuccessMessage(
+        "Task " + found.getTaskId() + " deleted from log.");
+    MessageUI.pressEnterToContinue();
+  }
+
   private void advanceRoomStatus() {
+    // Show advanceable rooms before asking for room number
+    housekeepingUI.displayAdvanceableRooms(getAdvanceableRoomSummary());
+
     String roomNumber = housekeepingUI.inputRoomNumber();
     Room room = findRoom(roomNumber);
     if (room == null) {
       MessageUI.displayErrorMessage("Room not found.");
+      MessageUI.pressEnterToContinue();
       return;
     }
 
     if (!room.getStatus().canAdvance()) {
-      MessageUI.displayErrorMessage("Room is already Ready for Check-In.");
+      MessageUI.displayErrorMessage(
+          "Room " + roomNumber + " cannot be advanced - status: "
+          + room.getStatus().getLabel());
+      MessageUI.pressEnterToContinue();
       return;
     }
 
@@ -154,19 +350,53 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
-  /** Moves the latest applied change from the undo stack to the redo stack. */
+  /**
+   * Returns a summary of rooms that CAN be advanced (not DIRTY, not READY_FOR_CHECK_IN).
+   * Uses \n only to avoid \r issues on Windows.
+   */
+  private String getAdvanceableRoomSummary() {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
+      Room r = roomList.getEntry(i);
+      RoomStatus s = r.getStatus();
+      if (s != RoomStatus.DIRTY && s != RoomStatus.READY_FOR_CHECK_IN) {
+        String nextLabel = s.nextStatus() != null ? s.nextStatus().getLabel() : "-";
+        sb.append(String.format("%-8s %-21s -> %s\n",
+            r.getRoomNumber(), s.getLabel(), nextLabel));
+      }
+    }
+    return sb.toString();
+  }
+
+
+  /** Option 6 — Show the latest change, then confirm before undoing it. */
   private void undoLastChange() {
     if (undoStack.isEmpty()) {
-      MessageUI.displayErrorMessage("No housekeeping changes available to undo.");
+      MessageUI.displayErrorMessage(
+          "No housekeeping changes are currently available to undo.");
+      MessageUI.pressEnterToContinue();
       return;
     }
 
-    String reason = housekeepingUI.inputRollbackReason();
+    // Step 1: Show the latest change that will be undone
+    StatusChangeRecord latest = undoStack.peek();
+    housekeepingUI.displayUndoLatest(latest);
+
+    // Step 2: Ask for confirmation before undoing
+    if (!housekeepingUI.confirmAction(
+        "Are you sure you want to undo this change?")) {
+      MessageUI.displayInfoMessage("Undo cancelled. No changes were made.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    // Step 3: Perform the undo only after confirmation
     StatusChangeRecord record = undoStack.pop();
     Room room = findRoom(record.getRoomNumber());
     if (room == null) {
-      MessageUI.displayErrorMessage("Room no longer exists. Rollback cancelled.");
+      MessageUI.displayErrorMessage("Room no longer exists. Undo cancelled.");
       undoStack.push(record);
+      MessageUI.pressEnterToContinue();
       return;
     }
 
@@ -176,29 +406,46 @@ public class HousekeepingTaskLog {
     saveData();
 
     System.out.println("\nUndone: " + record);
-    MessageUI.displaySuccessMessage("Latest change undone. Reason: " + reason);
+    MessageUI.displaySuccessMessage("Latest change undone successfully.");
     housekeepingUI.displayRoomDetails(room);
     MessageUI.pressEnterToContinue();
   }
 
-  /** Reapplies the latest undone change, moving it back to the undo stack. */
+  /** Option 7: Show the latest undone change, then confirm before redoing it. */
   private void redoLastChange() {
     if (redoStack.isEmpty()) {
-      MessageUI.displayErrorMessage("No housekeeping changes available to redo.");
+      MessageUI.displayErrorMessage(
+          "No changes are currently available for redo.");
+      MessageUI.pressEnterToContinue();
       return;
     }
+
+    // Step 1 — Show the latest undone change that will be redone
+    StatusChangeRecord latest = redoStack.peek();
+    housekeepingUI.displayRedoLatest(latest);
+
+    // Step 2 — Ask for confirmation before redoing
+    if (!housekeepingUI.confirmAction(
+        "Are you sure you want to redo this change?")) {
+      MessageUI.displayInfoMessage("Redo cancelled. No changes were made.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    // Step 3 — Perform the redo only after confirmation
     StatusChangeRecord record = redoStack.pop();
     Room room = findRoom(record.getRoomNumber());
     if (room == null) {
       MessageUI.displayErrorMessage("Room no longer exists. Redo cancelled.");
       redoStack.push(record);
+      MessageUI.pressEnterToContinue();
       return;
     }
     room.setStatus(record.getNewStatus());
     syncTaskStatus(record.getRoomNumber(), record.getNewStatus());
     undoStack.push(record);
     saveData();
-    MessageUI.displaySuccessMessage("Latest change redone.");
+    MessageUI.displaySuccessMessage("Latest change redone successfully.");
     housekeepingUI.displayRoomDetails(room);
     MessageUI.pressEnterToContinue();
   }
@@ -227,14 +474,45 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
-  /** Restores several consecutive status changes in LIFO order. */
+  /** Option 8: Show history, choose count, show changes, confirm, then undo. */
   private void rollbackMultipleChanges() {
     if (undoStack.isEmpty()) {
       MessageUI.displayErrorMessage("No status changes to roll back.");
+      MessageUI.pressEnterToContinue();
       return;
     }
 
+    // Step 1 — Show the available undo history (newest at top)
+    List<StatusChangeRecord> history = copyUndoHistory();
+    housekeepingUI.displayUndoMultipleAvailable(history);
+
+    // Step 2 — Ask how many changes to undo (0 cancels)
     int count = housekeepingUI.inputRollbackCount(undoStack.getSize());
+    if (count == 0) {
+      MessageUI.displayInfoMessage("Undo cancelled. No changes were made.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    // Step 3 — Show exactly which changes will be undone
+    List<StatusChangeRecord> changes = new java.util.ArrayList<>();
+    for (int i = 0; i < count; i++) {
+      if (i < history.size()) {
+        changes.add(history.get(i));
+      }
+    }
+    housekeepingUI.displayUndoMultipleConfirm(count, changes);
+
+    // Step 4 — Ask for confirmation before performing the undo
+    String plural = (count == 1) ? "change?" : "changes?";
+    if (!housekeepingUI.confirmAction(
+        "Are you sure you want to undo these " + plural)) {
+      MessageUI.displayInfoMessage("Undo cancelled. No changes were made.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    // Step 5 — Perform the undo only after confirmation
     for (int i = 0; i < count; i++) {
       StatusChangeRecord record = undoStack.pop();
       Room room = findRoom(record.getRoomNumber());
@@ -246,59 +524,39 @@ public class HousekeepingTaskLog {
     }
     saveData();
     MessageUI.displaySuccessMessage(
-        count + " latest status change(s) rolled back in LIFO order.");
+        count + " latest status change(s) undone successfully in LIFO order.");
     MessageUI.pressEnterToContinue();
   }
 
-  /** Displays the rollback stack without changing its order or contents. */
+  /** Option 10 — Displays the complete change history from newest to oldest. */
   private void displayStatusHistory() {
-    if (undoStack.isEmpty()) {
-      MessageUI.displayInfoMessage("No status change history available.");
-      MessageUI.pressEnterToContinue();
-      return;
-    }
-
-    StackInterface<StatusChangeRecord> temporaryStack = new LinkedStack<>();
-    StringBuilder output = new StringBuilder();
-    output.append("TOP (latest applied change / next item to undo)\n");
-    output.append("--------------------------------------------------\n");
-    int position = 1;
-    while (!undoStack.isEmpty()) {
-      StatusChangeRecord record = undoStack.pop();
-      output.append(position++).append(". ").append(record).append('\n');
-      temporaryStack.push(record);
-    }
-    while (!temporaryStack.isEmpty()) {
-      undoStack.push(temporaryStack.pop());
-    }
-    output.append("BOTTOM\n");
-    output.append("\nTotal changes available for undo: ").append(undoStack.getSize());
-    housekeepingUI.displayReport("HOUSEKEEPING STATUS CHANGE HISTORY", output.toString());
+    // Copy the undo stack from top (newest) to bottom (oldest) without modifying it.
+    List<StatusChangeRecord> history = copyUndoHistory();
+    housekeepingUI.displayChangeHistory(history);
     MessageUI.pressEnterToContinue();
   }
 
-  /** Uses O(1) stack sizes and peek to make the two-stack design visible. */
-  private void displayStackStatistics() {
-    StringBuilder output = new StringBuilder();
-    output.append("Undoable changes : ").append(undoStack.getSize()).append('\n');
-    output.append("Redoable changes : ").append(redoStack.getSize()).append('\n');
-    output.append("Latest undo item : ");
-    output.append(undoStack.isEmpty() ? "None" : undoStack.peek()).append('\n');
-    output.append("Latest redo item : ");
-    output.append(redoStack.isEmpty() ? "None" : redoStack.peek());
-    housekeepingUI.displayReport("UNDO / REDO STACK STATISTICS", output.toString());
+  /** Option 11 — Shows the current undo/redo counts and their latest entries. */
+  private void displayStackSummary() {
+    housekeepingUI.displayUndoRedoSummary(
+        undoStack.getSize(),
+        redoStack.getSize(),
+        undoStack.isEmpty() ? null : undoStack.peek(),
+        redoStack.isEmpty() ? null : redoStack.peek());
     MessageUI.pressEnterToContinue();
   }
 
-  /** Removes only the latest status change for the requested room. */
+  /** Option 9 - Shows a room's latest change, confirms, then undoes it. */
   private void rollbackSpecificRoom() {
     String roomNumber = housekeepingUI.inputRoomNumber();
     Room room = findRoom(roomNumber);
     if (room == null) {
-      MessageUI.displayErrorMessage("Room not found. Rollback cancelled.");
+      MessageUI.displayErrorMessage("Room not found. Undo cancelled.");
       MessageUI.pressEnterToContinue();
       return;
     }
+
+    // Find the latest change for exactly this room, preserving stack order.
     StackInterface<StatusChangeRecord> temporaryStack = new LinkedStack<>();
     StatusChangeRecord target = null;
     while (!undoStack.isEmpty()) {
@@ -313,18 +571,53 @@ public class HousekeepingTaskLog {
     while (!temporaryStack.isEmpty()) {
       undoStack.push(temporaryStack.pop());
     }
+
     if (target == null) {
-      MessageUI.displayErrorMessage("No undoable status history was found for " + roomNumber + ".");
+      MessageUI.displayErrorMessage(
+          "No undoable change was found for Room " + roomNumber + ".");
       MessageUI.pressEnterToContinue();
       return;
     }
+
+    // Step 1 — Show the latest change for this room
+    housekeepingUI.displayRoomUndo(roomNumber, target);
+
+    // Step 2 — Ask for confirmation before undoing
+    if (!housekeepingUI.confirmAction(
+        "Are you sure you want to undo the latest change for Room "
+            + roomNumber + "?")) {
+      MessageUI.displayInfoMessage("Undo cancelled. No changes were made.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    // Step 3 — Undo only the latest change belonging to that room
     room.setStatus(target.getPreviousStatus());
     syncTaskStatus(roomNumber, target.getPreviousStatus());
     redoStack.push(target);
     saveData();
-    MessageUI.displaySuccessMessage("Latest status change for " + roomNumber + " was rolled back.");
+    MessageUI.displaySuccessMessage(
+        "Latest status change for " + roomNumber + " was rolled back.");
     housekeepingUI.displayRoomDetails(room);
     MessageUI.pressEnterToContinue();
+  }
+
+  /**
+   * Returns a copy of the undo stack from top (newest) to bottom (oldest).
+   * The original stack is not modified.
+   */
+  private List<StatusChangeRecord> copyUndoHistory() {
+    List<StatusChangeRecord> history = new java.util.ArrayList<>();
+    StackInterface<StatusChangeRecord> temporaryStack = new LinkedStack<>();
+    while (!undoStack.isEmpty()) {
+      StatusChangeRecord record = undoStack.pop();
+      history.add(record);
+      temporaryStack.push(record);
+    }
+    while (!temporaryStack.isEmpty()) {
+      undoStack.push(temporaryStack.pop());
+    }
+    return history;
   }
 
   // ═══════════════════════════════════════════════════════════════════════

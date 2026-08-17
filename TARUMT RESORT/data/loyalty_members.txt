@@ -1,0 +1,2 @@
+memberId	name	email	tier	points	pointsExpiryDate
+LM001	CHAN	roxychanrx@gmail.com	SILVER	0	2027-08-18

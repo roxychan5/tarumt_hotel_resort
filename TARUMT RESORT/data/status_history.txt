@@ -1,1 +1,4 @@
 roomNumber	previousStatus	newStatus	reason	changedAt
+R301	READY_FOR_CHECK_IN	DIRTY	Late check-out requested	2026-08-18T01:09:34.6273861
+R502	CLEANING_IN_PROGRESS	INSPECTED	Status advanced by supervisor	2026-08-18T01:09:20.5573837
+R602	INSPECTED	READY_FOR_CHECK_IN	Status advanced by supervisor	2026-08-18T00:56:06.8704982

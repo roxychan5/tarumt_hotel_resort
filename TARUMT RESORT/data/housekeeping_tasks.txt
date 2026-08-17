@@ -1,1 +1,2 @@
 taskId	roomNumber	assignedStaff	taskType	status	loggedAt
+T1001	R101	HK001	CHECKOUT_CLEAN	DIRTY	2026-08-18T01:08:13.9322873

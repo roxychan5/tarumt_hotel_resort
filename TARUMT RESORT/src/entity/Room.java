@@ -72,7 +72,7 @@ public class Room implements Serializable {
 
   @Override
   public String toString() {
-    return String.format("%-8s %-12s Floor %-2d %-22s",
+    return String.format("%-8s %-12s %-8d %-22s",
         roomNumber, roomType, floor, status.getLabel());
   }
 }
