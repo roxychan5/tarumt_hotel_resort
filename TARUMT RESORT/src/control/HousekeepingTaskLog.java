@@ -221,30 +221,37 @@ public class HousekeepingTaskLog {
 
 
   /**
-   * Returns a formatted table of rooms NOT in DIRTY status.
+   * Returns a formatted table of room availability for new task assignment.
+   * Lists all rooms with their availability status and reason.
    * Uses \n (not %n) so lines never contain \r on Windows.
-   * Columns: TaskId(8) Room(8) Staff(8) Status(21) Type  — visible len == string len
+   * Columns: TaskId(8) Room(8) Staff(8) Status(21) Reason
    */
   private String getActiveRoomSummary() {
     StringBuilder sb = new StringBuilder();
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
       Room r = roomList.getEntry(i);
-      if (r.getStatus() != RoomStatus.DIRTY) {
-        String taskId = "-";
-        String staff  = "-";
-        for (int j = taskList.getNumberOfEntries(); j >= 1; j--) {
-          HousekeepingTask t = taskList.getEntry(j);
-          if (t.getRoomNumber().equalsIgnoreCase(r.getRoomNumber())) {
-            taskId = t.getTaskId();
-            staff  = t.getAssignedStaff();
-            break;
-          }
+      String taskId = "-";
+      String staff  = "-";
+      for (int j = taskList.getNumberOfEntries(); j >= 1; j--) {
+        HousekeepingTask t = taskList.getEntry(j);
+        if (t.getRoomNumber().equalsIgnoreCase(r.getRoomNumber())) {
+          taskId = t.getTaskId();
+          staff  = t.getAssignedStaff();
+          break;
         }
-        // \n only — no \r, so line.length() == visible chars exactly
-        sb.append(String.format("%-8s %-8s %-8s %-21s %s\n",
-            taskId, r.getRoomNumber(), staff,
-            r.getStatus().getLabel(), r.getRoomType()));
       }
+      String reason;
+      if (!taskId.equals("-")) {
+        reason = "ACTIVE TASK " + taskId;
+      } else if (r.getStatus() == RoomStatus.DIRTY) {
+        reason = "AVAILABLE";
+      } else {
+        reason = "STATUS: " + r.getStatus().getLabel();
+      }
+      // \n only — no \r, so line.length() == visible chars exactly
+      sb.append(String.format("%-8s %-8s %-8s %-21s %s\n",
+          taskId, r.getRoomNumber(), staff,
+          r.getStatus().getLabel(), reason));
     }
     return sb.toString();
   }

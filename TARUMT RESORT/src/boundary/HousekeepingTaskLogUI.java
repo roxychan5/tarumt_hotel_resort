@@ -162,44 +162,43 @@ public class HousekeepingTaskLogUI {
   // ======================================================================
 
   /**
-   * Shows rooms NOT in DIRTY status before the supervisor assigns a new task.
-   * Uses plain [BUSY] prefix (no background ANSI) to avoid terminal cursor issues.
-   * Column widths must match getActiveRoomSummary: Task(8) Room(8) Staff(8) Status(21) Type
+   * Shows room availability for new task assignment.
+   * Lists ALL rooms with availability status and reason.
+   * Green = available (Dirty, no active task), Red = unavailable.
+   * Column widths must match getActiveRoomSummary: Task(8) Room(8) Staff(8) Status(21) Reason
    */
   public void displayActiveRooms(String summary) {
-    // Visible widths — must match format "%-8s %-8s %-8s %-21s %s\n" exactly
-    final int W_BADGE  = 7;  // "[BUSY] " visible = 7
-    final int W_TASK   = 8;
-    final int W_ROOM   = 8;
-    final int W_STAFF  = 8;
-    final int W_STATUS = 21;
-
     System.out.println();
     printBorder();
-    rowV("  " + C + B + "ROOMS UNAVAILABLE FOR NEW TASK ASSIGNMENT" + R,
-        2 + "ROOMS UNAVAILABLE FOR NEW TASK ASSIGNMENT".length());
+    rowV("  " + C + B + "ROOM AVAILABILITY FOR NEW TASK ASSIGNMENT" + R,
+        2 + "ROOM AVAILABILITY FOR NEW TASK ASSIGNMENT".length());
     printBorder();
 
     if (summary == null || summary.isEmpty()) {
-      String msg = "  All rooms are DIRTY and available for assignment.";
+      String msg = "  No rooms registered.";
       rowV(DM + msg + R, msg.length());
     } else {
-      // Header — indent 2, then column labels
-      String hdr = String.format("  %-8s %-8s %-8s %-21s %s",
-          "Task", "Room", "Staff", "Status", "Type");
-      rowV(IB + B + hdr + R, hdr.length());
-      int divLen = 2 + W_TASK + 1 + W_ROOM + 1 + W_STAFF + 1 + W_STATUS + 1 + 4;
-      rowV("  " + rep('-', Math.min(divLen, BOX_W - 4)),
-          2 + Math.min(divLen, BOX_W - 4));
+      // Legend — explains the Availability column
+      String legend = "  " + "\033[92m" + "AVAILABLE" + R + " = can assign a task   "
+          + RD + "UNAVAILABLE" + R + " = cannot assign a task";
+      rowV(legend, visLen(legend));
+      row();
 
-      // Data rows: split on \r?\n to strip Windows carriage-return
+      // Header — must match control format: Task(8) Room(8) Staff(8) Status(21) Reason
+      String hdr = String.format("  %-8s %-8s %-8s %-21s %s",
+          "Task ID", "Room", "Staff", "Status", "Availability");
+      rowV(IB + B + hdr + R, hdr.length());
+      rowV("  " + rep('-', 74), 2 + 74);
+
+      // Data rows — color-coded: green = available, red = unavailable
       for (String line : summary.split("\r?\n")) {
         if (line.trim().isEmpty()) continue;
-        // Remove any stray \r just in case
         line = line.replace("\r", "");
-        // totalVis = 2(indent) + 7("[BUSY] ") + line visible length
-        int totalVis = 2 + W_BADGE + line.length();
-        rowV("  " + RD + B + "[BUSY]" + R + " " + line, totalVis);
+        if (line.contains("AVAILABLE")) {
+          rowV("  " + "\033[92m" + line + R, 2 + line.length());
+        } else {
+          rowV("  " + RD + line + R, 2 + line.length());
+        }
       }
     }
     printBorder();
