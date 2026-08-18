@@ -50,6 +50,15 @@ public class HousekeepingTaskLog {
     }
   }
 
+  /** Java 8-compatible replacement for String.repeat(int). */
+  private static String repeatChar(char c, int count) {
+    StringBuilder sb = new StringBuilder(count);
+    for (int i = 0; i < count; i++) {
+      sb.append(c);
+    }
+    return sb.toString();
+  }
+
   public void runHousekeepingModule() {
     int choice;
     do {
@@ -726,7 +735,7 @@ public class HousekeepingTaskLog {
     consoleReport.append("\n");
     consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
         "Task ID", "Room", "Staff", "Task Type", "Status", "Logged"));
-    consoleReport.append("  " + "-".repeat(88) + "\n");
+    consoleReport.append("  " + repeatChar('-', 88) + "\n");
 
     Map<String,Integer> statusCount  = new LinkedHashMap<>();
     Map<String,Integer> roomTypeCount = new LinkedHashMap<>();
@@ -744,7 +753,7 @@ public class HousekeepingTaskLog {
     }
 
     consoleReport.append("\n  STATUS SUMMARY\n");
-    consoleReport.append("  " + "-".repeat(40) + "\n");
+    consoleReport.append("  " + repeatChar('-', 40) + "\n");
     for (Map.Entry<String,Integer> e : statusCount.entrySet()) {
       consoleReport.append(String.format("  %-24s %4d%n", e.getKey(), e.getValue()));
     }
@@ -912,7 +921,7 @@ public class HousekeepingTaskLog {
         staffPrefix.isEmpty() ? "(all)" : staffPrefix, minTasksThreshold));
     consoleReport.append(String.format("  %-3s %-12s %6s %8s %12s %s%n",
         "#", "Staff ID", "Total", "Pending", "Completed", "Load Status"));
-    consoleReport.append("  " + "-".repeat(60) + "\n");
+    consoleReport.append("  " + repeatChar('-', 60) + "\n");
 
     int rank = 1;
     int totalTasks = 0, totalPending = 0;
@@ -928,7 +937,7 @@ public class HousekeepingTaskLog {
     if (qualifiedStaff.isEmpty()) {
       consoleReport.append("  (No staff matching filter criteria)\n");
     } else {
-      consoleReport.append("  " + "-".repeat(60) + "\n");
+      consoleReport.append("  " + repeatChar('-', 60) + "\n");
       consoleReport.append(String.format("  %-3s %-12s %6d %8d%n",
           "", "TOTAL", totalTasks, totalPending));
     }
