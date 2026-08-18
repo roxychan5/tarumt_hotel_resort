@@ -1,2 +1,1 @@
 roomNumber	previousStatus	newStatus	reason	changedAt
-R302	DIRTY	CLEANING_IN_PROGRESS	Cleaning task T1001 assigned	2026-08-18T19:02:52.625

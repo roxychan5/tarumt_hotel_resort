@@ -590,10 +590,15 @@ public class PdfReportEngine {
     cursorY -= 60;
   }
 
-  /** Saves and closes the document. */
+  /** Saves the document to the given path. */
   public void save(String filePath) throws IOException {
     closeStream();
     doc.save(filePath);
+  }
+
+  /** Closes the document and releases all resources. Safe to call multiple times. */
+  public void close() throws IOException {
+    closeStream();
     doc.close();
   }
 

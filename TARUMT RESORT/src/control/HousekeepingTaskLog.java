@@ -733,17 +733,92 @@ public class HousekeepingTaskLog {
       }
     }
 
-    // ── Step 6: Build console report ─────────────────────────────────────
-    StringBuilder consoleReport = new StringBuilder();
-    consoleReport.append(String.format("  Filter — Date: %s to %s | Status: %s | Room Type: %s%n",
-        fromDateStr.isEmpty() ? "(any)" : fromDateStr,
-        toDateStr.isEmpty()   ? "(any)" : toDateStr,
-        statusFilter, roomTypeFilter));
-    consoleReport.append("\n");
-    consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
-        "Task ID", "Room", "Staff", "Task Type", "Status", "Logged"));
-    consoleReport.append("  " + repeatChar('-', 88) + "\n");
+    // ── Step 6: Binary search for Task ID or Room Number ─────────────────
+    //           Optional lookup on the filtered results using binary search.
+    int searchOption = housekeepingUI.inputReport1SearchOption();
+    String searchResult = "";
+    if (searchOption == 1) {
+      // Binary search by Task ID — requires sorting by Task ID first.
+      String searchId = housekeepingUI.inputSearchTaskId();
+      HousekeepingTask[] byId = filtered.toArray(new HousekeepingTask[0]);
+      // Bubble sort ascending by Task ID
+      for (int i = 0; i < byId.length - 1; i++) {
+        for (int j = 0; j < byId.length - i - 1; j++) {
+          if (byId[j].getTaskId().compareToIgnoreCase(byId[j + 1].getTaskId()) > 0) {
+            HousekeepingTask tmp = byId[j];
+            byId[j] = byId[j + 1];
+            byId[j + 1] = tmp;
+          }
+        }
+      }
+      // Binary search for the Task ID
+      int lo1 = 0, hi1 = byId.length - 1;
+      HousekeepingTask found1 = null;
+      while (lo1 <= hi1) {
+        int mid = (lo1 + hi1) / 2;
+        int cmp = byId[mid].getTaskId().compareToIgnoreCase(searchId);
+        if (cmp == 0) { found1 = byId[mid]; break; }
+        else if (cmp < 0) lo1 = mid + 1;
+        else hi1 = mid - 1;
+      }
+      if (found1 != null) {
+        searchResult = "  [BINARY SEARCH] Task " + searchId + " FOUND -> Room: "
+            + found1.getRoomNumber() + " | Staff: " + found1.getAssignedStaff()
+            + " | Status: " + found1.getCurrentStatus().getLabel();
+      } else {
+        searchResult = "  [BINARY SEARCH] Task " + searchId + " NOT FOUND in filtered results.";
+      }
+    } else if (searchOption == 2) {
+      // Binary search by Room Number — requires sorting by Room Number first.
+      String searchRoom = housekeepingUI.inputSearchRoomNumber();
+      HousekeepingTask[] byRoom = filtered.toArray(new HousekeepingTask[0]);
+      // Bubble sort ascending by Room Number
+      for (int i = 0; i < byRoom.length - 1; i++) {
+        for (int j = 0; j < byRoom.length - i - 1; j++) {
+          if (byRoom[j].getRoomNumber().compareToIgnoreCase(byRoom[j + 1].getRoomNumber()) > 0) {
+            HousekeepingTask tmp = byRoom[j];
+            byRoom[j] = byRoom[j + 1];
+            byRoom[j + 1] = tmp;
+          }
+        }
+      }
+      // Binary search for the Room Number
+      int lo2 = 0, hi2 = byRoom.length - 1;
+      HousekeepingTask found2 = null;
+      while (lo2 <= hi2) {
+        int mid = (lo2 + hi2) / 2;
+        int cmp = byRoom[mid].getRoomNumber().compareToIgnoreCase(searchRoom);
+        if (cmp == 0) { found2 = byRoom[mid]; break; }
+        else if (cmp < 0) lo2 = mid + 1;
+        else hi2 = mid - 1;
+      }
+      if (found2 != null) {
+        searchResult = "  [BINARY SEARCH] Room " + searchRoom + " FOUND -> Task: "
+            + found2.getTaskId() + " | Staff: " + found2.getAssignedStaff()
+            + " | Status: " + found2.getCurrentStatus().getLabel();
+      } else {
+        searchResult = "  [BINARY SEARCH] Room " + searchRoom + " NOT FOUND in filtered results.";
+      }
+    }
 
+    // ── Step 7: Build console report ─────────────────────────────────────
+    StringBuilder consoleReport = new StringBuilder();
+    consoleReport.append("  " + repeatChar('-', 66) + "\n");
+    consoleReport.append("  HOUSEKEEPING OPERATIONAL SUMMARY\n");
+    consoleReport.append("  " + repeatChar('-', 66) + "\n\n");
+
+    // Report Overview
+    consoleReport.append("  REPORT OVERVIEW\n");
+    consoleReport.append("  " + repeatChar('-', 40) + "\n");
+    consoleReport.append(String.format("  Date Range      : %s to %s%n",
+        fromDateStr.isEmpty() ? "(any)" : fromDateStr,
+        toDateStr.isEmpty()   ? "(any)" : toDateStr));
+    consoleReport.append(String.format("  Status Filter   : %s%n", statusFilter));
+    consoleReport.append(String.format("  Room Type Filter: %s%n", roomTypeFilter));
+    consoleReport.append(String.format("  Tasks Matched   : %d%n", filtered.size()));
+    consoleReport.append("\n");
+
+    // Key Performance Indicators
     Map<String,Integer> statusCount  = new LinkedHashMap<>();
     Map<String,Integer> roomTypeCount = new LinkedHashMap<>();
     for (RoomStatus rs : RoomStatus.values()) statusCount.put(rs.getLabel(), 0);
@@ -751,25 +826,70 @@ public class HousekeepingTaskLog {
     for (HousekeepingTask t : filtered) {
       Room room = findRoom(t.getRoomNumber());
       String rType = room != null ? room.getRoomType() : "Unknown";
-      consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
-          t.getTaskId(), t.getRoomNumber(), t.getAssignedStaff(),
-          t.getTaskType(), t.getCurrentStatus().getLabel(),
-          t.getLoggedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
       statusCount.merge(t.getCurrentStatus().getLabel(), 1, Integer::sum);
       roomTypeCount.merge(rType, 1, Integer::sum);
     }
 
-    consoleReport.append("\n  STATUS SUMMARY\n");
+    consoleReport.append("  KEY PERFORMANCE INDICATORS\n");
     consoleReport.append("  " + repeatChar('-', 40) + "\n");
     for (Map.Entry<String,Integer> e : statusCount.entrySet()) {
       consoleReport.append(String.format("  %-24s %4d%n", e.getKey(), e.getValue()));
     }
-    consoleReport.append(String.format("%n  Total tasks matching criteria: %d%n", filtered.size()));
+    consoleReport.append("\n");
+
+    // Room Type Distribution
+    consoleReport.append("  ROOM TYPE DISTRIBUTION\n");
+    consoleReport.append("  " + repeatChar('-', 40) + "\n");
+    if (roomTypeCount.isEmpty()) {
+      consoleReport.append("  (No tasks match the selected criteria)\n");
+    } else {
+      for (Map.Entry<String,Integer> e : roomTypeCount.entrySet()) {
+        consoleReport.append(String.format("  %-24s %4d%n", e.getKey(), e.getValue()));
+      }
+    }
+    consoleReport.append("\n");
+
+    // Detailed Task List
+    consoleReport.append("  DETAILED TASK LIST (Sorted by Status Priority)\n");
+    consoleReport.append("  " + repeatChar('-', 66) + "\n");
+    consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
+        "Task ID", "Room", "Staff", "Task Type", "Status", "Logged At"));
+    consoleReport.append("  " + repeatChar('-', 66) + "\n");
+    if (filtered.isEmpty()) {
+      consoleReport.append("  (No tasks match the selected filter criteria)\n");
+    } else {
+      for (HousekeepingTask t : filtered) {
+        consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
+            t.getTaskId(), t.getRoomNumber(), t.getAssignedStaff(),
+            t.getTaskType(), t.getCurrentStatus().getLabel(),
+            t.getLoggedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+      }
+    }
+    consoleReport.append("\n");
+
+    // Binary search result (if any)
+    if (!searchResult.isEmpty()) {
+      consoleReport.append(searchResult + "\n\n");
+    }
+
+    // Management Insights
+    long dirty    = statusCount.getOrDefault("Dirty", 0);
+    long cleaning = statusCount.getOrDefault("Cleaning In Progress", 0);
+    long inspected= statusCount.getOrDefault("Inspected", 0);
+    long ready    = statusCount.getOrDefault("Ready for Check-In", 0);
+    consoleReport.append("  MANAGEMENT INSIGHTS\n");
+    consoleReport.append("  " + repeatChar('-', 40) + "\n");
+    consoleReport.append(String.format("  Rooms requiring immediate attention : %d (Dirty + Cleaning)%n",
+        dirty + cleaning));
+    consoleReport.append(String.format("  Rooms ready for guests              : %d (Ready for Check-In)%n",
+        ready));
+    consoleReport.append(String.format("  Rooms under inspection             : %d%n", inspected));
+    consoleReport.append("\n");
 
     housekeepingUI.displayReport("REPORT 1: HOUSEKEEPING OPERATIONAL SUMMARY",
         consoleReport.toString());
 
-    // ── Step 7: Export to PDF ─────────────────────────────────────────────
+    // ── Step 8: Export to PDF ─────────────────────────────────────────────
     if (housekeepingUI.confirmPdfExport()) {
       exportReport1ToPdf(filtered, statusCount, roomTypeCount,
           fromDateStr, toDateStr, statusFilter, roomTypeFilter);
@@ -780,6 +900,7 @@ public class HousekeepingTaskLog {
   private void exportReport1ToPdf(java.util.List<HousekeepingTask> filtered,
       Map<String,Integer> statusCount, Map<String,Integer> roomTypeCount,
       String fromDate, String toDate, String statusFilter, String roomTypeFilter) {
+    PdfReportEngine pdf = null;
     try {
       String outDir = "output" + File.separator + "pdf";
       new File(outDir).mkdirs();
@@ -787,7 +908,7 @@ public class HousekeepingTaskLog {
           .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
       String outPath = outDir + File.separator + "housekeeping_summary_" + timestamp + ".pdf";
 
-      PdfReportEngine pdf = new PdfReportEngine();
+      pdf = new PdfReportEngine();
 
       // Cover page
       String period = (fromDate.isEmpty() ? "All dates" : fromDate)
@@ -866,6 +987,12 @@ public class HousekeepingTaskLog {
       housekeepingUI.displayPdfExportSuccess(outPath);
     } catch (IOException ex) {
       MessageUI.displayErrorMessage("PDF export failed: " + ex.getMessage());
+    } finally {
+      try {
+        if (pdf != null) pdf.close();
+      } catch (IOException ignored) {
+        // Best-effort cleanup — the error message above is more useful.
+      }
     }
   }
 
@@ -923,31 +1050,91 @@ public class HousekeepingTaskLog {
 
     // ── Step 5: Build console report ──────────────────────────────────────
     StringBuilder consoleReport = new StringBuilder();
-    consoleReport.append(String.format(
-        "  Filter — Staff Prefix: \"%s\" | Min Tasks: %d%n%n",
-        staffPrefix.isEmpty() ? "(all)" : staffPrefix, minTasksThreshold));
-    consoleReport.append(String.format("  %-3s %-12s %6s %8s %12s %s%n",
-        "#", "Staff ID", "Total", "Pending", "Completed", "Load Status"));
-    consoleReport.append("  " + repeatChar('-', 60) + "\n");
+    consoleReport.append("  " + repeatChar('-', 66) + "\n");
+    consoleReport.append("  STAFF WORKLOAD & PERFORMANCE ANALYSIS\n");
+    consoleReport.append("  " + repeatChar('-', 66) + "\n\n");
 
-    int rank = 1;
+    // Report Overview
+    consoleReport.append("  REPORT OVERVIEW\n");
+    consoleReport.append("  " + repeatChar('-', 40) + "\n");
+    consoleReport.append(String.format("  Staff Prefix Filter : %s%n",
+        staffPrefix.isEmpty() ? "(all)" : staffPrefix));
+    consoleReport.append(String.format("  Min Tasks Threshold : %d%n", minTasksThreshold));
+    consoleReport.append(String.format("  Staff Evaluated     : %d%n", qualifiedStaff.size()));
+    consoleReport.append("\n");
+
+    // Key Performance Indicators
     int totalTasks = 0, totalPending = 0;
     for (String staffId : qualifiedStaff) {
-      int tasks   = countTasksForStaff(staffId);
+      totalTasks += countTasksForStaff(staffId);
+      totalPending += countPendingTasksForStaff(staffId);
+    }
+    int totalCompleted = totalTasks - totalPending;
+    int pct = totalTasks > 0 ? (totalCompleted * 100 / totalTasks) : 0;
+
+    consoleReport.append("  KEY PERFORMANCE INDICATORS\n");
+    consoleReport.append("  " + repeatChar('-', 40) + "\n");
+    consoleReport.append(String.format("  %-24s %4d%n", "Staff Evaluated", qualifiedStaff.size()));
+    consoleReport.append(String.format("  %-24s %4d%n", "Total Tasks", totalTasks));
+    consoleReport.append(String.format("  %-24s %4d%n", "Pending Tasks", totalPending));
+    consoleReport.append(String.format("  %-24s %4d%%%n", "Completion Rate", pct));
+    consoleReport.append("\n");
+
+    // Staff Workload Comparison
+    consoleReport.append("  STAFF WORKLOAD COMPARISON (Insertion Sort - Highest First)\n");
+    consoleReport.append("  " + repeatChar('-', 66) + "\n");
+    if (qualifiedStaff.isEmpty()) {
+      consoleReport.append("  (No staff matching filter criteria)\n");
+    } else {
+      for (String staffId : qualifiedStaff) {
+        int tasks = countTasksForStaff(staffId);
+        int pending = countPendingTasksForStaff(staffId);
+        int completed = tasks - pending;
+        String flag = tasks > 3 ? "[OVERLOADED]" : tasks > 1 ? "[OPTIMAL]" : "[LIGHT]";
+        consoleReport.append(String.format("  %-12s Total: %-3d Pending: %-3d Completed: %-3d %s%n",
+            staffId, tasks, pending, completed, flag));
+      }
+    }
+    consoleReport.append("\n");
+
+    // Staff Performance Ranking
+    consoleReport.append("  STAFF PERFORMANCE RANKING\n");
+    consoleReport.append("  " + repeatChar('-', 66) + "\n");
+    consoleReport.append(String.format("  %-5s %-12s %-12s %-8s %-10s %s%n",
+        "Rank", "Staff ID", "Total Tasks", "Pending", "Completed", "Status"));
+    consoleReport.append("  " + repeatChar('-', 66) + "\n");
+    int rank = 1;
+    for (String staffId : qualifiedStaff) {
+      int tasks = countTasksForStaff(staffId);
       int pending = countPendingTasksForStaff(staffId);
       int completed = tasks - pending;
-      totalTasks += tasks; totalPending += pending;
-      String flag = tasks > 3 ? "[OVERLOADED]" : tasks > 1 ? "[OPTIMAL]" : "[LIGHT]";
-      consoleReport.append(String.format("  %-3d %-12s %6d %8d %12d %s%n",
+      String flag = tasks > 3 ? "OVERLOADED" : tasks > 1 ? "OPTIMAL" : "LIGHT";
+      consoleReport.append(String.format("  %-5d %-12s %-12d %-8d %-10d %s%n",
           rank++, staffId, tasks, pending, completed, flag));
     }
     if (qualifiedStaff.isEmpty()) {
       consoleReport.append("  (No staff matching filter criteria)\n");
-    } else {
-      consoleReport.append("  " + repeatChar('-', 60) + "\n");
-      consoleReport.append(String.format("  %-3s %-12s %6d %8d%n",
-          "", "TOTAL", totalTasks, totalPending));
     }
+    consoleReport.append("\n");
+
+    // Management Recommendations
+    long overloaded = qualifiedStaff.stream()
+        .filter(s -> countTasksForStaff(s) > 3).count();
+    long light = qualifiedStaff.stream()
+        .filter(s -> countTasksForStaff(s) == 1).count();
+    consoleReport.append("  MANAGEMENT RECOMMENDATIONS\n");
+    consoleReport.append("  " + repeatChar('-', 40) + "\n");
+    consoleReport.append(overloaded > 0
+        ? "  " + overloaded + " staff member(s) are OVERLOADED. Consider task redistribution.\n"
+        : "  All staff are within manageable workload limits.\n");
+    consoleReport.append(light > 0
+        ? "  " + light + " staff member(s) have LIGHT workloads and may accept additional tasks.\n"
+        : "  No staff with light workload detected.\n");
+    consoleReport.append(totalPending > 0
+        ? "  Action required: " + totalPending + " task(s) remain pending. "
+          + "Review priority rooms with Dirty or Cleaning status.\n"
+        : "  All tasks are completed. Excellent housekeeping performance!\n");
+    consoleReport.append("\n");
 
     housekeepingUI.displayReport("REPORT 2: STAFF WORKLOAD & PERFORMANCE ANALYSIS",
         consoleReport.toString());
@@ -962,6 +1149,7 @@ public class HousekeepingTaskLog {
 
   private void exportReport2ToPdf(java.util.List<String> qualifiedStaff,
       String staffPrefix, int minTasks, int totalTasks, int totalPending) {
+    PdfReportEngine pdf = null;
     try {
       String outDir = "output" + File.separator + "pdf";
       new File(outDir).mkdirs();
@@ -969,7 +1157,7 @@ public class HousekeepingTaskLog {
           .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
       String outPath = outDir + File.separator + "staff_workload_" + timestamp + ".pdf";
 
-      PdfReportEngine pdf = new PdfReportEngine();
+      pdf = new PdfReportEngine();
 
       // Cover page
       pdf.addCoverPage(
@@ -1077,6 +1265,12 @@ public class HousekeepingTaskLog {
       housekeepingUI.displayPdfExportSuccess(outPath);
     } catch (IOException ex) {
       MessageUI.displayErrorMessage("PDF export failed: " + ex.getMessage());
+    } finally {
+      try {
+        if (pdf != null) pdf.close();
+      } catch (IOException ignored) {
+        // Best-effort cleanup — the error message above is more useful.
+      }
     }
   }
 

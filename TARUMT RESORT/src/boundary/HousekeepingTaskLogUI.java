@@ -452,6 +452,40 @@ public class HousekeepingTaskLogUI {
     return new String[]{from, to, statusFilter, roomTypeFilter};
   }
 
+  /** Asks if the user wants to binary search for a specific task or room. */
+  public int inputReport1SearchOption() {
+    System.out.println();
+    System.out.println("  " + SB + B + "BINARY SEARCH OPTION" + R);
+    System.out.println("  " + rep('-', 40));
+    System.out.println("  " + SB + "[0]" + R + " None - show full report");
+    System.out.println("  " + SB + "[1]" + R + " Search by Task ID");
+    System.out.println("  " + SB + "[2]" + R + " Search by Room Number");
+    System.out.println();
+    while (true) {
+      int choice = ConsoleUI.readMenuChoice("  Select search option (0-2) > ");
+      if (choice >= 0 && choice <= 2) return choice;
+      MessageUI.displayErrorMessage("Enter a number from 0 to 2.");
+    }
+  }
+
+  public String inputSearchTaskId() {
+    while (true) {
+      System.out.print("  " + SB + "Task ID to search" + R + " (e.g. T1001) > ");
+      String value = ConsoleUI.readLine().trim().toUpperCase();
+      if (value.matches("(T|HK)[0-9]+")) return value;
+      MessageUI.displayErrorMessage("Task ID must start with T (or HK) followed by digits.");
+    }
+  }
+
+  public String inputSearchRoomNumber() {
+    while (true) {
+      System.out.print("  " + SB + "Room No. to search" + R + " (e.g. R101) > ");
+      String value = ConsoleUI.readLine().trim().toUpperCase();
+      if (value.matches("R[0-9]{3,4}")) return value;
+      MessageUI.displayErrorMessage("Room number must be R followed by 3-4 digits (e.g. R101).");
+    }
+  }
+
   public String[] inputReport2Filters() {
     sectionHeader("REPORT 2 - SET FILTERS",
         "Filter by staff prefix and minimum task count.");

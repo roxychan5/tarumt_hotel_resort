@@ -102,6 +102,7 @@ public class TestPdfReports {
     pdf.addTable(headers, rows, colW);
 
     pdf.save(outPath);
+    pdf.close();
     System.out.println("Report 1 saved: " + outPath);
   }
 
@@ -184,6 +185,7 @@ public class TestPdfReports {
     pdf.addBodyText("Action required: 6 task(s) remain pending. Review rooms R101 and R302 as priority.", 10);
 
     pdf.save(outPath);
+    pdf.close();
     System.out.println("Report 2 saved: " + outPath);
   }
 }
