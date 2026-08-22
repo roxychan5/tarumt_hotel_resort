@@ -21,7 +21,7 @@ public class FrontDeskService {
 
   private final ListInterface<GuestRecord> guestRecords = new ArrayList<>();
   private final SearchTreeInterface<String, GuestRecord> guestSearchTree =
-      new BinarySearchTree<>();
+      new BinarySearchTree<>(); //non-linear data structure for front desk 
   private final FrontDeskDAO frontDeskDAO = new FrontDeskDAO();
   private final HousekeepingDAO housekeepingDAO = new HousekeepingDAO();
   private final FrontDeskServiceUI frontDeskUI = new FrontDeskServiceUI();
@@ -51,6 +51,12 @@ public class FrontDeskService {
         case 4:
           frontDeskUI.displayGuestList(getAllGuestRecords());
           MessageUI.pressEnterToContinue();
+          break;
+        case 5:
+          guestsBillingReport();
+          break;
+        case 6:
+          guestsRoomAvailabilityReport();
           break;
         default:
           MessageUI.displayInvalidChoiceMessage();
@@ -119,6 +125,93 @@ public class FrontDeskService {
     } else {
       frontDeskUI.displayBillingDetails(guestRecord);
     }
+    MessageUI.pressEnterToContinue();
+  }
+
+  private void guestsBillingReport() {
+    ListInterface<GuestRecord> sortedRecords = guestSearchTree.inOrderTraversal();
+    StringBuilder report = new StringBuilder();
+    report.append(String.format("%-12s %-20s %-8s %-10s %12s %12s %12s%n",
+        "Confirm No.", "Guest Name", "Room", "Type", "Total", "Paid", "Outstanding"));
+    report.append("------------------------------------------------------------------------------------------\n");
+
+    int guestCount = 0;
+    double totalAmount = 0;
+    double totalPaid = 0;
+    double totalOutstanding = 0;
+
+    for (int index = 1; index <= sortedRecords.getNumberOfEntries(); index++) {
+      GuestRecord guestRecord = sortedRecords.getEntry(index);
+      report.append(String.format("%-12s %-20s %-8s %-10s RM %9.2f RM %9.2f RM %9.2f%n",
+          guestRecord.getConfirmationNumber(), guestRecord.getGuestName(),
+          guestRecord.getRoomNumber(), guestRecord.getRoomType(),
+          guestRecord.getTotalAmount(), guestRecord.getPaidAmount(),
+          guestRecord.getOutstandingAmount()));
+      guestCount++;
+      totalAmount += guestRecord.getTotalAmount();
+      totalPaid += guestRecord.getPaidAmount();
+      totalOutstanding += guestRecord.getOutstandingAmount();
+    }
+
+    if (guestCount == 0) {
+      report.append("No guest billing records found.\n");
+    }
+    report.append("\nTotal guests                 : ").append(guestCount).append("\n");
+    report.append(String.format("Total bill amount            : RM %.2f%n", totalAmount));
+    report.append(String.format("Total paid amount            : RM %.2f%n", totalPaid));
+    report.append(String.format("Total outstanding amount     : RM %.2f%n", totalOutstanding));
+
+    frontDeskUI.displayReport("REPORT 1: GUESTS BILLING SUMMARY", report.toString());
+    MessageUI.pressEnterToContinue();
+  }
+
+  private void guestsRoomAvailabilityReport() {
+    ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
+    StringBuilder report = new StringBuilder();
+    report.append(String.format("%-8s %-12s %-7s %-22s %-20s %-12s %-24s%n",
+        "Room", "Type", "Floor", "Housekeeping Status", "Guest", "Confirm No.", "Availability"));
+    report.append("-------------------------------------------------------------------------------------------------------------\n");
+
+    int totalRooms = 0;
+    int occupiedRooms = 0;
+    int availableRooms = 0;
+    int unavailableRooms = 0;
+
+    for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
+      Room room = roomList.getEntry(index);
+      GuestRecord assignedGuest = findGuestByRoomNumber(room.getRoomNumber());
+      String guestName = "-";
+      String confirmationNumber = "-";
+      String availability;
+
+      if (assignedGuest != null) {
+        guestName = assignedGuest.getGuestName();
+        confirmationNumber = assignedGuest.getConfirmationNumber();
+        availability = "OCCUPIED / RESERVED";
+        occupiedRooms++;
+      } else if (room.getStatus() == RoomStatus.READY_FOR_CHECK_IN) {
+        availability = "AVAILABLE FOR CHECK-IN";
+        availableRooms++;
+      } else {
+        availability = "NOT AVAILABLE";
+        unavailableRooms++;
+      }
+
+      report.append(String.format("%-8s %-12s %-7d %-22s %-20s %-12s %-24s%n",
+          room.getRoomNumber(), room.getRoomType(), room.getFloor(),
+          room.getStatus().getLabel(), guestName, confirmationNumber, availability));
+      totalRooms++;
+    }
+
+    if (totalRooms == 0) {
+      report.append("No room records found.\n");
+    }
+    report.append("\nTotal rooms                  : ").append(totalRooms).append("\n");
+    report.append("Occupied / reserved rooms    : ").append(occupiedRooms).append("\n");
+    report.append("Available for check-in rooms : ").append(availableRooms).append("\n");
+    report.append("Not available rooms          : ").append(unavailableRooms).append("\n");
+
+    frontDeskUI.displayReport("REPORT 2: GUESTS ROOM AVAILABILITY", report.toString());
     MessageUI.pressEnterToContinue();
   }
 

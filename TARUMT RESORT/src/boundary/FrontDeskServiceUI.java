@@ -16,6 +16,8 @@ public class FrontDeskServiceUI {
     System.out.println("  2. Check Room Availability");
     System.out.println("  3. View Guest Billing Details");
     System.out.println("  4. List All Guest Records");
+    System.out.println("  5. Generate Guests Billing Report");
+    System.out.println("  6. Generate Guests Room Availability Report");
     System.out.println("  0. Back to Main Menu");
     return ConsoleUI.readMenuChoice("\nEnter choice: ");
   }
@@ -48,6 +50,11 @@ public class FrontDeskServiceUI {
   public void displayRoomAvailability(String output) {
     ConsoleUI.displaySubHeader("ROOM AVAILABILITY");
     System.out.println(output);
+  }
+
+  public void displayReport(String title, String content) {
+    ConsoleUI.displayHeader(title);
+    System.out.println(content);
   }
 
   public void displayGuestList(String output) {
