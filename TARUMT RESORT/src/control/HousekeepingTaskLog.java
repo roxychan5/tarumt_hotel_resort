@@ -401,9 +401,12 @@ public class HousekeepingTaskLog {
 
     // A room that is already READY cannot move forward anymore.
     if (!room.getStatus().canAdvance()) {
+      String extraMessage = room.getStatus() == RoomStatus.OCCUPIED
+        ? " Room is occupied and cannot enter the cleaning workflow."
+        : " Room is already Ready for Check-In.";
       MessageUI.displayErrorMessage(
-          "Room " + roomNumber + " cannot be advanced - status: "
-          + room.getStatus().getLabel());
+        "Room " + roomNumber + " cannot be advanced - status: "
+        + room.getStatus().getLabel() + "." + extraMessage);
       MessageUI.pressEnterToContinue();
       return;
     }
@@ -433,7 +436,6 @@ public class HousekeepingTaskLog {
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
       Room r = roomList.getEntry(i);
       RoomStatus s = r.getStatus();
-      // Skip rooms at the very start or very end of the flow:
       if (s != RoomStatus.DIRTY && s != RoomStatus.READY_FOR_CHECK_IN) {
         String nextLabel = s.nextStatus() != null ? s.nextStatus().getLabel() : "-";
         sb.append(String.format("%-8s %-21s -> %s\n",

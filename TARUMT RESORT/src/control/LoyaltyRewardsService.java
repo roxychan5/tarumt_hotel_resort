@@ -36,6 +36,11 @@ public class LoyaltyRewardsService {
         load();
     }
 
+     // Returns the registered loyalty profile for use by other resort modules. */
+    public RewardsMember getMemberById(String memberId) {
+      return find(memberId);
+    }
+
     // MAIN LOYALTY MODULE
     public void runLoyaltyRewardsModule() {
 
