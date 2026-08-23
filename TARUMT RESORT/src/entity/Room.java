@@ -4,27 +4,39 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Represents a hotel room stored in Housekeeping's sequential Linear List
- * ADT. Its status is updated as the cleaning workflow advances or rolls back.
+ * Represents one hotel room in the housekeeping module.
+ *
+ * A Room is like a row in the hotel's "room board":
+ *   - roomNumber : which room (e.g. R101)
+ *   - roomType   : Standard / Deluxe / Suite
+ *   - floor      : which floor it is on
+ *   - status     : how clean it is right now (Dirty / Cleaning / etc.)
+ *
+ * The controller stores rooms in a Linear List ADT (ArrayList),
+ * keeping them in the original registration order.
  *
  * @author Chan Rou Xuan
  */
 public class Room implements Serializable {
 
-  private String roomNumber;
-  private String roomType;
-  private int floor;
-  private RoomStatus status;
+  private String roomNumber;   // e.g. R101
+  private String roomType;     // e.g. Standard, Deluxe, Suite
+  private int floor;           // e.g. 1, 2, 3
+  private RoomStatus status;   // current cleaning stage (see RoomStatus)
 
+  /** Empty constructor - needed so the class can be rebuilt from a saved file. */
   public Room() {
   }
 
+  /** Full constructor - creates a room with all its details filled in. */
   public Room(String roomNumber, String roomType, int floor, RoomStatus status) {
     this.roomNumber = roomNumber;
     this.roomType = roomType;
     this.floor = floor;
     this.status = status;
   }
+
+  // ---------- Getters & Setters (read / update each field) ----------
 
   public String getRoomNumber() {
     return roomNumber;
@@ -58,18 +70,26 @@ public class Room implements Serializable {
     this.status = status;
   }
 
+  /**
+   * Two rooms are treated as the SAME room if they have the same room number.
+   * This is used to search for a room in the list without comparing every field.
+   */
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {
-      return true;
+      return true; // same object, definitely equal
     }
     if (obj == null || getClass() != obj.getClass()) {
-      return false;
+      return false; // not a Room at all, so not equal
     }
     Room other = (Room) obj;
-    return Objects.equals(roomNumber, other.roomNumber);
+    return Objects.equals(roomNumber, other.roomNumber); // compare by room no.
   }
 
+  /**
+   * Turns this room into one neat line of text for the console report, e.g.:
+   *   R101      Standard    1        Dirty
+   */
   @Override
   public String toString() {
     return String.format("%-8s %-12s %-8d %-22s",

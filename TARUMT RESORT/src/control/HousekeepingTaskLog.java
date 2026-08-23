@@ -23,130 +23,175 @@ import utility.MessageUI;
 import utility.PdfReportEngine;
 
 /**
- * Control class for Housekeeping and Task Log module.
- * Uses Linear ADTs: an ArrayList for the sequential task/room log and a
- * two LinkedStacks for LIFO undo/redo, bulk rollback and history preview.
+ * The BRAIN of the Housekeeping & Task Log module.
+ *
+ * This class controls three collections:
+ *   1. The room list       - a Linear List ADT (ArrayList), rooms keep
+ *                            their registered order.
+ *   2. The task log        - a Linear List ADT (ArrayList), tasks keep
+ *                            the order they were created in.
+ *   3. Undo / Redo history - TWO Stack ADTs (LinkedStack).
+ *
+ * Easy way to think about each ADT:
+ *   - ArrayList (List)  : like a queue of papers in the order you added them.
+ *   - LinkedStack (LIFO): like a pile of plates - you always take the TOP
+ *                         one first (the most recent change).
+ *
+ * The boundary class (HousekeepingTaskLogUI) collects the user's input,
+ * then calls the methods here to do the actual work. After anything
+ * changes, this class saves the data back to disk through HousekeepingDAO.
  *
  * @author Chan Rou Xuan
  */
 public class HousekeepingTaskLog {
 
-  // Linear List ADT: rooms remain in their registered sequential order.
+  // Linear List ADT: keeps rooms in their original registered sequence.
   private final ListInterface<Room> roomList = new ArrayList<>();
-  // Linear List ADT: each new cleaning task is appended to the task log.
+  // Linear List ADT: each new cleaning task is APPENDED to the task log.
   private final ListInterface<HousekeepingTask> taskList = new ArrayList<>();
-  // Linear Stack ADT: newest applied change is at the top for immediate LIFO undo.
+  // Stack ADT #1: most recent status change sits on TOP -> undo pops it first.
   private final StackInterface<StatusChangeRecord> undoStack = new LinkedStack<>();
-  // Second Linear Stack ADT: undone changes are held here for LIFO redo.
+  // Stack ADT #2: changes we undid sit here so they can be redone again.
   private final StackInterface<StatusChangeRecord> redoStack = new LinkedStack<>();
+
+  // The DAO reads/saves our data from/to text files (rooms.txt, tasks.txt, etc.).
   private final HousekeepingDAO housekeepingDAO = new HousekeepingDAO();
+  // The UI prints menus and collects the user's answers.
   private final HousekeepingTaskLogUI housekeepingUI = new HousekeepingTaskLogUI();
+
+  // This number is used to build unique task IDs, e.g. T1001, T1002...
+  // It starts at 1000 so the very first task becomes T1001.
   private int taskCounter = 1000;
 
+  /**
+   * Constructor - called automatically once when the module starts.
+   *   1. Loads all saved data from the text files.
+   *   2. If there are no rooms yet, creates 5 sample rooms (first run).
+   */
   public HousekeepingTaskLog() {
-    loadData();
+    loadData(); // step 1: bring data back from disk
     if (roomList.isEmpty()) {
-      seedSampleRooms();
+      seedSampleRooms(); // step 2: first-time setup with example rooms
     }
   }
 
-  /** Java 8-compatible replacement for String.repeat(int). */
+  /** Java 8-compatible version of String.repeat(): builds a character n times. */
   private static String repeatChar(char c, int count) {
-    StringBuilder sb = new StringBuilder(count);
+    StringBuilder sb = new StringBuilder(count); // make a builder of that size
     for (int i = 0; i < count; i++) {
-      sb.append(c);
+      sb.append(c); // add one character each time
     }
-    return sb.toString();
+    return sb.toString(); // e.g. repeatChar('-', 5) -> "-----"
   }
 
+  /**
+   * The main menu loop of the housekeeping module.
+   * Keeps asking for a choice (0-15) and runs the matching function,
+   * until the user chooses 0 to go back to the main system menu.
+   */
   public void runHousekeepingModule() {
-    int choice;
+    int choice; // what the user picked
     do {
-      choice = housekeepingUI.getMenuChoice();
-      switch (choice) {
+      choice = housekeepingUI.getMenuChoice(); // ask the user what to do
+      switch (choice) { // run the right action for that choice
         case 0:
+          // User wants to leave this module:
           MessageUI.displayInfoMessage("Returning to main menu...");
           break;
         // ── Task Management (1-5) ──────────────────────────────────────
         case 1:
-          housekeepingUI.listTaskQueue(getAllTasks());
-          MessageUI.pressEnterToContinue();
+          housekeepingUI.listTaskQueue(getAllTasks()); // show all tasks
+          MessageUI.pressEnterToContinue();           // wait for a key press
           break;
         case 2:
-          addCleaningTask();
+          addCleaningTask(); // create a new cleaning task
           break;
         case 3:
-          advanceRoomStatus();
+          advanceRoomStatus(); // move a room to its next cleaning stage
           break;
         case 4:
-          searchTaskById();
+          searchTaskById(); // find one task by its ID
           break;
         case 5:
-          deleteTaskById();
+          deleteTaskById(); // remove a task after confirmation
           break;
         // ── Status Change Control (6-11) ───────────────────────────────
         case 6:
-          undoLastChange();
+          undoLastChange(); // reverse the latest status change
           break;
         case 7:
-          redoLastChange();
+          redoLastChange(); // re-apply the last undone change
           break;
         case 8:
-          rollbackMultipleChanges();
+          rollbackMultipleChanges(); // undo several changes at once
           break;
         case 9:
-          rollbackSpecificRoom();
+          rollbackSpecificRoom(); // undo one specific room's latest change
           break;
         case 10:
-          displayStatusHistory();
+          displayStatusHistory(); // show the whole change history
           break;
         case 11:
-          displayStackSummary();
+          displayStackSummary(); // show how many undo/redo entries exist
           break;
         // ── Operations & Reports (12-15) ───────────────────────────────
         case 12:
-          handleLateCheckout();
+          handleLateCheckout(); // late check-out -> reset room to Dirty
           break;
         case 13:
-          housekeepingUI.listRoomStatuses(getAllRooms());
+          housekeepingUI.listRoomStatuses(getAllRooms()); // room status board
           MessageUI.pressEnterToContinue();
           break;
         case 14:
-          generateTasksByStatusReport();
+          generateTasksByStatusReport(); // report 1 (console + PDF)
           break;
         case 15:
-          generateStaffWorkloadReport();
+          generateStaffWorkloadReport(); // report 2 (console + PDF)
           break;
         default:
-          MessageUI.displayInvalidChoiceMessage();
+          MessageUI.displayInvalidChoiceMessage(); // number outside 0-15
       }
-    } while (choice != 0);
+    } while (choice != 0); // keep looping until the user says 0 (exit)
   }
 
+  /**
+   * Option 2 - Create a brand new cleaning task.
+   * Flow:
+   *   1. Show which rooms are free / busy.
+   *   2. Ask for a room number.
+   *   3. Validate: room must exist, be DIRTY, and have no active task.
+   *   4. Auto-pick the staff member with the FEWEST active tasks.
+   *   5. Next unique task ID (T1001, T1002, ...).
+   *   6. Add the task to the ArrayList (task log).
+   *   7. Change the room from DIRTY to CLEANING_IN_PROGRESS.
+   *   8. Save everything and show the user the new task.
+   */
   private void addCleaningTask() {
-    // ── Show the occupied rooms so supervisor knows what's unavailable ───
+    // ── Show the occupied rooms so the supervisor knows what's unavailable ──
     housekeepingUI.displayActiveRooms(getActiveRoomSummary());
 
-    String roomNumber = housekeepingUI.inputRoomNumber();
-    Room room = findRoom(roomNumber);
+    String roomNumber = housekeepingUI.inputRoomNumber(); // e.g. R101
+    Room room = findRoom(roomNumber); // find the Room object
     if (room == null) {
       MessageUI.displayErrorMessage("Room " + roomNumber + " not found.");
       MessageUI.pressEnterToContinue();
-      return;
+      return; // stop - no such room
     }
 
-    // ── Guard: only DIRTY rooms with no existing task can receive a new task ──
-    String activeStaff = "";
-    String activeTask  = "";
+    // ── Guard: only DIRTY rooms with no existing task can get a task ──
+    // Search the task list BACKWARDS to find the newest task for this room.
+    String activeStaff = ""; // who is assigned (empty = nobody)
+    String activeTask  = ""; // which task (empty = no task)
     for (int i = taskList.getNumberOfEntries(); i >= 1; i--) {
       HousekeepingTask t = taskList.getEntry(i);
       if (t.getRoomNumber().equalsIgnoreCase(roomNumber)) {
         activeStaff = t.getAssignedStaff();
         activeTask  = t.getTaskId();
-        break;
+        break; // found the newest one - stop looking
       }
     }
 
+    // Refuse if: room is not Dirty, OR it already has an active task.
     if (room.getStatus() != RoomStatus.DIRTY || !activeTask.isEmpty()) {
       MessageUI.displayErrorMessage(
           "Room " + roomNumber + " already has an active assignment - status: "
@@ -157,140 +202,143 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // ── Auto-assign: pick staff with fewest active tasks ─────────────────
+    // ── Auto-assign the staff member with the fewest active tasks ─────────
+    // Example: HK001 has 2 tasks, HK002 has 0 -> HK002 is chosen.
     String staffId = autoAssignStaff();
-    housekeepingUI.displayAutoAssign(staffId);
+    housekeepingUI.displayAutoAssign(staffId); // tell the user who was picked
 
-    String taskType = housekeepingUI.inputTaskType();
-    taskCounter++;
-    String taskId = "T" + taskCounter;
+    String taskType = housekeepingUI.inputTaskType(); // what kind of cleaning
+    taskCounter++;                        // 1000 -> 1001, then 1002, ...
+    String taskId = "T" + taskCounter;    // build the new ID: e.g. "T1001"
 
+    // Build the task object and APPEND it to the sequential task log:
     HousekeepingTask task = new HousekeepingTask(
         taskId, roomNumber, staffId, taskType, room.getStatus(), LocalDateTime.now());
-    taskList.add(task);
+    taskList.add(task); // List ADT - goes to the end (creation order)
 
-    // Room is now occupied by a cleaning task — move it out of DIRTY so
-    // a duplicate task cannot be created for the same room until cleanup.
-    RoomStatus previousStatus = room.getStatus();
+    // The room is now "occupied", so move it out of DIRTY.
+    // This prevents a second task for the same room.
+    RoomStatus previousStatus = room.getStatus(); // remember old status
     if (previousStatus == RoomStatus.DIRTY) {
       recordStatusChange(roomNumber, previousStatus, RoomStatus.CLEANING_IN_PROGRESS,
-          "Cleaning task " + taskId + " assigned");
-      room.setStatus(RoomStatus.CLEANING_IN_PROGRESS);
-      syncTaskStatus(roomNumber, RoomStatus.CLEANING_IN_PROGRESS);
+          "Cleaning task " + taskId + " assigned"); // remember for undo
+      room.setStatus(RoomStatus.CLEANING_IN_PROGRESS); // update room
+      syncTaskStatus(roomNumber, RoomStatus.CLEANING_IN_PROGRESS); // update task too
     }
 
-    saveData();
-    housekeepingUI.displayTaskDetails(task);
+    saveData(); // persist all lists/stacks to disk
+    housekeepingUI.displayTaskDetails(task); // show the new task
     MessageUI.displaySuccessMessage("Cleaning task added to sequential log.");
     MessageUI.pressEnterToContinue();
   }
 
   /**
-   * Auto-assign: returns the staff ID with the fewest active (non-DIRTY room) tasks.
-   * If no staff history exists, falls back to a default pool HK001-HK005.
+   * Chooses the staff member with the LOWEST number of active tasks.
+   * "Active" means their room is not Dirty (it is being cleaned/inspected).
+   * Falls back to a default pool HK001-HK005 when there is no history.
    */
   private String autoAssignStaff() {
-    // Build workload: staffId -> count of tasks whose room is NOT DIRTY
+    // A small table: staffId -> how many active tasks they have.
     java.util.LinkedHashMap<String, Integer> workload = new java.util.LinkedHashMap<>();
-    // Seed default staff so they appear even with 0 tasks
+    // Add the default staff so everyone shows up even with 0 tasks.
     String[] defaultStaff = {"HK001", "HK002", "HK003", "HK004", "HK005"};
-    for (String s : defaultStaff) workload.put(s, 0);
+    for (String s : defaultStaff) workload.put(s, 0); // start everyone at 0
 
+    // Count how many ACTIVE tasks every staff member has.
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
-      HousekeepingTask t = taskList.getEntry(i);
-      Room r = findRoom(t.getRoomNumber());
+      HousekeepingTask t = taskList.getEntry(i); // one task
+      Room r = findRoom(t.getRoomNumber());      // that task's room
       if (r != null && r.getStatus() != RoomStatus.DIRTY) {
-        // This staff member has an active assignment
-        workload.merge(t.getAssignedStaff(), 1, Integer::sum);
+        workload.merge(t.getAssignedStaff(), 1, Integer::sum); // +1 task
       } else if (!workload.containsKey(t.getAssignedStaff())) {
-        workload.put(t.getAssignedStaff(), 0);
+        workload.put(t.getAssignedStaff(), 0); // staff seen, 0 tasks so far
       }
     }
 
-    // Pick staff with minimum active tasks (alphabetical tiebreak)
-    String best = null;
-    int min = Integer.MAX_VALUE;
+    // Pick the person with the fewest tasks (alphabetical order breaks ties).
+    String best = null;              // best staff member so far
+    int min = Integer.MAX_VALUE;     // their task count (start huge)
     for (java.util.Map.Entry<String, Integer> e : workload.entrySet()) {
       if (e.getValue() < min || (e.getValue() == min && e.getKey().compareTo(best) < 0)) {
-        min  = e.getValue();
-        best = e.getKey();
+        min  = e.getValue(); // better (lower) count found
+        best = e.getKey();   // remember that staff member
       }
     }
-    return best != null ? best : "HK001";
+    return best != null ? best : "HK001"; // safety net
   }
 
-
   /**
-   * Returns a formatted table of room availability for new task assignment.
-   * Lists all rooms with their availability status and reason.
-   * Uses \n (not %n) so lines never contain \r on Windows.
-   * Columns: TaskId(8) Room(8) Staff(8) Status(21) Reason
+   * Builds a display table of every room and whether a task can be assigned.
+   * Used ONLY for display - this method changes nothing.
    */
   private String getActiveRoomSummary() {
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(); // we build the text here
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
-      Room r = roomList.getEntry(i);
-      String taskId = "-";
-      String staff  = "-";
+      Room r = roomList.getEntry(i); // one room
+      String taskId = "-";   // shows a dash if no task
+      String staff  = "-";   // shows a dash if no staff
+      // Find the newest task for this room (search from the end):
       for (int j = taskList.getNumberOfEntries(); j >= 1; j--) {
         HousekeepingTask t = taskList.getEntry(j);
         if (t.getRoomNumber().equalsIgnoreCase(r.getRoomNumber())) {
           taskId = t.getTaskId();
           staff  = t.getAssignedStaff();
-          break;
+          break; // stop at the newest match
         }
       }
+      // Decide the availability reason:
       String reason;
       if (!taskId.equals("-")) {
-        reason = "ACTIVE TASK " + taskId;
+        reason = "ACTIVE TASK " + taskId;            // already has a task
       } else if (r.getStatus() == RoomStatus.DIRTY) {
-        reason = "AVAILABLE";
+        reason = "AVAILABLE";                         // can assign
       } else {
-        reason = "STATUS: " + r.getStatus().getLabel();
+        reason = "STATUS: " + r.getStatus().getLabel(); // cleaning etc.
       }
-      // \n only — no \r, so line.length() == visible chars exactly
+      // Add one neat row to the table text:
       sb.append(String.format("%-8s %-8s %-8s %-21s %s\n",
           taskId, r.getRoomNumber(), staff,
           r.getStatus().getLabel(), reason));
     }
-    return sb.toString();
+    return sb.toString(); // whole table as a String
   }
 
-  /** 4 — Search task log by Task ID (linear search). Shows list first. */
+  /** Option 4 - Search for a task by its ID using a simple LINEAR search. */
   private void searchTaskById() {
-    // Show the full task list first so user can see available IDs
+    // Show all tasks first so the user knows which IDs exist.
     housekeepingUI.listTaskQueue(getAllTasks());
-    String query = housekeepingUI.inputTaskId("Search");
-    HousekeepingTask found = null;
+    String query = housekeepingUI.inputTaskId("Search"); // e.g. T1002
+    HousekeepingTask found = null; // nothing found yet
+    // Linear search: check position 1, 2, 3... until a match.
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       HousekeepingTask t = taskList.getEntry(i);
       if (t.getTaskId().equalsIgnoreCase(query)) {
-        found = t;
-        break;
+        found = t; // match!
+        break;     // stop looking
       }
     }
     if (found == null) {
       MessageUI.displayErrorMessage("No task found with ID: " + query);
     } else {
-      housekeepingUI.displayTaskDetails(found);
+      housekeepingUI.displayTaskDetails(found); // show it
       MessageUI.displaySuccessMessage("Task found.");
     }
     MessageUI.pressEnterToContinue();
   }
 
-  /** 15 — Delete a task from the log by Task ID, with confirmation. */
+  /** Option 5 - Delete a task by its ID, but ONLY after the user confirms. */
   private void deleteTaskById() {
-    housekeepingUI.listTaskQueue(getAllTasks());
-    String query = housekeepingUI.inputTaskId("Delete");
+    housekeepingUI.listTaskQueue(getAllTasks()); // show what is available
+    String query = housekeepingUI.inputTaskId("Delete"); // ask for the ID
 
-    // Linear search for the task
-    int foundIndex = -1;
-    HousekeepingTask found = null;
+    // Linear search for the task to delete:
+    int foundIndex = -1;       // position in the list (-1 = not found)
+    HousekeepingTask found = null; // the task object itself
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       HousekeepingTask t = taskList.getEntry(i);
       if (t.getTaskId().equalsIgnoreCase(query)) {
-        foundIndex = i;
-        found = t;
+        foundIndex = i; // remember position
+        found = t;      // remember the object
         break;
       }
     }
@@ -301,40 +349,45 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Show what will be deleted and confirm
+    // Show what would be deleted, then ask for a YES/NO confirmation.
     housekeepingUI.displayTaskDetails(found);
     if (!housekeepingUI.confirmDelete("task " + found.getTaskId())) {
       MessageUI.displayInfoMessage("Delete cancelled.");
       MessageUI.pressEnterToContinue();
-      return;
+      return; // user said no
     }
 
-    String roomNumber = found.getRoomNumber();
-    taskList.remove(foundIndex);
+    String roomNumber = found.getRoomNumber(); // the room of the deleted task
+    taskList.remove(foundIndex);               // remove from list (ArrayList ADT)
 
-    // If no remaining tasks for this room, reset room back to DIRTY
+    // If the room now has NO tasks left, put it back to DIRTY so
+    // a new task can be created for it later.
     boolean hasOtherTasks = false;
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       if (taskList.getEntry(i).getRoomNumber().equalsIgnoreCase(roomNumber)) {
-        hasOtherTasks = true;
+        hasOtherTasks = true; // another task exists for this room
         break;
       }
     }
     if (!hasOtherTasks) {
       Room room = findRoom(roomNumber);
       if (room != null) {
-        room.setStatus(RoomStatus.DIRTY);
+        room.setStatus(RoomStatus.DIRTY); // back to dirty
       }
     }
 
-    saveData();
+    saveData(); // write the change to disk
     MessageUI.displaySuccessMessage(
-        "Task " + found.getTaskId() + " deleted from log.");
+        "Task " + found.getTaskId() + " deleted from the log.");
     MessageUI.pressEnterToContinue();
   }
 
+  /**
+   * Option 3 - Move a room to its NEXT cleaning stage.
+   * Flow: DIRTY -> CLEANING_IN_PROGRESS -> INSPECTED -> READY_FOR_CHECK_IN.
+   */
   private void advanceRoomStatus() {
-    // Show advanceable rooms before asking for room number
+    // First show which rooms can be advanced.
     housekeepingUI.displayAdvanceableRooms(getAdvanceableRoomSummary());
 
     String roomNumber = housekeepingUI.inputRoomNumber();
@@ -342,9 +395,10 @@ public class HousekeepingTaskLog {
     if (room == null) {
       MessageUI.displayErrorMessage("Room not found.");
       MessageUI.pressEnterToContinue();
-      return;
+      return; // no such room, stop
     }
 
+    // A room that is already READY cannot move forward anymore.
     if (!room.getStatus().canAdvance()) {
       MessageUI.displayErrorMessage(
           "Room " + roomNumber + " cannot be advanced - status: "
@@ -353,28 +407,32 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    housekeepingUI.displayStatusFlowGuide();
-    RoomStatus previousStatus = room.getStatus();
-    RoomStatus newStatus = previousStatus.nextStatus();
-    recordStatusChange(roomNumber, previousStatus, newStatus, "Status advanced by supervisor");
-    room.setStatus(newStatus);
-    syncTaskStatus(roomNumber, newStatus);
-    saveData();
+    housekeepingUI.displayStatusFlowGuide(); // show the allowed flow
+    RoomStatus previousStatus = room.getStatus(); // remember status BEFORE
+    RoomStatus newStatus = previousStatus.nextStatus(); // status AFTER
 
-    housekeepingUI.displayRoomDetails(room);
+    // Save this change to the undo stack so it can be undone later.
+    recordStatusChange(roomNumber, previousStatus, newStatus, "Status advanced by supervisor");
+    room.setStatus(newStatus);              // update the Room object
+    syncTaskStatus(roomNumber, newStatus); // update the matching task too
+    saveData();                            // save to disk
+
+    housekeepingUI.displayRoomDetails(room); // show the result
     MessageUI.displaySuccessMessage("Room status updated successfully.");
     MessageUI.pressEnterToContinue();
   }
 
   /**
-   * Returns a summary of rooms that CAN be advanced (not DIRTY, not READY_FOR_CHECK_IN).
-   * Uses \n only to avoid \r issues on Windows.
+   * Builds a display of the rooms that CAN be advanced
+   * (i.e. NOT Dirty and NOT Ready - they are in the middle stages).
+   * Display only - nothing is changed here.
    */
   private String getAdvanceableRoomSummary() {
     StringBuilder sb = new StringBuilder();
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
       Room r = roomList.getEntry(i);
       RoomStatus s = r.getStatus();
+      // Skip rooms at the very start or very end of the flow:
       if (s != RoomStatus.DIRTY && s != RoomStatus.READY_FOR_CHECK_IN) {
         String nextLabel = s.nextStatus() != null ? s.nextStatus().getLabel() : "-";
         sb.append(String.format("%-8s %-21s -> %s\n",
@@ -384,9 +442,9 @@ public class HousekeepingTaskLog {
     return sb.toString();
   }
 
-
-  /** Option 6 — Show the latest change, then confirm before undoing it. */
+  /** Option 6 - Undo the latest change, after showing the user what it is. */
   private void undoLastChange() {
+    // Nothing to undo? Nothing to do.
     if (undoStack.isEmpty()) {
       MessageUI.displayErrorMessage(
           "No housekeeping changes are currently available to undo.");
@@ -394,11 +452,11 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Step 1: Show the latest change that will be undone
+    // Step 1: look at the TOP of the stack (peek = view but do NOT remove).
     StatusChangeRecord latest = undoStack.peek();
     housekeepingUI.displayUndoLatest(latest);
 
-    // Step 2: Ask for confirmation before undoing
+    // Step 2: ask the user before changing anything.
     if (!housekeepingUI.confirmAction(
         "Are you sure you want to undo this change?")) {
       MessageUI.displayInfoMessage("Undo cancelled. No changes were made.");
@@ -406,20 +464,20 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Step 3: Perform the undo only after confirmation
+    // Step 3: POP (remove) the top record and reverse the change.
     StatusChangeRecord record = undoStack.pop();
     Room room = findRoom(record.getRoomNumber());
     if (room == null) {
       MessageUI.displayErrorMessage("Room no longer exists. Undo cancelled.");
-      undoStack.push(record);
+      undoStack.push(record); // put it back - cannot undo without the room
       MessageUI.pressEnterToContinue();
       return;
     }
 
-    room.setStatus(record.getPreviousStatus());
-    syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus());
-    redoStack.push(record);
-    saveData();
+    room.setStatus(record.getPreviousStatus());  // go back to the OLD status
+    syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus()); // keep in sync
+    redoStack.push(record); // remember it so it can be redone if wanted
+    saveData(); // save everything
 
     System.out.println("\nUndone: " + record);
     MessageUI.displaySuccessMessage("Latest change undone successfully.");
@@ -427,20 +485,20 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
-  /** Option 7: Show the latest undone change, then confirm before redoing it. */
+  /** Option 7 - Redo the last undone change, after showing it and confirming. */
   private void redoLastChange() {
-    if (redoStack.isEmpty()) {
+    if (redoStack.isEmpty()) {  // nothing to redo
       MessageUI.displayErrorMessage(
           "No changes are currently available for redo.");
       MessageUI.pressEnterToContinue();
       return;
     }
 
-    // Step 1 — Show the latest undone change that will be redone
+    // Step 1: show the change we would redone.
     StatusChangeRecord latest = redoStack.peek();
     housekeepingUI.displayRedoLatest(latest);
 
-    // Step 2 — Ask for confirmation before redoing
+    // Step 2: ask for confirmation.
     if (!housekeepingUI.confirmAction(
         "Are you sure you want to redo this change?")) {
       MessageUI.displayInfoMessage("Redo cancelled. No changes were made.");
@@ -448,7 +506,7 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Step 3 — Perform the redo only after confirmation
+    // Step 3: pop from redo, re-apply, push back to undo.
     StatusChangeRecord record = redoStack.pop();
     Room room = findRoom(record.getRoomNumber());
     if (room == null) {
@@ -457,40 +515,43 @@ public class HousekeepingTaskLog {
       MessageUI.pressEnterToContinue();
       return;
     }
-    room.setStatus(record.getNewStatus());
-    syncTaskStatus(record.getRoomNumber(), record.getNewStatus());
-    undoStack.push(record);
-    saveData();
+    room.setStatus(record.getNewStatus());   // re-apply the NEW status
+    syncTaskStatus(record.getRoomNumber(), record.getNewStatus()); // sync task
+    undoStack.push(record);                  // can be undone again now
+    saveData();                              // save everything
+
     MessageUI.displaySuccessMessage("Latest change redone successfully.");
     housekeepingUI.displayRoomDetails(room);
     MessageUI.pressEnterToContinue();
   }
 
+  /** Option 12 - Late checkout: force the room back to DIRTY. */
   private void handleLateCheckout() {
-    String roomNumber = housekeepingUI.inputRoomNumber();
+    String roomNumber = housekeepingUI.inputRoomNumber(); // e.g. R101
     Room room = findRoom(roomNumber);
     if (room == null) {
       MessageUI.displayErrorMessage("Room not found.");
-      return;
+      return; // stop - no such room
     }
 
-    RoomStatus previousStatus = room.getStatus();
-    if (previousStatus == RoomStatus.DIRTY) {
+    RoomStatus previousStatus = room.getStatus(); // remember old status
+    if (previousStatus == RoomStatus.DIRTY) {     // already dirty?
       MessageUI.displayInfoMessage("Room is already marked Dirty.");
       return;
     }
 
+    // Save the change for undo, then set the room to DIRTY:
     recordStatusChange(roomNumber, previousStatus, RoomStatus.DIRTY, "Late check-out requested");
     room.setStatus(RoomStatus.DIRTY);
-    syncTaskStatus(roomNumber, RoomStatus.DIRTY);
-    saveData();
+    syncTaskStatus(roomNumber, RoomStatus.DIRTY); // update the task too
+    saveData(); // save to disk
 
     housekeepingUI.displayRoomDetails(room);
     MessageUI.displaySuccessMessage("Late check-out handled. Room reset to Dirty.");
     MessageUI.pressEnterToContinue();
   }
 
-  /** Option 8: Show history, choose count, show changes, confirm, then undo. */
+  /** Option 8 - Undo several changes at once, in LIFO (newest-first) order. */
   private void rollbackMultipleChanges() {
     if (undoStack.isEmpty()) {
       MessageUI.displayErrorMessage("No status changes to roll back.");
@@ -498,11 +559,11 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Step 1 — Show the available undo history (newest at top)
+    // Step 1 - show the history we could undo (newest first).
     List<StatusChangeRecord> history = copyUndoHistory();
     housekeepingUI.displayUndoMultipleAvailable(history);
 
-    // Step 2 — Ask how many changes to undo (0 cancels)
+    // Step 2 - ask HOW MANY to undo (0 = cancel).
     int count = housekeepingUI.inputRollbackCount(undoStack.getSize());
     if (count == 0) {
       MessageUI.displayInfoMessage("Undo cancelled. No changes were made.");
@@ -510,16 +571,16 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Step 3 — Show exactly which changes will be undone
+    // Step 3 - collect exactly the first `count` changes to preview.
     List<StatusChangeRecord> changes = new java.util.ArrayList<>();
     for (int i = 0; i < count; i++) {
       if (i < history.size()) {
-        changes.add(history.get(i));
+        changes.add(history.get(i)); // those that will be undone
       }
     }
-    housekeepingUI.displayUndoMultipleConfirm(count, changes);
+    housekeepingUI.displayUndoMultipleConfirm(count, changes); // show them
 
-    // Step 4 — Ask for confirmation before performing the undo
+    // Step 4 - final confirmation.
     String plural = (count == 1) ? "change?" : "changes?";
     if (!housekeepingUI.confirmAction(
         "Are you sure you want to undo these " + plural)) {
@@ -528,41 +589,40 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Step 5 — Perform the undo only after confirmation
+    // Step 5 - pop `count` records off the TOP one by one, and reverse each.
     for (int i = 0; i < count; i++) {
-      StatusChangeRecord record = undoStack.pop();
+      StatusChangeRecord record = undoStack.pop(); // newest first
       Room room = findRoom(record.getRoomNumber());
       if (room != null) {
-        room.setStatus(record.getPreviousStatus());
+        room.setStatus(record.getPreviousStatus()); // go back
         syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus());
       }
-      redoStack.push(record);
+      redoStack.push(record); // keep for redo
     }
-    saveData();
+    saveData(); // save
     MessageUI.displaySuccessMessage(
         count + " latest status change(s) undone successfully in LIFO order.");
     MessageUI.pressEnterToContinue();
   }
 
-  /** Option 10 — Displays the complete change history from newest to oldest. */
+  /** Option 10 - Show the whole change history, newest to oldest. */
   private void displayStatusHistory() {
-    // Copy the undo stack from top (newest) to bottom (oldest) without modifying it.
-    List<StatusChangeRecord> history = copyUndoHistory();
-    housekeepingUI.displayChangeHistory(history);
+    List<StatusChangeRecord> history = copyUndoHistory(); // safe copy
+    housekeepingUI.displayChangeHistory(history);          // show it
     MessageUI.pressEnterToContinue();
   }
 
-  /** Option 11 — Shows the current undo/redo counts and their latest entries. */
+  /** Option 11 - Show how many undo/redo entries exist and the latest each. */
   private void displayStackSummary() {
     housekeepingUI.displayUndoRedoSummary(
-        undoStack.getSize(),
-        redoStack.getSize(),
-        undoStack.isEmpty() ? null : undoStack.peek(),
-        redoStack.isEmpty() ? null : redoStack.peek());
+        undoStack.getSize(),                    // how many undoable
+        redoStack.getSize(),                    // how many redoable
+        undoStack.isEmpty() ? null : undoStack.peek(), // latest undoable
+        redoStack.isEmpty() ? null : redoStack.peek()); // latest redoable
     MessageUI.pressEnterToContinue();
   }
 
-  /** Option 9 - Shows a room's latest change, confirms, then undoes it. */
+  /** Option 9 - Undo only the NEWEST change for ONE given room. */
   private void rollbackSpecificRoom() {
     String roomNumber = housekeepingUI.inputRoomNumber();
     Room room = findRoom(roomNumber);
@@ -572,18 +632,18 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Find the latest change for exactly this room, preserving stack order.
+    // Search for the newest change of this room, holding other records aside.
     StackInterface<StatusChangeRecord> temporaryStack = new LinkedStack<>();
-    StatusChangeRecord target = null;
+    StatusChangeRecord target = null; // the one we want to undo
     while (!undoStack.isEmpty()) {
       StatusChangeRecord record = undoStack.pop();
       if (record.getRoomNumber().equalsIgnoreCase(roomNumber)) {
-        target = record;
+        target = record; // found it
         break;
       }
-      temporaryStack.push(record);
+      temporaryStack.push(record); // not ours - set it aside
     }
-    // Restoring temporary entries preserves the original order of all other records.
+    // Put the untouched records BACK in their original order.
     while (!temporaryStack.isEmpty()) {
       undoStack.push(temporaryStack.pop());
     }
@@ -595,10 +655,8 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Step 1 — Show the latest change for this room
+    // Step 1 - show the change, then ask the user.
     housekeepingUI.displayRoomUndo(roomNumber, target);
-
-    // Step 2 — Ask for confirmation before undoing
     if (!housekeepingUI.confirmAction(
         "Are you sure you want to undo the latest change for Room "
             + roomNumber + "?")) {
@@ -607,10 +665,10 @@ public class HousekeepingTaskLog {
       return;
     }
 
-    // Step 3 — Undo only the latest change belonging to that room
+    // Step 2 - apply the undo.
     room.setStatus(target.getPreviousStatus());
     syncTaskStatus(roomNumber, target.getPreviousStatus());
-    redoStack.push(target);
+    redoStack.push(target); // remember for redo
     saveData();
     MessageUI.displaySuccessMessage(
         "Latest status change for " + roomNumber + " was rolled back.");
@@ -619,17 +677,19 @@ public class HousekeepingTaskLog {
   }
 
   /**
-   * Returns a copy of the undo stack from top (newest) to bottom (oldest).
-   * The original stack is not modified.
+   * Makes a safe copy of the undo stack from top (newest) to bottom (oldest).
+   * The original stack is left unchanged - we only "peek" through it.
    */
   private List<StatusChangeRecord> copyUndoHistory() {
     List<StatusChangeRecord> history = new java.util.ArrayList<>();
     StackInterface<StatusChangeRecord> temporaryStack = new LinkedStack<>();
+    // Pop every record off, add it to the list, and keep it aside.
     while (!undoStack.isEmpty()) {
       StatusChangeRecord record = undoStack.pop();
       history.add(record);
-      temporaryStack.push(record);
+      temporaryStack.push(record); // hold it
     }
+    // Put everything back exactly as it was.
     while (!temporaryStack.isEmpty()) {
       undoStack.push(temporaryStack.pop());
     }
@@ -638,8 +698,8 @@ public class HousekeepingTaskLog {
 
   // ═══════════════════════════════════════════════════════════════════════
   // REPORT 1 — Housekeeping Operational Summary
-  //   Algorithm: Binary search (date range) + Bubble sort (status priority)
-  //              Multi-criteria filter (date + status + room type)
+  //   Algorithms demonstrated: BINARY SEARCH (date range), BUBBLE SORT
+  //   (status priority), MULTI-CRITERIA FILTER (date + status + room type).
   // ═══════════════════════════════════════════════════════════════════════
   private void generateTasksByStatusReport() {
     housekeepingUI.displayReportIntro(
@@ -647,68 +707,71 @@ public class HousekeepingTaskLog {
         "Combines binary search on sorted tasks and bubble sort by status priority.\n"
         + "  Filters tasks by date range, status, and room type for targeted analysis.");
 
-    // ── Step 1: Collect filter criteria from supervisor ───────────────────
+    // ── Step 1: Get the filter choices from the supervisor ────────────────
     String[] filters = housekeepingUI.inputReport1Filters();
     String fromDateStr  = filters[0];   // "yyyy-MM-dd" or empty
     String toDateStr    = filters[1];   // "yyyy-MM-dd" or empty
-    String statusFilter = filters[2];   // RoomStatus name or "ALL"
-    String roomTypeFilter = filters[3]; // "Standard","Deluxe","Suite" or "ALL"
+    String statusFilter = filters[2];   // RoomStatus name, or "ALL"
+    String roomTypeFilter = filters[3]; // "Standard"/"Deluxe"/"Suite"/"ALL"
 
+    // Convert the date strings into LocalDate objects (null = no limit).
     LocalDate fromDate = fromDateStr.isEmpty() ? null : LocalDate.parse(fromDateStr);
     LocalDate toDate   = toDateStr.isEmpty()   ? null : LocalDate.parse(toDateStr);
 
-    // ── Step 2: Sort all tasks by loggedAt (bubble sort) ─────────────────
-    //           Required so binary search can work on a sorted array.
-    int n = taskList.getNumberOfEntries();
+    // ── Step 2: Bubble-sort ALL tasks by date (ascending) ───────────────
+    //          Sorting is REQUIRED before we can use binary search.
+    int n = taskList.getNumberOfEntries();           // how many tasks
     HousekeepingTask[] sorted = new HousekeepingTask[n];
+    // Copy the task list into an array so we can sort it.
     for (int i = 0; i < n; i++) sorted[i] = taskList.getEntry(i + 1);
 
-    // Bubble sort ascending by loggedAt
+    // Bubble sort: repeatedly swap neighbours that are out of order.
     for (int i = 0; i < n - 1; i++) {
       for (int j = 0; j < n - i - 1; j++) {
         if (sorted[j].getLoggedAt().isAfter(sorted[j + 1].getLoggedAt())) {
-          HousekeepingTask tmp = sorted[j];
+          HousekeepingTask tmp = sorted[j];      // swap
           sorted[j] = sorted[j + 1];
           sorted[j + 1] = tmp;
         }
       }
     }
 
-    // ── Step 3: Binary search to find date range boundaries ───────────────
-    //           Locate the first index >= fromDate and last index <= toDate.
+    // ── Step 3: Binary search for the date-range boundaries ──────────────
+    //          This finds the first and last index of the used date range.
+    //          Rather than scanning the whole list, we "jump" left/right.
     int lo = 0, hi = n - 1;
     int startIdx = 0, endIdx = n - 1;
 
     if (fromDate != null) {
-      // Binary search: find leftmost task with loggedAt >= fromDate
+      // Find the leftmost task whose date is >= fromDate.
       lo = 0; hi = n - 1; startIdx = n;
       while (lo <= hi) {
-        int mid = (lo + hi) / 2;
+        int mid = (lo + hi) / 2; // middle position
         if (!sorted[mid].getLoggedAt().toLocalDate().isBefore(fromDate)) {
-          startIdx = mid; hi = mid - 1;
+          startIdx = mid; hi = mid - 1; // look in the left half next
         } else {
-          lo = mid + 1;
+          lo = mid + 1;                 // look in the right half
         }
       }
     }
 
     if (toDate != null) {
-      // Binary search: find rightmost task with loggedAt <= toDate
+      // Find the rightmost task whose date is <= toDate.
       lo = 0; hi = n - 1; endIdx = -1;
       while (lo <= hi) {
         int mid = (lo + hi) / 2;
         if (!sorted[mid].getLoggedAt().toLocalDate().isAfter(toDate)) {
-          endIdx = mid; lo = mid + 1;
+          endIdx = mid; lo = mid + 1; // look in the right half
         } else {
-          hi = mid - 1;
+          hi = mid - 1;               // look in the left half
         }
       }
     }
 
-    // ── Step 4: Multi-criteria filter within the date range ───────────────
+    // ── Step 4: Multi-criteria filter within that date range ─────────────
     java.util.List<HousekeepingTask> filtered = new java.util.ArrayList<>();
     for (int i = startIdx; i <= endIdx && i < n; i++) {
-      HousekeepingTask t = sorted[i];
+      HousekeepingTask t = sorted[i]; // one task in range
       boolean passStatus   = statusFilter.equals("ALL")
           || t.getCurrentStatus().name().equals(statusFilter);
       boolean passRoomType = roomTypeFilter.equals("ALL");
@@ -716,50 +779,49 @@ public class HousekeepingTaskLog {
         Room room = findRoom(t.getRoomNumber());
         passRoomType = room != null && room.getRoomType().equalsIgnoreCase(roomTypeFilter);
       }
-      if (passStatus && passRoomType) filtered.add(t);
+      if (passStatus && passRoomType) filtered.add(t); // both match
     }
 
-    // ── Step 5: Bubble sort the filtered tasks by status priority ─────────
-    //           Priority: DIRTY > CLEANING_IN_PROGRESS > INSPECTED > READY
+    // ── Step 5: Bubble sort the FILTERED tasks by status urgency ─────────
+    //          Priority: DIRTY > CLEANING > INSPECTED > READY.
     int fn = filtered.size();
     for (int i = 0; i < fn - 1; i++) {
       for (int j = 0; j < fn - i - 1; j++) {
         if (filtered.get(j).getCurrentStatus().ordinal()
             > filtered.get(j + 1).getCurrentStatus().ordinal()) {
-          HousekeepingTask tmp = filtered.get(j);
+          HousekeepingTask tmp = filtered.get(j); // swap
           filtered.set(j, filtered.get(j + 1));
           filtered.set(j + 1, tmp);
         }
       }
     }
 
-    // ── Step 6: Binary search for Task ID or Room Number ─────────────────
-    //           Optional lookup on the filtered results using binary search.
-    int searchOption = housekeepingUI.inputReport1SearchOption();
-    String searchResult = "";
+    // ── Step 6: Optional binary search for a specific task or room ───────
+    int searchOption = housekeepingUI.inputReport1SearchOption(); // 0/1/2
+    String searchResult = ""; // message to append at the end
     if (searchOption == 1) {
-      // Binary search by Task ID — requires sorting by Task ID first.
+      // Search by Task ID - binary search needs the list SORTED by ID.
       String searchId = housekeepingUI.inputSearchTaskId();
       HousekeepingTask[] byId = filtered.toArray(new HousekeepingTask[0]);
-      // Bubble sort ascending by Task ID
+      // Bubble sort ascending by Task ID:
       for (int i = 0; i < byId.length - 1; i++) {
         for (int j = 0; j < byId.length - i - 1; j++) {
           if (byId[j].getTaskId().compareToIgnoreCase(byId[j + 1].getTaskId()) > 0) {
-            HousekeepingTask tmp = byId[j];
+            HousekeepingTask tmp = byId[j]; // swap
             byId[j] = byId[j + 1];
             byId[j + 1] = tmp;
           }
         }
       }
-      // Binary search for the Task ID
+      // Binary search for the Task ID:
       int lo1 = 0, hi1 = byId.length - 1;
       HousekeepingTask found1 = null;
       while (lo1 <= hi1) {
         int mid = (lo1 + hi1) / 2;
         int cmp = byId[mid].getTaskId().compareToIgnoreCase(searchId);
-        if (cmp == 0) { found1 = byId[mid]; break; }
-        else if (cmp < 0) lo1 = mid + 1;
-        else hi1 = mid - 1;
+        if (cmp == 0) { found1 = byId[mid]; break; }       // found
+        else if (cmp < 0) lo1 = mid + 1;                    // go right
+        else hi1 = mid - 1;                                 // go left
       }
       if (found1 != null) {
         searchResult = "  [BINARY SEARCH] Task " + searchId + " FOUND -> Room: "
@@ -769,28 +831,28 @@ public class HousekeepingTaskLog {
         searchResult = "  [BINARY SEARCH] Task " + searchId + " NOT FOUND in filtered results.";
       }
     } else if (searchOption == 2) {
-      // Binary search by Room Number — requires sorting by Room Number first.
+      // Binary search by Room Number - same idea, sort by room first.
       String searchRoom = housekeepingUI.inputSearchRoomNumber();
       HousekeepingTask[] byRoom = filtered.toArray(new HousekeepingTask[0]);
-      // Bubble sort ascending by Room Number
+      // Bubble sort ascending by Room Number:
       for (int i = 0; i < byRoom.length - 1; i++) {
         for (int j = 0; j < byRoom.length - i - 1; j++) {
           if (byRoom[j].getRoomNumber().compareToIgnoreCase(byRoom[j + 1].getRoomNumber()) > 0) {
-            HousekeepingTask tmp = byRoom[j];
+            HousekeepingTask tmp = byRoom[j]; // swap
             byRoom[j] = byRoom[j + 1];
             byRoom[j + 1] = tmp;
           }
         }
       }
-      // Binary search for the Room Number
+      // Binary search for the Room Number:
       int lo2 = 0, hi2 = byRoom.length - 1;
       HousekeepingTask found2 = null;
       while (lo2 <= hi2) {
         int mid = (lo2 + hi2) / 2;
         int cmp = byRoom[mid].getRoomNumber().compareToIgnoreCase(searchRoom);
-        if (cmp == 0) { found2 = byRoom[mid]; break; }
-        else if (cmp < 0) lo2 = mid + 1;
-        else hi2 = mid - 1;
+        if (cmp == 0) { found2 = byRoom[mid]; break; }       // found
+        else if (cmp < 0) lo2 = mid + 1;                     // go right
+        else hi2 = mid - 1;                                  // go left
       }
       if (found2 != null) {
         searchResult = "  [BINARY SEARCH] Room " + searchRoom + " FOUND -> Task: "
@@ -801,13 +863,13 @@ public class HousekeepingTaskLog {
       }
     }
 
-    // ── Step 7: Build console report ─────────────────────────────────────
+    // ── Step 7: Build the report text ──────────────────────────────────
     StringBuilder consoleReport = new StringBuilder();
     consoleReport.append("  " + repeatChar('-', 66) + "\n");
     consoleReport.append("  HOUSEKEEPING OPERATIONAL SUMMARY\n");
     consoleReport.append("  " + repeatChar('-', 66) + "\n\n");
 
-    // Report Overview
+    // Report Overview (which filters were used)
     consoleReport.append("  REPORT OVERVIEW\n");
     consoleReport.append("  " + repeatChar('-', 40) + "\n");
     consoleReport.append(String.format("  Date Range      : %s to %s%n",
@@ -818,11 +880,12 @@ public class HousekeepingTaskLog {
     consoleReport.append(String.format("  Tasks Matched   : %d%n", filtered.size()));
     consoleReport.append("\n");
 
-    // Key Performance Indicators
+    // Key Performance Indicators - count tasks by the status label.
     Map<String,Integer> statusCount  = new LinkedHashMap<>();
     Map<String,Integer> roomTypeCount = new LinkedHashMap<>();
+    // Start every status count at 0.
     for (RoomStatus rs : RoomStatus.values()) statusCount.put(rs.getLabel(), 0);
-
+    // For every filtered task, count its status and its room type.
     for (HousekeepingTask t : filtered) {
       Room room = findRoom(t.getRoomNumber());
       String rType = room != null ? room.getRoomType() : "Unknown";
@@ -830,6 +893,7 @@ public class HousekeepingTaskLog {
       roomTypeCount.merge(rType, 1, Integer::sum);
     }
 
+    // Print the status counts as KPI rows.
     consoleReport.append("  KEY PERFORMANCE INDICATORS\n");
     consoleReport.append("  " + repeatChar('-', 40) + "\n");
     for (Map.Entry<String,Integer> e : statusCount.entrySet()) {
@@ -849,7 +913,7 @@ public class HousekeepingTaskLog {
     }
     consoleReport.append("\n");
 
-    // Detailed Task List
+    // Detailed Task List (already sorted by status priority in step 5)
     consoleReport.append("  DETAILED TASK LIST (Sorted by Status Priority)\n");
     consoleReport.append("  " + repeatChar('-', 66) + "\n");
     consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
@@ -867,12 +931,12 @@ public class HousekeepingTaskLog {
     }
     consoleReport.append("\n");
 
-    // Binary search result (if any)
+    // Append the binary-search result, if one was done.
     if (!searchResult.isEmpty()) {
       consoleReport.append(searchResult + "\n\n");
     }
 
-    // Management Insights
+    // Management insights - quick numbers for the manager
     long dirty    = statusCount.getOrDefault("Dirty", 0);
     long cleaning = statusCount.getOrDefault("Cleaning In Progress", 0);
     long inspected= statusCount.getOrDefault("Inspected", 0);
@@ -886,10 +950,11 @@ public class HousekeepingTaskLog {
     consoleReport.append(String.format("  Rooms under inspection             : %d%n", inspected));
     consoleReport.append("\n");
 
+    // Show the report on the console screen.
     housekeepingUI.displayReport("REPORT 1: HOUSEKEEPING OPERATIONAL SUMMARY",
         consoleReport.toString());
 
-    // ── Step 8: Export to PDF ─────────────────────────────────────────────
+    // ── Step 8: Offer to export this report to PDF ───────────────────────
     if (housekeepingUI.confirmPdfExport()) {
       exportReport1ToPdf(filtered, statusCount, roomTypeCount,
           fromDateStr, toDateStr, statusFilter, roomTypeFilter);
@@ -897,20 +962,23 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
+  /** Exports Report 1 to a professional PDF using PdfReportEngine. */
   private void exportReport1ToPdf(java.util.List<HousekeepingTask> filtered,
       Map<String,Integer> statusCount, Map<String,Integer> roomTypeCount,
       String fromDate, String toDate, String statusFilter, String roomTypeFilter) {
-    PdfReportEngine pdf = null;
+    PdfReportEngine pdf = null; // will manage the PDF
     try {
+      // Create the output folder if it does not exist.
       String outDir = "output" + File.separator + "pdf";
-      new File(outDir).mkdirs();
+      new File(outDir).mkdirs(); // make the folder if missing
+      // Unique timestamp for the filename, e.g. 20260823_140500.
       String timestamp = LocalDateTime.now()
           .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
       String outPath = outDir + File.separator + "housekeeping_summary_" + timestamp + ".pdf";
 
-      pdf = new PdfReportEngine();
+      pdf = new PdfReportEngine(); // create the PDF engine
 
-      // Cover page
+      // Cover page with the title and period.
       String period = (fromDate.isEmpty() ? "All dates" : fromDate)
           + " to " + (toDate.isEmpty() ? "All dates" : toDate);
       pdf.addCoverPage(
@@ -918,7 +986,7 @@ public class HousekeepingTaskLog {
           "Tasks by Status | Room Type Distribution | Filtered Analysis",
           period, "Housekeeping Supervisor");
 
-      // Content page 1 — KPIs + bar chart
+      // Page 1 - the overview + KPI cards + charts.
       pdf.beginContentPage();
       pdf.addSectionHeading("Report Overview");
       pdf.addKpiRow("Report Type",   "Housekeeping Operational Summary", null);
@@ -929,7 +997,7 @@ public class HousekeepingTaskLog {
           filtered.isEmpty() ? PdfReportEngine.DANGER : PdfReportEngine.SUCCESS);
       pdf.addDivider();
 
-      // KPI cards
+      // KPI cards (quick colored glance).
       long dirty    = statusCount.getOrDefault("Dirty", 0);
       long cleaning = statusCount.getOrDefault("Cleaning In Progress", 0);
       long inspected= statusCount.getOrDefault("Inspected", 0);
@@ -943,13 +1011,13 @@ public class HousekeepingTaskLog {
                        PdfReportEngine.ACCENT_BLUE, PdfReportEngine.SUCCESS });
       pdf.addSpace(10);
 
-      // Bar chart — tasks per status
+      // Bar chart: number of tasks per status.
       String[] sLabels = statusCount.keySet().toArray(new String[0]);
       double[] sValues = statusCount.values().stream()
           .mapToDouble(Integer::doubleValue).toArray();
       pdf.addBarChart("Tasks by Status", sLabels, sValues, "Number of Tasks");
 
-      // Donut chart — room type distribution
+      // Donut chart: tasks by room type.
       if (!roomTypeCount.isEmpty()) {
         String[] rtLabels = roomTypeCount.keySet().toArray(new String[0]);
         double[] rtValues = roomTypeCount.values().stream()
@@ -958,7 +1026,7 @@ public class HousekeepingTaskLog {
         pdf.addDonutChart("Tasks by Room Type", rtLabels, rtValues);
       }
 
-      // Detailed data table
+      // Page 2 - the detailed table of matching tasks.
       pdf.beginContentPage();
       pdf.addSectionHeading("Detailed Task List (Sorted by Status Priority)");
       pdf.addBodyText(
@@ -970,6 +1038,7 @@ public class HousekeepingTaskLog {
       float[] colW = {60, 50, 60, 90, 110, 120};
       java.util.List<String[]> rows = new java.util.ArrayList<>();
       DateTimeFormatter dtFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+      // Turn each task into a String[] row for the PDF table.
       for (HousekeepingTask t : filtered) {
         rows.add(new String[]{
             t.getTaskId(), t.getRoomNumber(), t.getAssignedStaff(),
@@ -977,30 +1046,30 @@ public class HousekeepingTaskLog {
             t.getLoggedAt().format(dtFmt)
         });
       }
+      // If no rows, print a friendly note instead of an empty table.
       if (rows.isEmpty()) {
         pdf.addBodyText("  No tasks match the selected filter criteria.", 10);
       } else {
         pdf.addTable(headers, rows, colW);
       }
 
-      pdf.save(outPath);
-      housekeepingUI.displayPdfExportSuccess(outPath);
+      pdf.save(outPath); // save the PDF to disk
+      housekeepingUI.displayPdfExportSuccess(outPath); // tell the user where
     } catch (IOException ex) {
       MessageUI.displayErrorMessage("PDF export failed: " + ex.getMessage());
     } finally {
       try {
-        if (pdf != null) pdf.close();
+        if (pdf != null) pdf.close(); // always close the PDF engine
       } catch (IOException ignored) {
-        // Best-effort cleanup — the error message above is more useful.
+        // Cleanup errors are not important - the main error was already shown.
       }
     }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
   // REPORT 2 — Staff Workload & Performance Analysis
-  //   Algorithm: Linear search (collect unique staff IDs + filter by prefix)
-  //              Insertion sort (workload descending)
-  //              Multi-criteria filter (staff prefix + status completion rate)
+  //   Algorithms used: LINEAR SEARCH (unique staff), INSERTION SORT
+  //   (workload ranking), MULTI-CRITERIA FILTER (prefix + threshold).
   // ═══════════════════════════════════════════════════════════════════════
   private void generateStaffWorkloadReport() {
     housekeepingUI.displayReportIntro(
@@ -1008,53 +1077,56 @@ public class HousekeepingTaskLog {
         "Uses insertion sort to rank staff by total workload (descending).\n"
         + "  Filters by staff ID prefix and completion threshold for targeted review.");
 
-    // ── Step 1: Collect filter criteria ───────────────────────────────────
+    // ── Step 1: Ask for the report filters ───────────────────────────────
     String[] filters = housekeepingUI.inputReport2Filters();
-    String staffPrefix       = filters[0]; // e.g. "HK" or empty for all
-    int    minTasksThreshold = Integer.parseInt(filters[1]); // minimum tasks
+    String staffPrefix       = filters[0]; // e.g. "HK" or empty for everyone
+    int    minTasksThreshold = Integer.parseInt(filters[1]); // e.g. 2
 
-    // ── Step 2: Linear search — collect unique staff IDs matching prefix ──
+    // ── Step 2: Linear search - collect UNIQUE staff IDs matching the prefix ──
     ListInterface<String> staffIds = new ArrayList<>();
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       String staffId = taskList.getEntry(i).getAssignedStaff();
       boolean matchPrefix = staffPrefix.isEmpty()
           || staffId.toUpperCase().startsWith(staffPrefix.toUpperCase());
+      // Only add the staff member if they were not seen before.
       if (matchPrefix && !staffIds.contains(staffId)) {
         staffIds.add(staffId);
       }
     }
 
-    // ── Step 3: Insertion sort — rank staff by total tasks (descending) ───
-    int m = staffIds.getNumberOfEntries();
-    String[] staffArr = new String[m];
+    // ── Step 3: Insertion sort - rank staff by task count (descending) ───
+    int m = staffIds.getNumberOfEntries(); // how many staff we found
+    String[] staffArr = new String[m];     // copy to an array to sort
     for (int i = 0; i < m; i++) staffArr[i] = staffIds.getEntry(i + 1);
 
+    // Insertion sort - pick up each "card" and place it in the right spot.
     for (int i = 1; i < m; i++) {
-      String key = staffArr[i];
-      int keyTasks = countTasksForStaff(key);
+      String key = staffArr[i];               // the current staff card
+      int keyTasks = countTasksForStaff(key); // how many tasks they have
       int j = i - 1;
+      // Shift staff with fewer tasks one step to the right.
       while (j >= 0 && countTasksForStaff(staffArr[j]) < keyTasks) {
         staffArr[j + 1] = staffArr[j];
         j--;
       }
-      staffArr[j + 1] = key;
+      staffArr[j + 1] = key; // insert the card in position
     }
 
-    // ── Step 4: Multi-criteria filter — apply minimum tasks threshold ──────
+    // ── Step 4: Multi-criteria filter - keep only staff meeting threshold ──
     java.util.List<String> qualifiedStaff = new java.util.ArrayList<>();
     for (String s : staffArr) {
       if (countTasksForStaff(s) >= minTasksThreshold) {
-        qualifiedStaff.add(s);
+        qualifiedStaff.add(s); // this staff member qualifies
       }
     }
 
-    // ── Step 5: Build console report ──────────────────────────────────────
+    // ── Step 5: Build the report text ────────────────────────────────────
     StringBuilder consoleReport = new StringBuilder();
     consoleReport.append("  " + repeatChar('-', 66) + "\n");
     consoleReport.append("  STAFF WORKLOAD & PERFORMANCE ANALYSIS\n");
     consoleReport.append("  " + repeatChar('-', 66) + "\n\n");
 
-    // Report Overview
+    // Overview
     consoleReport.append("  REPORT OVERVIEW\n");
     consoleReport.append("  " + repeatChar('-', 40) + "\n");
     consoleReport.append(String.format("  Staff Prefix Filter : %s%n",
@@ -1063,13 +1135,13 @@ public class HousekeepingTaskLog {
     consoleReport.append(String.format("  Staff Evaluated     : %d%n", qualifiedStaff.size()));
     consoleReport.append("\n");
 
-    // Key Performance Indicators
+    // Key Performance Indicators (totals) - sum across all qualified staff.
     int totalTasks = 0, totalPending = 0;
     for (String staffId : qualifiedStaff) {
       totalTasks += countTasksForStaff(staffId);
       totalPending += countPendingTasksForStaff(staffId);
     }
-    int totalCompleted = totalTasks - totalPending;
+    int totalCompleted = totalTasks - totalPending;   // done = total - pending
     int pct = totalTasks > 0 ? (totalCompleted * 100 / totalTasks) : 0;
 
     consoleReport.append("  KEY PERFORMANCE INDICATORS\n");
@@ -1080,7 +1152,7 @@ public class HousekeepingTaskLog {
     consoleReport.append(String.format("  %-24s %4d%%%n", "Completion Rate", pct));
     consoleReport.append("\n");
 
-    // Staff Workload Comparison
+    // Comparison table - each staff member's numbers + a flag.
     consoleReport.append("  STAFF WORKLOAD COMPARISON (Insertion Sort - Highest First)\n");
     consoleReport.append("  " + repeatChar('-', 66) + "\n");
     if (qualifiedStaff.isEmpty()) {
@@ -1097,13 +1169,13 @@ public class HousekeepingTaskLog {
     }
     consoleReport.append("\n");
 
-    // Staff Performance Ranking
+    // Ranked table - 1, 2, 3... by workload.
     consoleReport.append("  STAFF PERFORMANCE RANKING\n");
     consoleReport.append("  " + repeatChar('-', 66) + "\n");
     consoleReport.append(String.format("  %-5s %-12s %-12s %-8s %-10s %s%n",
         "Rank", "Staff ID", "Total Tasks", "Pending", "Completed", "Status"));
     consoleReport.append("  " + repeatChar('-', 66) + "\n");
-    int rank = 1;
+    int rank = 1; // start number one
     for (String staffId : qualifiedStaff) {
       int tasks = countTasksForStaff(staffId);
       int pending = countPendingTasksForStaff(staffId);
@@ -1117,11 +1189,11 @@ public class HousekeepingTaskLog {
     }
     consoleReport.append("\n");
 
-    // Management Recommendations
+    // Management recommendations - based on the counts.
     long overloaded = qualifiedStaff.stream()
-        .filter(s -> countTasksForStaff(s) > 3).count();
+        .filter(s -> countTasksForStaff(s) > 3).count(); // too many tasks
     long light = qualifiedStaff.stream()
-        .filter(s -> countTasksForStaff(s) == 1).count();
+        .filter(s -> countTasksForStaff(s) == 1).count(); // too few tasks
     consoleReport.append("  MANAGEMENT RECOMMENDATIONS\n");
     consoleReport.append("  " + repeatChar('-', 40) + "\n");
     consoleReport.append(overloaded > 0
@@ -1136,10 +1208,11 @@ public class HousekeepingTaskLog {
         : "  All tasks are completed. Excellent housekeeping performance!\n");
     consoleReport.append("\n");
 
+    // Show the report on the screen.
     housekeepingUI.displayReport("REPORT 2: STAFF WORKLOAD & PERFORMANCE ANALYSIS",
         consoleReport.toString());
 
-    // ── Step 6: Export to PDF ─────────────────────────────────────────────
+    // ── Step 6: Offer to export to PDF ────────────────────────────────────
     if (housekeepingUI.confirmPdfExport()) {
       exportReport2ToPdf(qualifiedStaff, staffPrefix, minTasksThreshold,
           totalTasks, totalPending);
@@ -1147,10 +1220,12 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
+  /** Exports Report 2 to a PDF. */
   private void exportReport2ToPdf(java.util.List<String> qualifiedStaff,
       String staffPrefix, int minTasks, int totalTasks, int totalPending) {
     PdfReportEngine pdf = null;
     try {
+      // Create the output folder and a unique filename.
       String outDir = "output" + File.separator + "pdf";
       new File(outDir).mkdirs();
       String timestamp = LocalDateTime.now()
@@ -1165,7 +1240,7 @@ public class HousekeepingTaskLog {
           "Insertion Sort Ranking | Pending vs Completed | Load Status Flags",
           "Current business cycle", "Housekeeping Supervisor");
 
-      // Content page 1 — summary + horizontal bar chart
+      // Page 1 - overview + KPI cards.
       pdf.beginContentPage();
       pdf.addSectionHeading("Report Overview");
       pdf.addKpiRow("Report Type",       "Staff Workload & Performance Analysis", null);
@@ -1178,7 +1253,7 @@ public class HousekeepingTaskLog {
           totalPending > 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
       pdf.addDivider();
 
-      // KPI cards
+      // KPI cards.
       pdf.addSectionHeading("Key Performance Indicators");
       int totalCompleted = totalTasks - totalPending;
       int pct = totalTasks > 0 ? (totalCompleted * 100 / totalTasks) : 0;
@@ -1192,7 +1267,7 @@ public class HousekeepingTaskLog {
                        PdfReportEngine.WARNING, PdfReportEngine.SUCCESS });
       pdf.addSpace(10);
 
-      // Horizontal bar chart — total vs pending per staff
+      // Horizontal bar chart - total vs pending per staff.
       if (!qualifiedStaff.isEmpty()) {
         String[] labels = qualifiedStaff.toArray(new String[0]);
         double[] totals  = new double[labels.length];
@@ -1201,7 +1276,7 @@ public class HousekeepingTaskLog {
           totals[i]  = countTasksForStaff(labels[i]);
           pending[i] = countPendingTasksForStaff(labels[i]);
         }
-        pdf.addSectionHeading("Staff Workload Comparison (Insertion Sort — Highest First)");
+        pdf.addSectionHeading("Staff Workload Comparison (Insertion Sort - Highest First)");
         pdf.addBodyText(
             "Staff ranked by total tasks using Insertion Sort (descending). "
             + "Blue = Total Tasks, Orange = Pending Tasks.", 9);
@@ -1211,7 +1286,7 @@ public class HousekeepingTaskLog {
             new String[]{"Total Tasks", "Pending Tasks"});
       }
 
-      // Detailed ranked table
+      // Page 2 - ranked table.
       pdf.beginContentPage();
       pdf.addSectionHeading("Staff Performance Ranking");
       pdf.addBodyText(
@@ -1219,7 +1294,7 @@ public class HousekeepingTaskLog {
           + "[OPTIMAL] 2-3 tasks, [LIGHT] 1 task.", 9);
       pdf.addSpace(6);
 
-      String[] headers = {"Rank","Staff ID","Total Tasks","Pending","Completed","Load Status"};
+      String[] headers = {"Rank","Staff ID","Total Tasks","Pending","Completed","Status"};
       float[] colW = {35, 70, 70, 60, 70, 90};
       java.util.List<String[]> rows = new java.util.ArrayList<>();
       int rank = 1;
@@ -1234,13 +1309,14 @@ public class HousekeepingTaskLog {
             String.valueOf(completedN), flag
         });
       }
+      // Empty-state text vs the table:
       if (rows.isEmpty()) {
         pdf.addBodyText("No staff matched the filter criteria.", 10);
       } else {
         pdf.addTable(headers, rows, colW);
       }
 
-      // Recommendations section
+      // Recommendations page section.
       pdf.addSpace(12);
       pdf.addSectionHeading("Management Recommendations");
       long overloaded = qualifiedStaff.stream()
@@ -1267,19 +1343,21 @@ public class HousekeepingTaskLog {
       MessageUI.displayErrorMessage("PDF export failed: " + ex.getMessage());
     } finally {
       try {
-        if (pdf != null) pdf.close();
+        if (pdf != null) pdf.close(); // always close
       } catch (IOException ignored) {
-        // Best-effort cleanup — the error message above is more useful.
+        // Not important - main error message already shown
       }
     }
   }
 
+  /** Sorts staff by workload using a bubble sort (helper, not currently used in the main). */
   private void sortStaffByWorkload(ListInterface<String> staffIds) {
     int n = staffIds.getNumberOfEntries();
     for (int i = 1; i < n; i++) {
       for (int j = 1; j <= n - i; j++) {
         String current = staffIds.getEntry(j);
         String next = staffIds.getEntry(j + 1);
+        // Swap if the current has FEWER tasks than the next (goes down).
         if (countTasksForStaff(current) < countTasksForStaff(next)) {
           staffIds.replace(j, next);
           staffIds.replace(j + 1, current);
@@ -1288,30 +1366,34 @@ public class HousekeepingTaskLog {
     }
   }
 
+  /** Counts how many tasks currently have a given status (e.g. Dirty). */
   private int countTasksByStatus(RoomStatus status) {
     int count = 0;
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       if (taskList.getEntry(i).getCurrentStatus() == status) {
-        count++;
+        count++; // found one matching task
       }
     }
     return count;
   }
 
+  /** Counts how many tasks a given staff member has (all of them). */
   private int countTasksForStaff(String staffId) {
     int count = 0;
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       if (taskList.getEntry(i).getAssignedStaff().equals(staffId)) {
-        count++;
+        count++; // this task belongs to that staff member
       }
     }
     return count;
   }
 
+  /** Counts how many tasks a staff member still has PENDING (not ready). */
   private int countPendingTasksForStaff(String staffId) {
     int count = 0;
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       HousekeepingTask task = taskList.getEntry(i);
+      // Task is pending if it is assigned to staff AND not ready yet.
       if (task.getAssignedStaff().equals(staffId)
           && task.getCurrentStatus() != RoomStatus.READY_FOR_CHECK_IN) {
         count++;
@@ -1320,36 +1402,46 @@ public class HousekeepingTaskLog {
     return count;
   }
 
+  /**
+   * Pushes a status change onto the undo STACK.
+   * IMPORTANT: we also CLEAR the redo stack, because after a brand-new
+   * change, the old "redo" actions no longer make sense (standard undo/redo).
+   */
   private void recordStatusChange(String roomNumber, RoomStatus previous,
       RoomStatus current, String reason) {
-    // Push every change so rollback always starts with the latest action.
+    // Wrap the change information in a small object.
     StatusChangeRecord record = new StatusChangeRecord(
         roomNumber, previous, current, reason, LocalDateTime.now());
-    undoStack.push(record);
-    // A new change makes previously undone actions invalid, as in standard undo/redo.
-    redoStack.clear();
+    undoStack.push(record);  // push - newest goes on TOP
+    redoStack.clear();       // clear any old redo entries
   }
 
+  /**
+   * Keeps the task log in sync with the room list.
+   * Finds the (newest) task that matches a room and updates its status too.
+   */
   private void syncTaskStatus(String roomNumber, RoomStatus status) {
     for (int i = taskList.getNumberOfEntries(); i >= 1; i--) {
       HousekeepingTask task = taskList.getEntry(i);
       if (task.getRoomNumber().equals(roomNumber)) {
-        task.setCurrentStatus(status);
-        break;
+        task.setCurrentStatus(status); // update to the same status
+        break; // only update the newest matching task
       }
     }
   }
 
+  /** Finds a room by its room number using a simple linear search. */
   private Room findRoom(String roomNumber) {
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
       Room room = roomList.getEntry(i);
       if (room.getRoomNumber().equalsIgnoreCase(roomNumber)) {
-        return room;
+        return room; // found it
       }
     }
-    return null;
+    return null; // not found
   }
 
+  /** Returns ALL tasks as ready-to-print lines (for the UI table). */
   public String getAllTasks() {
     StringBuilder output = new StringBuilder();
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
@@ -1358,6 +1450,7 @@ public class HousekeepingTaskLog {
     return output.toString();
   }
 
+  /** Returns ALL rooms as ready-to-print lines (for the UI table). */
   public String getAllRooms() {
     StringBuilder output = new StringBuilder();
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
@@ -1366,53 +1459,74 @@ public class HousekeepingTaskLog {
     return output.toString();
   }
 
+  /**
+   * Creates 5 sample rooms the very first time the module runs,
+   * with all four status types so everything can be demonstrated.
+   */
   private void seedSampleRooms() {
     roomList.add(new Room("R101", "Standard", 1, RoomStatus.DIRTY));
     roomList.add(new Room("R102", "Standard", 1, RoomStatus.CLEANING_IN_PROGRESS));
     roomList.add(new Room("R201", "Deluxe", 2, RoomStatus.INSPECTED));
     roomList.add(new Room("R301", "Suite", 3, RoomStatus.READY_FOR_CHECK_IN));
     roomList.add(new Room("R302", "Suite", 3, RoomStatus.DIRTY));
-    saveData();
+    saveData(); // save the sample rooms right away
   }
 
+  /**
+   * Loads everything back from the saved text files when the program starts:
+   *   - room list        <- rooms.txt
+   *   - task log        <- housekeeping_tasks.txt
+   *   - undo stack      <- status_history.txt
+   *   - redo stack      <- redo_history.txt
+   *
+   * IMPORTANT BUG FIX: while loading tasks, we remember the HIGHEST task
+   * ID number, so new tasks keep counting up (T1004, T1005...) instead of
+   * restarting at T1001 and creating duplicates.
+   */
   private void loadData() {
+    // Load the four collections from disk via the DAO.
     ListInterface<Room> loadedRooms = housekeepingDAO.retrieveRooms();
     ListInterface<HousekeepingTask> loadedTasks = housekeepingDAO.retrieveTasks();
     StackInterface<StatusChangeRecord> loadedHistory = housekeepingDAO.retrieveHistory();
     StackInterface<StatusChangeRecord> loadedRedoHistory = housekeepingDAO.retrieveRedoHistory();
 
-    roomList.clear();
+    // Fill the room list with the loaded rooms.
+    roomList.clear(); // keep it empty first
     for (int i = 1; i <= loadedRooms.getNumberOfEntries(); i++) {
       roomList.add(loadedRooms.getEntry(i));
     }
 
+    // Fill the task list, and NOTE: recover the highest task-ID number used.
     taskList.clear();
     for (int i = 1; i <= loadedTasks.getNumberOfEntries(); i++) {
-      taskList.add(loadedTasks.getEntry(i));
+      taskList.add(loadedTasks.getEntry(i)); // add the loaded task
       String taskId = loadedTasks.getEntry(i).getTaskId();
-      // Restore the highest numeric counter from saved task IDs so new
-      // tasks get unique sequential IDs (e.g. T1001, T1002, ...).
+      // Read the number that follows "T" (or the old "HK") and remember the max.
       if (taskId.startsWith("T") || taskId.startsWith("HK")) {
         try {
           int id = Integer.parseInt(taskId.substring(1));
           if (id >= taskCounter) {
-            taskCounter = id;
+            taskCounter = id; // keep the highest number seen
           }
         } catch (NumberFormatException ex) {
+          // If a saved ID is not a number, just ignore it (no crash).
           MessageUI.displayErrorMessage("Ignoring invalid task ID in saved data: " + taskId);
         }
       }
     }
 
+    // Restore the undo stack, preserving LIFO order.
+    // (We pop from the loaded stack and push into a temp, then push back.)
     undoStack.clear();
     StackInterface<StatusChangeRecord> tempStack = new LinkedStack<>();
     while (!loadedHistory.isEmpty()) {
-      tempStack.push(loadedHistory.pop());
+      tempStack.push(loadedHistory.pop()); // set aside
     }
     while (!tempStack.isEmpty()) {
-      undoStack.push(tempStack.pop());
+      undoStack.push(tempStack.pop()); // back into undo, reversed correctly
     }
 
+    // Restore the redo stack the same way.
     redoStack.clear();
     while (!loadedRedoHistory.isEmpty()) {
       tempStack.push(loadedRedoHistory.pop());
@@ -1422,10 +1536,11 @@ public class HousekeepingTaskLog {
     }
   }
 
+  /** Saves everything to disk: rooms, tasks, undo history, redo history. */
   private void saveData() {
-    housekeepingDAO.saveRooms(roomList);
-    housekeepingDAO.saveTasks(taskList);
-    housekeepingDAO.saveHistory(undoStack);
-    housekeepingDAO.saveRedoHistory(redoStack);
+    housekeepingDAO.saveRooms(roomList);        // rooms
+    housekeepingDAO.saveTasks(taskList);        // tasks
+    housekeepingDAO.saveHistory(undoStack);     // undo stack
+    housekeepingDAO.saveRedoHistory(redoStack); // redo stack
   }
 }

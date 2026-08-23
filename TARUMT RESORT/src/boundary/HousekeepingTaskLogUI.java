@@ -9,7 +9,17 @@ import utility.ConsoleUI;
 import utility.MessageUI;
 
 /**
- * Boundary class for the Housekeeping and Task Log module.
+ * The "screen & keyboard" part of the Housekeeping module.
+ *
+ * This class ONLY handles what the user sees and types:
+ *   - prints the menu and pretty boxes
+ *   - asks questions (room number, task type, etc.)
+ *   - shows task / room / report tables
+ *
+ * It does NOT make any decisions. For example, when the user asks to
+ * create a task, this class just gets the room number and task type,
+ * then passes them to the controller (HousekeepingTaskLog) which does
+ * the real work. This separation keeps the code clean and easy to change.
  *
  * @author Chan Rou Xuan
  */
@@ -162,10 +172,9 @@ public class HousekeepingTaskLogUI {
   // ======================================================================
 
   /**
-   * Shows room availability for new task assignment.
-   * Lists ALL rooms with availability status and reason.
-   * Green = available (Dirty, no active task), Red = unavailable.
-   * Column widths must match getActiveRoomSummary: Task(8) Room(8) Staff(8) Status(21) Reason
+   * Shows which rooms can receive a cleaning task.
+   * Green = available (Dirty and no active task), Red = unavailable.
+   * Uses the text summary built by the controller.
    */
   public void displayActiveRooms(String summary) {
     System.out.println();
@@ -244,6 +253,7 @@ public class HousekeepingTaskLogUI {
   }
 
 
+  /** Asks for a Task ID (e.g. T1001) and keeps asking until it is valid. */
   public String inputTaskId(String action) {
     while (true) {
       System.out.print("  " + SB + action + " Task ID" + R + " (e.g. T1001) > ");
@@ -254,6 +264,7 @@ public class HousekeepingTaskLogUI {
     }
   }
 
+  /** Asks "are you sure?" before deleting something (only 'y' or 'yes' confirms). */
   public boolean confirmDelete(String target) {
     System.out.println();
     System.out.print("  " + RD + B + "[!!] Confirm DELETE " + target
@@ -262,6 +273,7 @@ public class HousekeepingTaskLogUI {
     return ans.equals("y") || ans.equals("yes");
   }
 
+  /** Asks the user for a room number (e.g. R101) and keeps asking until valid. */
   public String inputRoomNumber() {
     while (true) {
       System.out.print("  " + SB + "Room No. (e.g. R101)" + R + " > ");
@@ -282,6 +294,7 @@ public class HousekeepingTaskLogUI {
     }
   }
 
+  /** Asks what kind of cleaning task it is (1-4 menu). */
   public String inputTaskType() {
     System.out.println();
     System.out.println("  " + SB + B + "TASK TYPE" + R);
@@ -302,6 +315,7 @@ public class HousekeepingTaskLogUI {
     }
   }
 
+  /** Asks how many changes to undo at once (0 = cancel). */
   public int inputRollbackCount(int availableChanges) {
     while (true) {
       System.out.println();
@@ -341,6 +355,7 @@ public class HousekeepingTaskLogUI {
   // Display helpers
   // ======================================================================
 
+  /** Shows all cleaning tasks in the order they were created. */
   public void listTaskQueue(String output) {
     sectionHeader("HOUSEKEEPING TASK QUEUE",
         "Tasks listed in creation order (Linear List ADT).");
@@ -358,6 +373,7 @@ public class HousekeepingTaskLogUI {
     }
   }
 
+  /** Shows the current status of every room at a glance. */
   public void listRoomStatuses(String output) {
     sectionHeader("ROOM STATUS BOARD",
         "Coordinate the next valid cleaning action for each room.");
@@ -374,6 +390,7 @@ public class HousekeepingTaskLogUI {
     }
   }
 
+  /** Shows the full details of one cleaning task. */
   public void displayTaskDetails(HousekeepingTask task) {
     sectionHeader("TASK CREATED", "Added to sequential log.");
     System.out.println("  Task ID   : " + C + B + task.getTaskId() + R);
@@ -385,6 +402,7 @@ public class HousekeepingTaskLogUI {
     System.out.println();
   }
 
+  /** Shows the full details of one room. */
   public void displayRoomDetails(Room room) {
     sectionHeader("ROOM DETAILS", "Current state of the selected room.");
     System.out.println("  Room No.  : " + C + B + room.getRoomNumber() + R);
@@ -409,6 +427,7 @@ public class HousekeepingTaskLogUI {
     System.out.println();
   }
 
+  /** Asks for Report 1 filters: from/to dates, status, room type. */
   public String[] inputReport1Filters() {
     sectionHeader("REPORT 1 - SET FILTERS", "Leave date blank to include all dates.");
     System.out.println("  " + DM
@@ -486,6 +505,7 @@ public class HousekeepingTaskLogUI {
     }
   }
 
+  /** Asks for Report 2 filters: staff prefix + minimum task count. */
   public String[] inputReport2Filters() {
     sectionHeader("REPORT 2 - SET FILTERS",
         "Filter by staff prefix and minimum task count.");
@@ -510,6 +530,7 @@ public class HousekeepingTaskLogUI {
     return new String[]{prefix, String.valueOf(minTasks)};
   }
 
+  /** Asks whether the user wants to save the report as a PDF. */
   public boolean confirmPdfExport() {
     System.out.println();
     System.out.print("  " + C + B + "Export as professional PDF? (y/n) > " + R);
@@ -527,6 +548,7 @@ public class HousekeepingTaskLogUI {
     System.out.println();
   }
 
+  /** Shows the allowed room cleaning stages in order. */
   public void displayStatusFlowGuide() {
     System.out.println();
     System.out.println("  " + SB + B + "STATUS FLOW" + R);

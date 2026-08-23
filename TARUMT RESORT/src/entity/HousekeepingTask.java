@@ -5,25 +5,41 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Represents one entry in the Housekeeping sequential task log (Linear List
- * ADT). The controller appends tasks in logging order.
+ * Represents ONE cleaning task in the housekeeping system.
+ *
+ * Think of it as a "to-do card" on the housekeeping board:
+ *   - WHICH room needs cleaning   (roomNumber)
+ *   - WHO is assigned to do it    (assignedStaff)
+ *   - WHAT kind of cleaning       (taskType)
+ *   - HOW FAR along it is         (currentStatus)
+ *   - WHEN it was created         (loggedAt)
+ *
+ * The controller stores these tasks in a Linear List ADT (ArrayList),
+ * so they stay in the order they were created - just like a queue of cards.
  *
  * @author Chan Rou Xuan
  */
 public class HousekeepingTask implements Serializable {
 
+  /** Formats the task creation time nicely, e.g. "2026-08-18 01:08". */
   private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-  private String taskId;
-  private String roomNumber;
-  private String assignedStaff;
-  private String taskType;
-  private RoomStatus currentStatus;
-  private LocalDateTime loggedAt;
+  // ---------- The data stored for each task ----------
+  private String taskId;          // Unique ID, e.g. T1001 (auto-assigned)
+  private String roomNumber;      // Which room, e.g. R101
+  private String assignedStaff;   // Which housekeeper, e.g. HK001
+  private String taskType;        // What to do, e.g. CHECKOUT_CLEAN
+  private RoomStatus currentStatus; // What stage the room is at now
+  private LocalDateTime loggedAt;   // When this task was created
 
+  /** Empty constructor - needed so the class can be rebuilt from a saved file. */
   public HousekeepingTask() {
   }
 
+  /**
+   * Full constructor - creates a ready-to-use task.
+   * The controller calls this whenever a new cleaning task is added.
+   */
   public HousekeepingTask(String taskId, String roomNumber, String assignedStaff,
       String taskType, RoomStatus currentStatus, LocalDateTime loggedAt) {
     this.taskId = taskId;
@@ -33,6 +49,8 @@ public class HousekeepingTask implements Serializable {
     this.currentStatus = currentStatus;
     this.loggedAt = loggedAt;
   }
+
+  // ---------- Getters & Setters (read / update each field) ----------
 
   public String getTaskId() {
     return taskId;
@@ -82,6 +100,11 @@ public class HousekeepingTask implements Serializable {
     this.loggedAt = loggedAt;
   }
 
+  /**
+   * Turns this task into one neat line of text for the console report.
+   * Each column is padded so the table lines up nicely, e.g.:
+   *   T1001    R101      HK001      CHECKOUT_CLEAN  Dirty  2026-08-18 01:08
+   */
   @Override
   public String toString() {
     return String.format("%-8s %-8s %-10s %-16s %-22s %s",
