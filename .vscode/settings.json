@@ -1,13 +1,25 @@
 {
     "java.project.referencedLibraries": [
-        "**/*.jar"
+        "TARUMT RESORT/lib/**/*.jar"
+    ],
+    "java.import.exclusions": [
+        "**/node_modules/**",
+        "**/.metadata/**",
+        "**/archetype-resources/**",
+        "**/META-INF/maven/**",
+        "**/oracleJdk*/**"
     ],
     "java.configuration.runtimes": [
         {
-            "name": "JavaSE-21",
-            "path": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.101-hotspot",
+            "name": "JavaSE-25",
+            "path": "C:\\Users\\User\\Downloads\\openjdk-25.0.1_windows-x64_bin\\jdk-25.0.1",
+            "default": false
+        },
+        {
+            "name": "JavaSE-26",
+            "path": "C:\\Users\\User\\.jdks\\oracleJdk-26",
             "default": true
         }
     ],
-    "java.jdt.ls.java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.101-hotspot"
+    "java.jdt.ls.java.home": "C:\\Users\\User\\.jdks\\oracleJdk-26"
 }

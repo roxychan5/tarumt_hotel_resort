@@ -3,18 +3,29 @@ setlocal
 cd /d "%~dp0"
 chcp 65001 >nul
 
+rem ---- Locate a JDK (prefers newest available) -------------------------------
 set "JAVA_HOME="
-for /d %%D in ("C:\Program Files\Eclipse Adoptium\jdk-21*") do if exist "%%~fD\bin\javac.exe" set "JAVA_HOME=%%~fD"
-if not defined JAVA_HOME for /d %%D in ("C:\Program Files\Java\jdk-21*") do if exist "%%~fD\bin\javac.exe" set "JAVA_HOME=%%~fD"
-if not defined JAVA_HOME for /d %%D in ("C:\Program Files\Java\openjdk-21*") do if exist "%%~fD\bin\javac.exe" set "JAVA_HOME=%%~fD"
+
+if defined JAVA_HOME if exist "%JAVA_HOME%\bin\javac.exe" goto :jdkfound
+
+for %%V in (26 25 21) do (
+  if not defined JAVA_HOME for /d %%D in ("%USERPROFILE%\.jdks\*jdk%%~V*") do if exist "%%~fD\bin\javac.exe" set "JAVA_HOME=%%~fD"
+  if not defined JAVA_HOME for /d %%D in ("C:\Program Files\Java\*jdk%%~V*") do if exist "%%~fD\bin\javac.exe" set "JAVA_HOME=%%~fD"
+  if not defined JAVA_HOME for /d %%D in ("C:\Program Files\Eclipse Adoptium\*jdk%%~V*") do if exist "%%~fD\bin\javac.exe" set "JAVA_HOME=%%~fD"
+  if not defined JAVA_HOME for /d %%D in ("%USERPROFILE%\Downloads\*jdk%%~V*\*jdk%%~V*") do if exist "%%~fD\bin\javac.exe" set "JAVA_HOME=%%~fD"
+)
+
+:jdkfound
+if not defined JAVA_HOME set "JAVA_HOME=C:\Users\User\.jdks\oracleJdk-26"
 
 set "JAVAC=%JAVA_HOME%\bin\javac.exe"
 set "JAVA=%JAVA_HOME%\bin\java.exe"
 
 if not exist "%JAVAC%" (
   echo.
-  echo [ERROR] JDK 21 not found at %JAVA_HOME%
-  echo         Install JDK 21 or edit JAVA_HOME in this batch file.
+  echo [ERROR] No JDK found. Install a JDK or edit JAVA_HOME in this batch file.
+  echo         Searched: %%JAVA_HOME%%, %%USERPROFILE%%\.jdks, C:\Program Files\Java,
+  echo                   C:\Program Files\Eclipse Adoptium
   echo.
   pause
   exit /b 1
