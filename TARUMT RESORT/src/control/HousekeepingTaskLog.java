@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import utility.MalaysiaTime;
 import utility.MessageUI;
 import utility.PdfReportEngine;
 
@@ -213,7 +214,7 @@ public class HousekeepingTaskLog {
 
     // Build the task object and APPEND it to the sequential task log:
     HousekeepingTask task = new HousekeepingTask(
-        taskId, roomNumber, staffId, taskType, room.getStatus(), LocalDateTime.now());
+        taskId, roomNumber, staffId, taskType, room.getStatus(), MalaysiaTime.now());
     taskList.add(task); // List ADT - goes to the end (creation order)
 
     // The room is now "occupied", so move it out of DIRTY.
@@ -926,7 +927,7 @@ public class HousekeepingTaskLog {
         consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
             t.getTaskId(), t.getRoomNumber(), t.getAssignedStaff(),
             t.getTaskType(), t.getCurrentStatus().getLabel(),
-            t.getLoggedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+            t.getLoggedAt().format(MalaysiaTime.FORMATTER)));
       }
     }
     consoleReport.append("\n");
@@ -971,9 +972,8 @@ public class HousekeepingTaskLog {
       // Create the output folder if it does not exist.
       String outDir = "output" + File.separator + "pdf";
       new File(outDir).mkdirs(); // make the folder if missing
-      // Unique timestamp for the filename, e.g. 20260823_140500.
-      String timestamp = LocalDateTime.now()
-          .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+      // Unique timestamp for the filename, e.g. 20260823_173512 (Malaysia time).
+      String timestamp = MalaysiaTime.now().format(MalaysiaTime.FILE_FORMATTER);
       String outPath = outDir + File.separator + "housekeeping_summary_" + timestamp + ".pdf";
 
       pdf = new PdfReportEngine(); // create the PDF engine
@@ -1037,13 +1037,12 @@ public class HousekeepingTaskLog {
       String[] headers = {"Task ID","Room","Staff","Task Type","Status","Logged At"};
       float[] colW = {60, 50, 60, 90, 110, 120};
       java.util.List<String[]> rows = new java.util.ArrayList<>();
-      DateTimeFormatter dtFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-      // Turn each task into a String[] row for the PDF table.
+      // Turn each task into a String[] row for the PDF table (24-hour + AM/PM).
       for (HousekeepingTask t : filtered) {
         rows.add(new String[]{
             t.getTaskId(), t.getRoomNumber(), t.getAssignedStaff(),
             t.getTaskType(), t.getCurrentStatus().getLabel(),
-            t.getLoggedAt().format(dtFmt)
+            t.getLoggedAt().format(MalaysiaTime.FORMATTER)
         });
       }
       // If no rows, print a friendly note instead of an empty table.
@@ -1228,8 +1227,7 @@ public class HousekeepingTaskLog {
       // Create the output folder and a unique filename.
       String outDir = "output" + File.separator + "pdf";
       new File(outDir).mkdirs();
-      String timestamp = LocalDateTime.now()
-          .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+      String timestamp = MalaysiaTime.now().format(MalaysiaTime.FILE_FORMATTER);
       String outPath = outDir + File.separator + "staff_workload_" + timestamp + ".pdf";
 
       pdf = new PdfReportEngine();
@@ -1384,7 +1382,7 @@ public class HousekeepingTaskLog {
       RoomStatus current, String reason) {
     // Wrap the change information in a small object.
     StatusChangeRecord record = new StatusChangeRecord(
-        roomNumber, previous, current, reason, LocalDateTime.now());
+        roomNumber, previous, current, reason, MalaysiaTime.now());
     undoStack.push(record);  // push - newest goes on TOP
     redoStack.clear();       // clear any old redo entries
   }

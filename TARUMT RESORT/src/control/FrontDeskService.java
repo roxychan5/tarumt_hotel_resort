@@ -10,6 +10,7 @@ import dao.HousekeepingDAO;
 import entity.GuestRecord;
 import entity.Room;
 import entity.RoomStatus;
+import utility.MalaysiaTime;
 import utility.MessageUI;
 import utility.PdfReportEngine;
 import java.io.File;
@@ -209,8 +210,7 @@ public class FrontDeskService {
     try {
       String outDir = "output" + File.separator + "pdf";
       new File(outDir).mkdirs();
-      String timestamp = LocalDateTime.now()
-          .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+      String timestamp = MalaysiaTime.now().format(MalaysiaTime.FILE_FORMATTER);
       String outPath = outDir + File.separator + "frontdesk_billing_" + timestamp + ".pdf";
 
       pdf = new PdfReportEngine();
@@ -287,8 +287,7 @@ public class FrontDeskService {
     try {
       String outDir = "output" + File.separator + "pdf";
       new File(outDir).mkdirs();
-      String timestamp = LocalDateTime.now()
-          .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+      String timestamp = MalaysiaTime.now().format(MalaysiaTime.FILE_FORMATTER);
       String outPath = outDir + File.separator + "frontdesk_room_availability_"
           + timestamp + ".pdf";
 

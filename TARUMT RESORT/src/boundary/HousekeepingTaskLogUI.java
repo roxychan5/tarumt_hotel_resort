@@ -6,6 +6,7 @@ import entity.RoomStatus;
 import entity.StatusChangeRecord;
 import java.util.List;
 import utility.ConsoleUI;
+import utility.MalaysiaTime;
 import utility.MessageUI;
 
 /**
@@ -398,7 +399,7 @@ public class HousekeepingTaskLogUI {
     System.out.println("  Staff     : " + task.getAssignedStaff());
     System.out.println("  Task Type : " + task.getTaskType());
     System.out.println("  Status    : " + colorStatus(task.getCurrentStatus()));
-    System.out.println("  Logged At : " + DM + task.getLoggedAt() + R);
+    System.out.println("  Logged At : " + DM + task.getLoggedAt().format(MalaysiaTime.FORMATTER) + R);
     System.out.println();
   }
 

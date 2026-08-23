@@ -21,8 +21,8 @@ import java.time.format.DateTimeFormatter;
  */
 public class HousekeepingTask implements Serializable {
 
-  /** Formats the task creation time nicely, e.g. "2026-08-18 01:08". */
-  private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+  /** Formats the task creation time (Malaysia, 24-hour with seconds + AM/PM), e.g. "2026-08-18 01:08:15 PM". */
+  private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss a");
 
   // ---------- The data stored for each task ----------
   private String taskId;          // Unique ID, e.g. T1001 (auto-assigned)
