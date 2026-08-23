@@ -25,7 +25,7 @@ if not exist lib\pdfbox-app-3.0.3.jar (
 )
 set PDFBOX_JAR=lib\pdfbox-app-3.0.3.jar
 
-"%JAVAC%" -encoding UTF-8 -cp "%PDFBOX_JAR%" -d build\classes src\adt\*.java src\boundary\*.java src\control\*.java src\dao\*.java src\entity\*.java src\utility\*.java
+"%JAVAC%" --release 23 -encoding UTF-8 -cp "%PDFBOX_JAR%" -d build\classes src\adt\*.java src\boundary\*.java src\control\*.java src\dao\*.java src\entity\*.java src\utility\*.java
 if errorlevel 1 (
   echo.
   echo Build failed. Check the compiler errors above.
