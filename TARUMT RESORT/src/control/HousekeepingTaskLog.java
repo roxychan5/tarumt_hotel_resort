@@ -445,6 +445,28 @@ public class HousekeepingTaskLog {
     return sb.toString();
   }
 
+  /**
+   * Builds a display of EVERY room with its current status so the supervisor
+   * can see which rooms a late check-out applies to
+   * (i.e. NOT already Dirty - those have nothing to reset).
+   * Display only - nothing is changed here.
+   */
+  private String getLateCheckoutRoomSummary() {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
+      Room r = roomList.getEntry(i);
+      RoomStatus s = r.getStatus();
+      String action = (s == RoomStatus.DIRTY)
+          ? "Already Dirty"       // late check-out makes no sense here
+          : "-> Reset to Dirty";  // late check-out CAN be recorded
+      // Same column layout as the Room Status Board + an Action column:
+      sb.append(String.format("%-8s %-12s %-6d %-22s %s\n",
+          r.getRoomNumber(), r.getRoomType(), r.getFloor(),
+          s.getLabel(), action));
+    }
+    return sb.toString();
+  }
+
   /** Option 6 - Undo the latest change, after showing the user what it is. */
   private void undoLastChange() {
     // Nothing to undo? Nothing to do.
@@ -530,6 +552,9 @@ public class HousekeepingTaskLog {
 
   /** Option 12 - Late checkout: force the room back to DIRTY. */
   private void handleLateCheckout() {
+    // ── Show ALL rooms first so the supervisor picks the right one ─────────
+    housekeepingUI.displayLateCheckoutRooms(getLateCheckoutRoomSummary());
+
     String roomNumber = housekeepingUI.inputRoomNumber(); // e.g. R101
     Room room = findRoom(roomNumber);
     if (room == null) {

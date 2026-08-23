@@ -254,6 +254,50 @@ public class HousekeepingTaskLogUI {
   }
 
 
+  /**
+   * Shows EVERY room with its current status before recording a late
+   * check-out. Green = can record (will reset to Dirty), dim = already Dirty.
+   * Uses the text summary built by the controller.
+   */
+  public void displayLateCheckoutRooms(String summary) {
+    System.out.println();
+    printBorder();
+    rowV("  " + C + B + "ALL ROOMS - RECORD LATE CHECK-OUT" + R,
+        2 + "ALL ROOMS - RECORD LATE CHECK-OUT".length());
+    printBorder();
+
+    if (summary == null || summary.isEmpty()) {
+      String msg = "  No rooms registered.";
+      rowV(DM + msg + R, msg.length());
+    } else {
+      // Legend - explains the Action column
+      String legend = "  " + "\033[92m" + "-> Reset to Dirty" + R
+          + " = late check-out applies   " + DM + "Already Dirty" + R
+          + " = nothing to reset";
+      rowV(legend, visLen(legend));
+      row();
+
+      // Header - must match control format: Room(8) Type(12) Floor(6) Status(22) Action
+      String hdr = String.format("  %-8s %-12s %-6s %-22s %s",
+          "Room", "Type", "Floor", "Current Status", "Late Check-Out");
+      rowV(IB + B + hdr + R, hdr.length());
+      rowV("  " + rep('-', 66), 2 + 66);
+
+      // Data rows - green = eligible, dim = already dirty
+      for (String line : summary.split("\r?\n")) {
+        if (line.trim().isEmpty()) continue;
+        line = line.replace("\r", "");
+        if (line.contains("Already Dirty")) {
+          rowV("  " + DM + line + R, 2 + line.length());
+        } else {
+          rowV("  " + "\033[92m" + line + R, 2 + line.length());
+        }
+      }
+    }
+    printBorder();
+    System.out.println();
+  }
+
   /** Asks for a Task ID (e.g. T1001) and keeps asking until it is valid. */
   public String inputTaskId(String action) {
     while (true) {

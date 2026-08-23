@@ -1,4 +1,5 @@
 roomNumber	previousStatus	newStatus	reason	changedAt
+R103	READY_FOR_CHECK_IN	DIRTY	Late check-out requested	2026-08-23T23:20:19.164057
 R204	DIRTY	CLEANING_IN_PROGRESS	Cleaning task T1004 assigned	2026-08-23T13:53:05.5257748
 R502	INSPECTED	READY_FOR_CHECK_IN	Status advanced by supervisor	2026-08-23T13:19:04.3721922
 R301	DIRTY	CLEANING_IN_PROGRESS	Cleaning task T1001 assigned	2026-08-18T21:47:16.128
