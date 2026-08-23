@@ -1350,33 +1350,6 @@ public class HousekeepingTaskLog {
     }
   }
 
-  /** Sorts staff by workload using a bubble sort (helper, not currently used in the main). */
-  private void sortStaffByWorkload(ListInterface<String> staffIds) {
-    int n = staffIds.getNumberOfEntries();
-    for (int i = 1; i < n; i++) {
-      for (int j = 1; j <= n - i; j++) {
-        String current = staffIds.getEntry(j);
-        String next = staffIds.getEntry(j + 1);
-        // Swap if the current has FEWER tasks than the next (goes down).
-        if (countTasksForStaff(current) < countTasksForStaff(next)) {
-          staffIds.replace(j, next);
-          staffIds.replace(j + 1, current);
-        }
-      }
-    }
-  }
-
-  /** Counts how many tasks currently have a given status (e.g. Dirty). */
-  private int countTasksByStatus(RoomStatus status) {
-    int count = 0;
-    for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
-      if (taskList.getEntry(i).getCurrentStatus() == status) {
-        count++; // found one matching task
-      }
-    }
-    return count;
-  }
-
   /** Counts how many tasks a given staff member has (all of them). */
   private int countTasksForStaff(String staffId) {
     int count = 0;
