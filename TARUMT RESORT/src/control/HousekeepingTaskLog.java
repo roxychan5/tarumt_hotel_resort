@@ -1390,9 +1390,11 @@ public class HousekeepingTaskLog {
     for (int i = 1; i <= loadedTasks.getNumberOfEntries(); i++) {
       taskList.add(loadedTasks.getEntry(i));
       String taskId = loadedTasks.getEntry(i).getTaskId();
-      if (taskId.startsWith("HK")) {
+      // Restore the highest numeric counter from saved task IDs so new
+      // tasks get unique sequential IDs (e.g. T1001, T1002, ...).
+      if (taskId.startsWith("T") || taskId.startsWith("HK")) {
         try {
-          int id = Integer.parseInt(taskId.substring(2));
+          int id = Integer.parseInt(taskId.substring(1));
           if (id >= taskCounter) {
             taskCounter = id;
           }
