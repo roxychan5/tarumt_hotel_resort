@@ -42,6 +42,17 @@ public class ArrayPriorityQueue<T extends Comparable<T>>
     return front;
   }
 
+  /** Removes an entry by one-based queue position while preserving queue order. */
+  public T remove(int position) {
+    if (position < 1 || position > numberOfEntries) return null;
+    T removed = entries[position - 1];
+    for (int index = position; index < numberOfEntries; index++) {
+      entries[index - 1] = entries[index];
+    }
+    entries[--numberOfEntries] = null;
+    return removed;
+  }
+
   @Override
   public T getFront() {
     return isEmpty() ? null : entries[0];

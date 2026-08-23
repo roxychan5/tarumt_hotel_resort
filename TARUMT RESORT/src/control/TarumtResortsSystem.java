@@ -10,10 +10,10 @@ import utility.MessageUI;
 public class TarumtResortsSystem {
 
   private final TarumtResortsUI mainUI = new TarumtResortsUI();
-  private final VipLoyaltyAllocation vipLoyaltyModule = new VipLoyaltyAllocation();
   private final FrontDeskService frontDeskModule = new FrontDeskService();
   private final HousekeepingTaskLog housekeepingModule = new HousekeepingTaskLog();
   private final LoyaltyRewardsService loyaltyRewardsModule = new LoyaltyRewardsService();
+  private final VipLoyaltyAllocation vipLoyaltyModule = new VipLoyaltyAllocation(loyaltyRewardsModule);
 
   public void runSystem() {
     ConsoleUI.enableAnsiColors();

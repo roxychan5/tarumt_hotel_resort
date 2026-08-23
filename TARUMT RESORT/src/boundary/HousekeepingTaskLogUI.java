@@ -772,6 +772,7 @@ public class HousekeepingTaskLogUI {
       case CLEANING_IN_PROGRESS: return "\u001B[43m\u001B[30m CLEANING IN PROGRESS \u001B[0m";
       case INSPECTED:            return "\u001B[44m\u001B[97m INSPECTED \u001B[0m";
       case READY_FOR_CHECK_IN:   return "\u001B[42m\u001B[97m READY FOR CHECK-IN \u001B[0m";
+      case OCCUPIED:             return "\u001B[45m\u001B[97m OCCUPIED \u001B[0m";
       default:                   return status.getLabel();
     }
   }

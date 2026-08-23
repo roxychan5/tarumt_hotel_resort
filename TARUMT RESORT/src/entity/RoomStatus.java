@@ -20,7 +20,8 @@ public enum RoomStatus {
   DIRTY("Dirty"),
   CLEANING_IN_PROGRESS("Cleaning In Progress"),
   INSPECTED("Inspected"),
-  READY_FOR_CHECK_IN("Ready for Check-In");
+  READY_FOR_CHECK_IN("Ready for Check-In"),
+  OCCUPIED("Occupied");
 
   /** A user-friendly name for this stage (e.g. "Dirty" instead of "DIRTY"). */
   private final String label;
@@ -65,6 +66,6 @@ public enum RoomStatus {
    * so this returns false for it, and true for all other stages.
    */
   public boolean canAdvance() {
-    return this != READY_FOR_CHECK_IN;
+    return this != READY_FOR_CHECK_IN && this != OCCUPIED;
   }
 }

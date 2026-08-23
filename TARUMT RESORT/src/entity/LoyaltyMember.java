@@ -2,33 +2,51 @@ package entity;
 
 public class LoyaltyMember implements Comparable<LoyaltyMember> {
 
-  private final String memberId;
-  private final String guestName;
-  private final LoyaltyTier tier;
-  private final String requestedRoomType;
+  /** The registered loyalty profile this priority-queue entry belongs to. */
+  private final RewardsMember loyaltyMember;
+  private String requestedRoomType;
   private final int arrivalSequence;
 
-  public LoyaltyMember(String memberId, String guestName, LoyaltyTier tier,
-      String requestedRoomType, int arrivalSequence) {
-    this.memberId = memberId;
-    this.guestName = guestName;
-    this.tier = tier;
+  public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
+      int arrivalSequence) {
+    this.loyaltyMember = loyaltyMember;
     this.requestedRoomType = requestedRoomType;
     this.arrivalSequence = arrivalSequence;
   }
 
-  public String getMemberId() { return memberId; }
-  public String getGuestName() { return guestName; }
-  public LoyaltyTier getTier() { return tier; }
-  public String getRequestedRoomType() { return requestedRoomType; }
-  public int getArrivalSequence() { return arrivalSequence; }
+  public RewardsMember getLoyaltyMember() { 
+    return loyaltyMember; 
+  }
+
+  public String getMemberId() { 
+    return loyaltyMember.getMemberId(); 
+  }
+
+  public String getGuestName() { 
+    return loyaltyMember.getName(); 
+  }
+
+  public LoyaltyTier getTier() { 
+    return loyaltyMember.getTier(); 
+  }
+
+  public String getRequestedRoomType() { 
+    return requestedRoomType; 
+  }
+
+  public void setRequestedRoomType(String requestedRoomType) {
+    this.requestedRoomType = requestedRoomType;
+  }
+
+  public int getArrivalSequence() { 
+    return arrivalSequence; 
+  }
 
   @Override
   public int compareTo(LoyaltyMember other) {
-    int tierComparison = tier.getPriority() - other.tier.getPriority();
+    int tierComparison = getTier().getPriority() - other.getTier().getPriority();
     // Earlier arrival wins only when membership tiers are equal.
     return tierComparison != 0 ? tierComparison
         : other.arrivalSequence - arrivalSequence;
   }
 }
-
