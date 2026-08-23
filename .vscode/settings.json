@@ -1,5 +1,13 @@
 {
     "java.project.referencedLibraries": [
         "**/*.jar"
-    ]
+    ],
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-25",
+            "path": "C:\\Program Files\\Java\\openjdk-25.0.1_windows-x64_bin\\jdk-25.0.1",
+            "default": true
+        }
+    ],
+    "java.jdt.ls.java.home": "C:\\Program Files\\Java\\openjdk-25.0.1_windows-x64_bin\\jdk-25.0.1"
 }
