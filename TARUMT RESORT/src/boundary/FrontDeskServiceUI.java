@@ -86,12 +86,16 @@ public class FrontDeskServiceUI {
 
   public void displayBillingResult(String result) {
     sectionHeader("BILLING SEARCH RESULT", "Billing lookup by guest confirmation number.");
-    System.out.println(result);
+    for (String line : result.split("\r?\n")) {
+      System.out.println(RD + line + R);
+    }
   }
 
   public void displayRoomAvailability(String output) {
     sectionHeader("ROOM AVAILABILITY", "Front-desk occupancy checked against housekeeping status.");
-    System.out.println(output);
+    for (String line : output.split("\r?\n")) {
+      System.out.println(RD + line + R);
+    }
   }
 
   public void displayReport(String title, String content) {

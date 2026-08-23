@@ -490,9 +490,4 @@ public class FrontDeskService {
       guestSearchTree.insert(guestRecord.getConfirmationNumber(), guestRecord);
     }
   }
-
-  public static void main(String[] args) {
-    FrontDeskService frontDeskService = new FrontDeskService();
-    frontDeskService.runFrontDeskModule();
-  }
 }

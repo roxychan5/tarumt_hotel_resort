@@ -58,9 +58,4 @@ public class ProductMaintenance {
   public void displayProducts() {
     productUI.listAllProducts(getAllProducts());
   }
-  
-  public static void main(String[] args) {
-    ProductMaintenance productMaintenance = new ProductMaintenance();
-    productMaintenance.runProductMaintenance();
-  }
 }

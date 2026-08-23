@@ -8,8 +8,8 @@ HOW TO RUN
 Option A (Windows): double-click run.bat in the TARUMT RESORT folder.
 
 Option B (command prompt, from the TARUMT RESORT folder):
-  javac -d build\classes src\adt\*.java src\boundary\*.java src\control\*.java src\dao\*.java src\entity\*.java src\utility\*.java
-  java -cp build\classes control.TarumtResortsSystem
+  javac --release 8 -encoding UTF-8 -cp lib\pdfbox-app-3.0.3.jar -d build\classes src\adt\*.java src\boundary\*.java src\control\*.java src\dao\*.java src\entity\*.java src\utility\*.java
+  java -Dfile.encoding=UTF-8 -cp build\classes;lib\pdfbox-app-3.0.3.jar control.TarumtResortsSystem
 
 Option C (NetBeans): open the TARUMT RESORT folder as the project, set the
 main class to control.TarumtResortsSystem, then press F6.
