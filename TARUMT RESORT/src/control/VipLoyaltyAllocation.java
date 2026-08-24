@@ -1,7 +1,7 @@
 package control;
 
 import adt.ArrayList;
-import adt.ArrayPriorityQueue;
+import adt.HeapPriorityQueue;
 import adt.ListInterface;
 import boundary.VipLoyaltyAllocationUI;
 import dao.HousekeepingDAO;
@@ -24,7 +24,7 @@ public class VipLoyaltyAllocation {
   private final VipLoyaltyAllocationUI vipUI = new VipLoyaltyAllocationUI();
   private final LoyaltyRewardsService loyaltyRewardsService;
   private final HousekeepingDAO housekeepingDAO = new HousekeepingDAO();
-  private final ArrayPriorityQueue<LoyaltyMember> waitingGuests = new ArrayPriorityQueue<>();
+  private final HeapPriorityQueue<LoyaltyMember> waitingGuests = new HeapPriorityQueue<>();
   private final ArrayList<RoomAllocation> completedAllocations = new ArrayList<>();
   private int arrivalSequence;
   private int allocationSequence;
@@ -70,6 +70,8 @@ public class VipLoyaltyAllocation {
       vipUI.displayMenu();
     }
 
+    if (registeredMember == null) return;
+
     if (isMemberWaiting(memberId)) {
       MessageUI.displayErrorMessage("This member is already in the priority queue.");
     } else {
@@ -102,25 +104,31 @@ public class VipLoyaltyAllocation {
           MessageUI.displayErrorMessage("No " + roomType
               + " room is ready for check-in. Complete housekeeping first.");
         } else {
-          LoyaltyMember member = waitingGuests.remove(queuePosition);
-          completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(), ++allocationSequence));
-          MessageUI.displaySuccessMessage("Room " + room.getRoomNumber() + " (" + roomType
-              + ") allocated automatically to " + member.getGuestName() + " ("
-              + member.getTier() + ").");
+          LoyaltyMember member = waitingGuests.getEntry(queuePosition);
+          if (waitingGuests.removeEntry(member)) {
+            completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(), ++allocationSequence));
+            MessageUI.displaySuccessMessage("Room " + room.getRoomNumber() + " (" + roomType
+                + ") allocated automatically to " + member.getGuestName() + " ("
+                + member.getTier() + ").");
+          }
         }
       }
     }
     pause();
   }
 
-  /** Queue order is already highest tier first, so the first match gets the room. */
+  /** Finds the highest-priority waiting guest requesting the selected room type. */
   private int findHighestPriorityGuestRequesting(String roomType) {
+    int highestPriorityPosition = 0;
     for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
-      if (waitingGuests.getEntry(position).getRequestedRoomType().equalsIgnoreCase(roomType)) {
-        return position;
+      LoyaltyMember member = waitingGuests.getEntry(position);
+      if (member.getRequestedRoomType().equalsIgnoreCase(roomType)
+          && (highestPriorityPosition == 0
+          || member.compareTo(waitingGuests.getEntry(highestPriorityPosition)) > 0)) {
+        highestPriorityPosition = position;
       }
     }
-    return 0;
+    return highestPriorityPosition;
   }
 
   /** Finds the first cleaned room of the selected type and marks it occupied. */
@@ -233,12 +241,29 @@ public class VipLoyaltyAllocation {
 
   private String buildQueueDisplay() {
     if (waitingGuests.isEmpty()) return "  No priority guests are waiting.";
+    LoyaltyMember[] sortedGuests = new LoyaltyMember[waitingGuests.getNumberOfEntries()];
+    for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
+      sortedGuests[position - 1] = waitingGuests.getEntry(position);
+    }
+    sortPriorityGuests(sortedGuests);
+
     String output = String.format("%-5s %-12s %-20s %-12s %-15s%n", "Rank", "Member ID", "Guest", "Tier", "Requested Room")
         + "----------------------------------------------------------------------------\n";
-    for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
-      output += formatMember(waitingGuests.getEntry(position), position) + "\n";
+    for (int position = 0; position < sortedGuests.length; position++) {
+      output += formatMember(sortedGuests[position], position + 1) + "\n";
     }
     return output;
+  }
+
+  private void sortPriorityGuests(LoyaltyMember[] entries) {
+    for (int index = 1; index < entries.length; index++) {
+      LoyaltyMember current = entries[index];
+      int position = index - 1;
+      while (position >= 0 && current.compareTo(entries[position]) > 0) {
+        entries[position + 1] = entries[position--];
+      }
+      entries[position + 1] = current;
+    }
   }
 
   private String formatMember(LoyaltyMember member, int rank) {
