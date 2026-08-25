@@ -1,0 +1,5 @@
+{
+  "java.project.sourcePaths": ["TARUMT RESORT/src"],
+  "java.project.referencedLibraries": ["TARUMT RESORT/lib/**/*.jar"],
+  "java.project.outputPath": "TARUMT RESORT/build/classes"
+}

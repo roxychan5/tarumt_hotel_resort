@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Launch TARUMT Resorts System",
+      "request": "launch",
+      "mainClass": "control.TarumtResortsSystem",
+      "classPaths": [
+        "${workspaceFolder}/TARUMT RESORT/build/classes",
+        "${workspaceFolder}/TARUMT RESORT/lib/pdfbox-app-3.0.3.jar"
+      ],
+      "console": "integratedTerminal",
+      "vmArgs": "-Dfile.encoding=UTF-8"
+    }
+  ]
+}
