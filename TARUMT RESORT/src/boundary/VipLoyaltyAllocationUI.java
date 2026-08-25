@@ -166,6 +166,18 @@ public class VipLoyaltyAllocationUI {
     System.out.println(content);
   }
 
+  public boolean confirmPdfExport() {
+    System.out.println();
+    System.out.print("  " + CYAN + BOLD + "Export as professional PDF? (y/n) > " + RESET);
+    String answer = ConsoleUI.readLine().trim().toLowerCase();
+    return answer.equals("y") || answer.equals("yes");
+  }
+
+  public void displayPdfExportSuccess(String filePath) {
+    System.out.println();
+    System.out.println("  " + CYAN + BOLD + "PDF report exported successfully: " + RESET + filePath);
+  }
+
   private int readInt(String prompt) {
     while (true) {
       System.out.print(prompt);

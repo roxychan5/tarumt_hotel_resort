@@ -11,7 +11,13 @@ import entity.RewardsMember;
 import entity.Room;
 import entity.RoomAllocation;
 import entity.RoomStatus;
+import java.io.File;
+import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.List;
+import utility.MalaysiaTime;
 import utility.MessageUI;
+import utility.PdfReportEngine;
 
 /**
  * Controls VIP room allocation using a self-ordering priority queue.
@@ -161,17 +167,22 @@ public class VipLoyaltyAllocation {
         + String.format("%-5s %-12s %-20s %-12s %-15s%n", "Rank", "Member ID", "Guest", "Tier", "Requested Room")
         + "----------------------------------------------------------------------------\n";
     int matches = 0;
+    List<LoyaltyMember> matchingGuests = new java.util.ArrayList<>();
     for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
       LoyaltyMember member = waitingGuests.getEntry(position);
       if (member.getTier().getPriority() >= tier.getPriority()
           && (roomTypeFilter.isEmpty() || member.getRequestedRoomType().equalsIgnoreCase(roomTypeFilter))) {
         report += String.format("%-5d %-12s %-20s %-12s %-15s%n", position,
             member.getMemberId(), member.getGuestName(), member.getTier(), member.getRequestedRoomType());
+            matchingGuests.add(member);
         matches++;
       }
     }
     report += matches == 0 ? "No waiting guests meet both filters.\n" : "\nMatching guests: " + matches + "\n";
     vipUI.displayReport("REPORT 1: VIP PRIORITY WAITING LIST", report);
+    if (vipUI.confirmPdfExport()) {
+      exportWaitingListReportToPdf(matchingGuests, tier, roomTypeFilter);
+    }
     pause();
   }
 
@@ -196,6 +207,8 @@ public class VipLoyaltyAllocation {
       }
     }
     insertionSortAllocations(filtered, count);
+    List<RoomAllocation> matchingAllocations = new java.util.ArrayList<>();
+    for (int index = 0; index < count; index++) matchingAllocations.add(filtered[index]);
     String report = "Filters: Tier " + tier + " or above; Room Type: "
         + (roomTypeFilter.isEmpty() ? "All" : roomTypeFilter) + "\n\n"
         + String.format("%-8s %-12s %-20s %-12s %-12s %-15s%n", "Order", "Room", "Guest", "Tier", "Member ID", "Requested Room")
@@ -211,7 +224,143 @@ public class VipLoyaltyAllocation {
         + "\nTotal completed allocations this cycle: " + completedAllocations.getNumberOfEntries() + "\n";
     if (count == 0) report += "No completed allocations meet both filters.\n";
     vipUI.displayReport("REPORT 2: VIP ALLOCATION PERFORMANCE", report);
+    if (vipUI.confirmPdfExport()) {
+      exportAllocationPerformanceReportToPdf(matchingAllocations, tier, roomTypeFilter);
+    }
     pause();
+  }
+
+  private void exportWaitingListReportToPdf(List<LoyaltyMember> matchingGuests,
+      LoyaltyTier minimumTier, String roomTypeFilter) {
+    PdfReportEngine pdf = null;
+    try {
+      String outDir = "output" + File.separator + "pdf";
+      new File(outDir).mkdirs();
+      String timestamp = MalaysiaTime.now().format(MalaysiaTime.FILE_FORMATTER);
+      String outPath = outDir + File.separator + "vip_waiting_list_" + timestamp + ".pdf";
+      pdf = new PdfReportEngine();
+      pdf.addCoverPage("VIP Priority Waiting List", "Tier and Room Type Filtered Analysis",
+          "Current business cycle", "VIP Loyalty Allocation");
+
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Report Overview");
+      pdf.addKpiRow("Report Type", "VIP Priority Waiting List", null);
+      pdf.addKpiRow("Minimum Tier", minimumTier.toString(), null);
+      pdf.addKpiRow("Room Type Filter", roomTypeFilter.isEmpty() ? "All" : roomTypeFilter, null);
+      pdf.addKpiRow("Matching Guests", String.valueOf(matchingGuests.size()),
+          matchingGuests.isEmpty() ? PdfReportEngine.DANGER : PdfReportEngine.SUCCESS);
+      pdf.addDivider();
+
+      LinkedHashMap<String, Integer> tierCounts = new LinkedHashMap<>();
+      LinkedHashMap<String, Integer> roomCounts = new LinkedHashMap<>();
+      for (LoyaltyMember member : matchingGuests) {
+        tierCounts.merge(member.getTier().toString(), 1, Integer::sum);
+        roomCounts.merge(member.getRequestedRoomType(), 1, Integer::sum);
+      }
+      pdf.addSectionHeading("Waiting Guest Distribution");
+      pdf.addKpiCards(new String[]{"Matching Guests", "Tier Groups", "Room Types"},
+          new String[]{String.valueOf(matchingGuests.size()), String.valueOf(tierCounts.size()),
+              String.valueOf(roomCounts.size())},
+          new java.awt.Color[]{PdfReportEngine.ACCENT_BLUE, PdfReportEngine.BRAND_GOLD,
+              PdfReportEngine.BRAND_TEAL});
+      pdf.addSpace(10);
+      pdf.addBarChart("Waiting Guests by Tier", tierCounts.keySet().toArray(new String[0]),
+          countsToValues(tierCounts), "Guests");
+      if (!roomCounts.isEmpty()) {
+        pdf.addSectionHeading("Requested Room Types");
+        pdf.addDonutChart("Waiting Guests by Room Type", roomCounts.keySet().toArray(new String[0]),
+            countsToValues(roomCounts));
+      }
+
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Detailed VIP Waiting List");
+      String[] headers = {"Rank", "Member ID", "Guest", "Tier", "Requested Room"};
+      float[] widths = {45, 85, 155, 90, 125};
+      List<String[]> rows = new java.util.ArrayList<>();
+      for (int index = 0; index < matchingGuests.size(); index++) {
+        LoyaltyMember member = matchingGuests.get(index);
+        rows.add(new String[]{String.valueOf(index + 1), member.getMemberId(), member.getGuestName(),
+            member.getTier().toString(), member.getRequestedRoomType()});
+      }
+      if (rows.isEmpty()) pdf.addBodyText("No waiting guests meet both filters.", 10);
+      else pdf.addTable(headers, rows, widths);
+      pdf.save(outPath);
+      vipUI.displayPdfExportSuccess(outPath);
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("PDF export failed: " + ex.getMessage());
+    } finally {
+      closePdf(pdf);
+    }
+  }
+
+  private void exportAllocationPerformanceReportToPdf(List<RoomAllocation> matchingAllocations,
+      LoyaltyTier minimumTier, String roomTypeFilter) {
+    PdfReportEngine pdf = null;
+    try {
+      String outDir = "output" + File.separator + "pdf";
+      new File(outDir).mkdirs();
+      String timestamp = MalaysiaTime.now().format(MalaysiaTime.FILE_FORMATTER);
+      String outPath = outDir + File.separator + "vip_allocation_performance_" + timestamp + ".pdf";
+      pdf = new PdfReportEngine();
+      pdf.addCoverPage("VIP Allocation Performance", "Completed Room Allocation Analysis",
+          "Current business cycle", "VIP Loyalty Allocation");
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Report Overview");
+      pdf.addKpiRow("Report Type", "VIP Allocation Performance", null);
+      pdf.addKpiRow("Minimum Tier", minimumTier.toString(), null);
+      pdf.addKpiRow("Room Type Filter", roomTypeFilter.isEmpty() ? "All" : roomTypeFilter, null);
+      pdf.addKpiRow("Matching Allocations", String.valueOf(matchingAllocations.size()),
+          matchingAllocations.isEmpty() ? PdfReportEngine.DANGER : PdfReportEngine.SUCCESS);
+      pdf.addKpiRow("Guests Still Waiting", String.valueOf(waitingGuests.getNumberOfEntries()),
+          waitingGuests.isEmpty() ? PdfReportEngine.SUCCESS : PdfReportEngine.WARNING);
+      pdf.addKpiRow("Total Completed", String.valueOf(completedAllocations.getNumberOfEntries()), null);
+      pdf.addDivider();
+
+      LinkedHashMap<String, Integer> tierCounts = new LinkedHashMap<>();
+      for (RoomAllocation allocation : matchingAllocations) {
+        tierCounts.merge(allocation.getMember().getTier().toString(), 1, Integer::sum);
+      }
+      pdf.addSectionHeading("Allocation Distribution");
+      pdf.addBarChart("Completed Allocations by Tier", tierCounts.keySet().toArray(new String[0]),
+          countsToValues(tierCounts), "Allocations");
+
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Detailed Completed Allocations");
+      String[] headers = {"Order", "Room", "Guest", "Tier", "Member ID", "Requested Room"};
+      float[] widths = {50, 60, 145, 80, 90, 115};
+      List<String[]> rows = new java.util.ArrayList<>();
+      for (RoomAllocation allocation : matchingAllocations) {
+        LoyaltyMember member = allocation.getMember();
+        rows.add(new String[]{String.valueOf(allocation.getAllocationSequence()), allocation.getRoomNumber(),
+            member.getGuestName(), member.getTier().toString(), member.getMemberId(),
+            member.getRequestedRoomType()});
+      }
+      if (rows.isEmpty()) pdf.addBodyText("No completed allocations meet both filters.", 10);
+      else pdf.addTable(headers, rows, widths);
+      pdf.save(outPath);
+      vipUI.displayPdfExportSuccess(outPath);
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("PDF export failed: " + ex.getMessage());
+    } finally {
+      closePdf(pdf);
+    }
+  }
+
+  private double[] countsToValues(LinkedHashMap<String, Integer> counts) {
+    double[] values = new double[counts.size()];
+    int index = 0;
+    for (Integer count : counts.values()) values[index++] = count;
+    return values;
+  }
+
+  private void closePdf(PdfReportEngine pdf) {
+    if (pdf != null) {
+      try {
+        pdf.close();
+      } catch (IOException ignored) {
+        // Cleanup failure does not change the export result.
+      }
+    }
   }
 
   private void insertionSortAllocations(RoomAllocation[] entries, int length) {
