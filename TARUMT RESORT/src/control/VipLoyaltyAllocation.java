@@ -82,9 +82,12 @@ public class VipLoyaltyAllocation {
       MessageUI.displayErrorMessage("This member is already in the priority queue.");
     } else {
       String roomType = vipUI.inputRequestedRoomType();
-      LoyaltyMember member = new LoyaltyMember(registeredMember, roomType, ++arrivalSequence);
+      int numberOfNights = vipUI.inputNumberOfNights();
+      LoyaltyMember member = new LoyaltyMember(registeredMember, roomType, numberOfNights,
+          ++arrivalSequence);
       waitingGuests.add(member);
-      MessageUI.displaySuccessMessage(registeredMember.getTier() + " member added. Queue reordered automatically.");
+      MessageUI.displaySuccessMessage(registeredMember.getTier() + " member added for "
+          + numberOfNights + " night(s). Queue reordered automatically.");
     }
     pause();
   }
@@ -115,7 +118,7 @@ public class VipLoyaltyAllocation {
             completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(), ++allocationSequence));
             MessageUI.displaySuccessMessage("Room " + room.getRoomNumber() + " (" + roomType
                 + ") allocated automatically to " + member.getGuestName() + " ("
-                + member.getTier() + ").");
+              + member.getTier() + ") for " + member.getNumberOfNights() + " night(s).");
           }
         }
       }
@@ -164,16 +167,17 @@ public class VipLoyaltyAllocation {
     }
     String report = "Filters: Tier " + tier + " or above; Room Type: "
         + (roomTypeFilter.isEmpty() ? "All" : roomTypeFilter) + "\n\n"
-        + String.format("%-5s %-12s %-20s %-12s %-15s%n", "Rank", "Member ID", "Guest", "Tier", "Requested Room")
-        + "----------------------------------------------------------------------------\n";
+        + String.format("%-5s %-12s %-20s %-12s %-15s %-8s%n", "Rank", "Member ID", "Guest", "Tier", "Requested Room", "Nights")
+        + "--------------------------------------------------------------------------------\n";
     int matches = 0;
     List<LoyaltyMember> matchingGuests = new java.util.ArrayList<>();
     for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
       LoyaltyMember member = waitingGuests.getEntry(position);
       if (member.getTier().getPriority() >= tier.getPriority()
           && (roomTypeFilter.isEmpty() || member.getRequestedRoomType().equalsIgnoreCase(roomTypeFilter))) {
-        report += String.format("%-5d %-12s %-20s %-12s %-15s%n", position,
-            member.getMemberId(), member.getGuestName(), member.getTier(), member.getRequestedRoomType());
+        report += String.format("%-5d %-12s %-20s %-12s %-15s %-8d%n", position,
+          member.getMemberId(), member.getGuestName(), member.getTier(), member.getRequestedRoomType(),
+          member.getNumberOfNights());
         matchingGuests.add(member);
         matches++;
       }
@@ -211,13 +215,13 @@ public class VipLoyaltyAllocation {
     for (int index = 0; index < count; index++) matchingAllocations.add(filtered[index]);
     String report = "Filters: Tier " + tier + " or above; Room Type: "
         + (roomTypeFilter.isEmpty() ? "All" : roomTypeFilter) + "\n\n"
-        + String.format("%-8s %-12s %-20s %-12s %-12s %-15s%n", "Order", "Room", "Guest", "Tier", "Member ID", "Requested Room")
-        + "-------------------------------------------------------------------------------------\n";
+        + String.format("%-8s %-12s %-20s %-12s %-12s %-15s %-8s%n", "Order", "Room", "Guest", "Tier", "Member ID", "Requested Room", "Nights")
+        + "-----------------------------------------------------------------------------------------\n";
     for (int index = 0; index < count; index++) {
       LoyaltyMember member = filtered[index].getMember();
-      report += String.format("%-8d %-12s %-20s %-12s %-12s %-15s%n",
+        report += String.format("%-8d %-12s %-20s %-12s %-12s %-15s %-8d%n",
           filtered[index].getAllocationSequence(), filtered[index].getRoomNumber(), member.getGuestName(),
-          member.getTier(), member.getMemberId(), member.getRequestedRoomType());
+          member.getTier(), member.getMemberId(), member.getRequestedRoomType(), member.getNumberOfNights());
     }
     report += "\nCompleted allocations matching filters: " + count
         + "\nPriority guests still waiting: " + waitingGuests.getNumberOfEntries()
@@ -274,13 +278,13 @@ public class VipLoyaltyAllocation {
 
       pdf.beginContentPage();
       pdf.addSectionHeading("Detailed VIP Waiting List");
-      String[] headers = {"Rank", "Member ID", "Guest", "Tier", "Requested Room"};
-      float[] widths = {45, 85, 150, 90, 125};
+      String[] headers = {"Rank", "Member ID", "Guest", "Tier", "Requested Room", "Nights"};
+      float[] widths = {45, 85, 150, 90, 110, 55};
       List<String[]> rows = new java.util.ArrayList<>();
       for (int index = 0; index < matchingGuests.size(); index++) {
         LoyaltyMember member = matchingGuests.get(index);
         rows.add(new String[]{String.valueOf(index + 1), member.getMemberId(), member.getGuestName(),
-            member.getTier().toString(), member.getRequestedRoomType()});
+          member.getTier().toString(), member.getRequestedRoomType(), String.valueOf(member.getNumberOfNights())});
       }
       if (rows.isEmpty()) pdf.addBodyText("No waiting guests meet both filters.", 10);
       else pdf.addTable(headers, rows, widths);
@@ -326,14 +330,14 @@ public class VipLoyaltyAllocation {
 
       pdf.beginContentPage();
       pdf.addSectionHeading("Detailed Completed Allocations");
-      String[] headers = {"Order", "Room", "Guest", "Tier", "Member ID", "Requested Room"};
-      float[] widths = {50, 60, 125, 75, 85, 100};
+      String[] headers = {"Order", "Room", "Guest", "Tier", "Member ID", "Requested Room", "Nights"};
+      float[] widths = {50, 60, 125, 75, 85, 95, 50};
       List<String[]> rows = new java.util.ArrayList<>();
       for (RoomAllocation allocation : matchingAllocations) {
         LoyaltyMember member = allocation.getMember();
         rows.add(new String[]{String.valueOf(allocation.getAllocationSequence()), allocation.getRoomNumber(),
             member.getGuestName(), member.getTier().toString(), member.getMemberId(),
-            member.getRequestedRoomType()});
+          member.getRequestedRoomType(), String.valueOf(member.getNumberOfNights())});
       }
       if (rows.isEmpty()) pdf.addBodyText("No completed allocations meet both filters.", 10);
       else pdf.addTable(headers, rows, widths);
@@ -396,8 +400,8 @@ public class VipLoyaltyAllocation {
     }
     sortPriorityGuests(sortedGuests);
 
-    String output = String.format("%-5s %-12s %-20s %-12s %-15s%n", "Rank", "Member ID", "Guest", "Tier", "Requested Room")
-        + "----------------------------------------------------------------------------\n";
+    String output = String.format("%-5s %-12s %-20s %-12s %-15s %-8s%n", "Rank", "Member ID", "Guest", "Tier", "Requested Room", "Nights")
+      + "--------------------------------------------------------------------------------\n";
     for (int position = 0; position < sortedGuests.length; position++) {
       output += formatMember(sortedGuests[position], position + 1) + "\n";
     }
@@ -416,8 +420,9 @@ public class VipLoyaltyAllocation {
   }
 
   private String formatMember(LoyaltyMember member, int rank) {
-    return String.format("%-5d %-12s %-20s %-12s %-15s", rank, member.getMemberId(),
-        member.getGuestName(), member.getTier(), member.getRequestedRoomType());
+    return String.format("%-5d %-12s %-20s %-12s %-15s %-8d", rank, member.getMemberId(),
+      member.getGuestName(), member.getTier(), member.getRequestedRoomType(),
+      member.getNumberOfNights());
   }
 
   private void pause() { MessageUI.pressEnterToContinue(); }

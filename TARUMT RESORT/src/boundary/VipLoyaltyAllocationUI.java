@@ -116,6 +116,14 @@ public class VipLoyaltyAllocationUI {
     return inputRoomType("REQUESTED ROOM TYPE", "Select requested room type (1-6): ");
   }
 
+  public int inputNumberOfNights() {
+    while (true) {
+      int nights = readInt("How many nights will the VIP stay? ");
+      if (nights > 0 && nights <= 365) return nights;
+      System.out.println("Please enter a stay between 1 and 365 nights.");
+    }
+  }
+
   /** Selects the room type that should be automatically assigned. */
   public String inputRoomTypeToAllocate() {
     return inputRoomType("ROOM TYPE TO ALLOCATE", "Select room type to allocate (1-6): ");

@@ -5,12 +5,14 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
   /** The registered loyalty profile this priority-queue entry belongs to. */
   private final RewardsMember loyaltyMember;
   private String requestedRoomType;
+  private final int numberOfNights;
   private final int arrivalSequence;
 
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
-      int arrivalSequence) {
+      int numberOfNights, int arrivalSequence) {
     this.loyaltyMember = loyaltyMember;
     this.requestedRoomType = requestedRoomType;
+    this.numberOfNights = numberOfNights;
     this.arrivalSequence = arrivalSequence;
   }
 
@@ -36,6 +38,10 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
 
   public void setRequestedRoomType(String requestedRoomType) {
     this.requestedRoomType = requestedRoomType;
+  }
+
+  public int getNumberOfNights() {
+    return numberOfNights;
   }
 
   public int getArrivalSequence() { 
