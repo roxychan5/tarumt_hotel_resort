@@ -54,11 +54,8 @@ DATA FILES (readable text files, auto-created on first save)
 - data\housekeeping_tasks.txt
 - data\status_history.txt
 - data\redo_history.txt
-- data\guest_records.txt
 - data\products.txt
 - data\loyalty_members.txt
-- data\standard_bookings.txt
-- data\walk_in_guests.txt
 
 SAMPLE ROOMS (seeded on first run)
 ----------------------------------

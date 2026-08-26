@@ -7,7 +7,8 @@ import adt.SearchTreeInterface;
 import boundary.FrontDeskServiceUI;
 import dao.FrontDeskDAO;
 import dao.HousekeepingDAO;
-import entity.GuestRecord;
+import entity.LoyaltyTier;
+import entity.RewardsMember;
 import entity.Room;
 import entity.RoomStatus;
 import utility.MalaysiaTime;
@@ -15,8 +16,7 @@ import utility.MessageUI;
 import utility.PdfReportEngine;
 import java.io.File;
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
 
 /**
  * Control class stub for Front-Desk Service module (team member integration point).
@@ -25,8 +25,8 @@ import java.time.format.DateTimeFormatter;
  */
 public class FrontDeskService {
 
-  private final ListInterface<GuestRecord> guestRecords = new ArrayList<>();
-  private final SearchTreeInterface<String, GuestRecord> guestSearchTree =
+  private final ListInterface<RewardsMember> memberRecords = new ArrayList<>();
+  private final SearchTreeInterface<String, RewardsMember> memberSearchTree =
       new BinarySearchTree<>(); //non-linear data structure for front desk 
   private final FrontDeskDAO frontDeskDAO = new FrontDeskDAO();
   private final HousekeepingDAO housekeepingDAO = new HousekeepingDAO();
@@ -34,7 +34,7 @@ public class FrontDeskService {
 
   public FrontDeskService() {
     loadData();
-    rebuildGuestSearchTree();
+    rebuildMemberSearchTree();
   }
 
   public void runFrontDeskModule() {
@@ -46,20 +46,20 @@ public class FrontDeskService {
           MessageUI.displayInfoMessage("Returning to main menu...");
           break;
         case 1:
-          searchGuestByConfirmationNumber();
+          searchMemberById();
           break;
         case 2:
           checkRoomAvailability();
           break;
         case 3:
-          viewBillingDetails();
+          viewMemberAccountDetails();
           break;
         case 4:
-          frontDeskUI.displayGuestList(getAllGuestRecords());
+          frontDeskUI.displayMemberList(getAllMemberRecords());
           MessageUI.pressEnterToContinue();
           break;
         case 5:
-          guestsBillingReport();
+          memberAccountReport();
           break;
         case 6:
           guestsRoomAvailabilityReport();
@@ -70,10 +70,10 @@ public class FrontDeskService {
     } while (choice != 0);
   }
 
-  private void searchGuestByConfirmationNumber() {
-    GuestRecord guestRecord = promptForGuestRecord(false);
-    if (guestRecord == null) return;
-    frontDeskUI.displayGuestDetails(guestRecord);
+  private void searchMemberById() {
+    RewardsMember memberRecord = promptForMemberRecord(false);
+    if (memberRecord == null) return;
+    frontDeskUI.displayMemberDetails(memberRecord);
     MessageUI.pressEnterToContinue();
   }
 
@@ -93,65 +93,69 @@ public class FrontDeskService {
       }
 
       Room room = findRoom(roomNumber);
-      GuestRecord assignedGuest = findGuestByRoomNumber(roomNumber);
 
-      if (room == null && assignedGuest == null) {
+      if (room == null) {
         frontDeskUI.displayRoomAvailability(
             "  Room " + roomNumber + " was not found.\n"
             + "  Try again, or enter 0 to cancel.");
         continue;
       }
 
-      frontDeskUI.displayRoomAvailability(formatRoomAvailability(room, assignedGuest));
+      frontDeskUI.displayRoomAvailability(formatRoomAvailability(room));
       MessageUI.pressEnterToContinue();
       return;
     }
   }
 
-  private void viewBillingDetails() {
-    GuestRecord guestRecord = promptForGuestRecord(true);
-    if (guestRecord == null) return;
-    frontDeskUI.displayBillingDetails(guestRecord);
+  private void viewMemberAccountDetails() {
+    RewardsMember memberRecord = promptForMemberRecord(true);
+    if (memberRecord == null) return;
+    frontDeskUI.displayMemberAccountDetails(memberRecord);
     MessageUI.pressEnterToContinue();
   }
 
-  private void guestsBillingReport() {
-    ListInterface<GuestRecord> sortedRecords = guestSearchTree.inOrderTraversal();
+  private void memberAccountReport() {
+    ListInterface<RewardsMember> sortedRecords = memberSearchTree.inOrderTraversal();
     StringBuilder report = new StringBuilder();
-    report.append(String.format("%-12s %-20s %-8s %-10s %12s %12s %12s%n",
-        "Confirm No.", "Guest Name", "Room", "Type", "Total", "Paid", "Outstanding"));
-    report.append("------------------------------------------------------------------------------------------\n");
+    report.append(String.format("%-12s %-22s %-12s %-10s %-15s %s%n",
+        "Member ID", "Name", "Tier", "Points", "Expiry", "Promotion"));
+    report.append("-------------------------------------------------------------------------------------------------\n");
 
-    int guestCount = 0;
-    double totalAmount = 0;
-    double totalPaid = 0;
-    double totalOutstanding = 0;
+    int memberCount = 0;
+    int totalPoints = 0;
+    int expiringSoon = 0;
+    int[] tierCounts = new int[LoyaltyTier.values().length];
+    LocalDate expiryLimit = LocalDate.now().plusDays(30);
 
     for (int index = 1; index <= sortedRecords.getNumberOfEntries(); index++) {
-      GuestRecord guestRecord = sortedRecords.getEntry(index);
-      report.append(String.format("%-12s %-20s %-8s %-10s RM %9.2f RM %9.2f RM %9.2f%n",
-          guestRecord.getConfirmationNumber(), guestRecord.getGuestName(),
-          guestRecord.getRoomNumber(), guestRecord.getRoomType(),
-          guestRecord.getTotalAmount(), guestRecord.getPaidAmount(),
-          guestRecord.getOutstandingAmount()));
-      guestCount++;
-      totalAmount += guestRecord.getTotalAmount();
-      totalPaid += guestRecord.getPaidAmount();
-      totalOutstanding += guestRecord.getOutstandingAmount();
+      RewardsMember memberRecord = sortedRecords.getEntry(index);
+      report.append(String.format("%-12s %-22s %-12s %-10d %-15s %s%n",
+          memberRecord.getMemberId(), memberRecord.getName(), memberRecord.getTier(),
+          memberRecord.getPoints(), memberRecord.getPointsExpiryDate(),
+          memberRecord.getPromotion()));
+      memberCount++;
+      totalPoints += memberRecord.getPoints();
+      tierCounts[memberRecord.getTier().ordinal()]++;
+      if (memberRecord.getPointsExpiryDate() != null
+          && !memberRecord.getPointsExpiryDate().isAfter(expiryLimit)) {
+        expiringSoon++;
+      }
     }
 
-    if (guestCount == 0) {
-      report.append("No guest billing records found.\n");
+    if (memberCount == 0) {
+      report.append("No linked member records found.\n");
     }
-    report.append("\nTotal guests                 : ").append(guestCount).append("\n");
-    report.append(String.format("Total bill amount            : RM %.2f%n", totalAmount));
-    report.append(String.format("Total paid amount            : RM %.2f%n", totalPaid));
-    report.append(String.format("Total outstanding amount     : RM %.2f%n", totalOutstanding));
+    report.append("\nTotal members                : ").append(memberCount).append("\n");
+    report.append("Total loyalty points         : ").append(totalPoints).append("\n");
+    report.append("Members expiring within 30d  : ").append(expiringSoon).append("\n");
+    for (LoyaltyTier tier : LoyaltyTier.values()) {
+      report.append(String.format("%-28s: %d%n", tier + " members", tierCounts[tier.ordinal()]));
+    }
 
-    frontDeskUI.displayReport("REPORT 1: GUESTS BILLING SUMMARY", report.toString());
+    frontDeskUI.displayReport("REPORT 1: MEMBER ACCOUNT SUMMARY", report.toString());
     if (frontDeskUI.confirmPdfExport()) {
-      exportGuestsBillingReportToPdf(sortedRecords, guestCount, totalAmount,
-          totalPaid, totalOutstanding);
+      exportMemberAccountReportToPdf(sortedRecords, memberCount, totalPoints, expiringSoon,
+          tierCounts);
     }
     MessageUI.pressEnterToContinue();
   }
@@ -159,9 +163,9 @@ public class FrontDeskService {
   private void guestsRoomAvailabilityReport() {
     ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
     StringBuilder report = new StringBuilder();
-    report.append(String.format("%-8s %-12s %-7s %-22s %-20s %-12s %-24s%n",
-        "Room", "Type", "Floor", "Housekeeping Status", "Guest", "Confirm No.", "Availability"));
-    report.append("-------------------------------------------------------------------------------------------------------------\n");
+    report.append(String.format("%-8s %-12s %-7s %-22s %-24s%n",
+        "Room", "Type", "Floor", "Housekeeping Status", "Availability"));
+    report.append("-------------------------------------------------------------------------------\n");
 
     int totalRooms = 0;
     int occupiedRooms = 0;
@@ -170,10 +174,9 @@ public class FrontDeskService {
 
     for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
       Room room = roomList.getEntry(index);
-      GuestRecord assignedGuest = findGuestByRoomNumber(room.getRoomNumber());
-      String availability = getRoomAvailabilityLabel(room, assignedGuest);
+      String availability = getRoomAvailabilityLabel(room);
 
-      if (assignedGuest != null) {
+      if (room.getStatus() == RoomStatus.OCCUPIED) {
         occupiedRooms++;
       } else if (room.getStatus() == RoomStatus.READY_FOR_CHECK_IN) {
         availableRooms++;
@@ -181,10 +184,9 @@ public class FrontDeskService {
         unavailableRooms++;
       }
 
-      report.append(String.format("%-8s %-12s %-7d %-22s %-20s %-12s %-24s%n",
+      report.append(String.format("%-8s %-12s %-7d %-22s %-24s%n",
           room.getRoomNumber(), room.getRoomType(), room.getFloor(),
-          room.getStatus().getLabel(), guestNameOrDash(assignedGuest),
-          confirmationNumberOrDash(assignedGuest), availability));
+          room.getStatus().getLabel(), availability));
       totalRooms++;
     }
 
@@ -204,66 +206,63 @@ public class FrontDeskService {
     MessageUI.pressEnterToContinue();
   }
 
-  private void exportGuestsBillingReportToPdf(ListInterface<GuestRecord> sortedRecords,
-      int guestCount, double totalAmount, double totalPaid, double totalOutstanding) {
+  private void exportMemberAccountReportToPdf(ListInterface<RewardsMember> sortedRecords,
+      int memberCount, int totalPoints, int expiringSoon, int[] tierCounts) {
     PdfReportEngine pdf = null;
     try {
       String outDir = "output" + File.separator + "pdf";
       new File(outDir).mkdirs();
       String timestamp = MalaysiaTime.now().format(MalaysiaTime.FILE_FORMATTER);
-      String outPath = outDir + File.separator + "frontdesk_billing_" + timestamp + ".pdf";
+      String outPath = outDir + File.separator + "frontdesk_member_accounts_" + timestamp + ".pdf";
 
       pdf = new PdfReportEngine();
       pdf.addCoverPage(
-          "Front-Desk Guest Billing Summary",
-          "Guest Charges | Paid Amounts | Outstanding Balances",
-          "Current guest records", "Front Desk Officer");
+          "Front-Desk Member Account Summary",
+          "Member Records | Loyalty Tier | Reward Points",
+          "Linked loyalty member records", "Front Desk Officer");
 
       pdf.beginContentPage();
       pdf.addSectionHeading("Report Overview");
-      pdf.addKpiRow("Report Type", "Guest Billing Summary", null);
-      pdf.addKpiRow("Records Analysed", String.valueOf(guestCount),
-          guestCount == 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
-      pdf.addKpiRow("Total Bill Amount", money(totalAmount), null);
-      pdf.addKpiRow("Total Paid Amount", money(totalPaid), PdfReportEngine.SUCCESS);
-      pdf.addKpiRow("Total Outstanding Amount", money(totalOutstanding),
-          totalOutstanding > 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
+      pdf.addKpiRow("Report Type", "Member Account Summary", null);
+      pdf.addKpiRow("Records Analysed", String.valueOf(memberCount),
+          memberCount == 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
+      pdf.addKpiRow("Total Loyalty Points", String.valueOf(totalPoints), null);
+      pdf.addKpiRow("Expiring Within 30 Days", String.valueOf(expiringSoon),
+          expiringSoon > 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
       pdf.addDivider();
 
-      pdf.addSectionHeading("Key Billing Indicators");
+      pdf.addSectionHeading("Key Member Indicators");
       pdf.addKpiCards(
-          new String[]{"Guests", "Total Bill", "Paid", "Outstanding"},
-          new String[]{String.valueOf(guestCount), money(totalAmount),
-              money(totalPaid), money(totalOutstanding)},
+          new String[]{"Members", "Total Points", "Expiring Soon", "Tier Groups"},
+          new String[]{String.valueOf(memberCount), String.valueOf(totalPoints),
+              String.valueOf(expiringSoon), String.valueOf(LoyaltyTier.values().length)},
           new java.awt.Color[]{PdfReportEngine.BRAND_TEAL, PdfReportEngine.ACCENT_BLUE,
-              PdfReportEngine.SUCCESS, totalOutstanding > 0
-                  ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS});
+              expiringSoon > 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS,
+              PdfReportEngine.SUCCESS});
       pdf.addSpace(10);
-      pdf.addBarChart("Billing Summary",
-          new String[]{"Total", "Paid", "Outstanding"},
-          new double[]{totalAmount, totalPaid, totalOutstanding}, "Amount (RM)");
+      pdf.addBarChart("Members by Tier", tierLabels(), countsToValues(tierCounts), "Members");
 
       pdf.beginContentPage();
-      pdf.addSectionHeading("Detailed Guest Billing Records");
+      pdf.addSectionHeading("Detailed Member Records");
       pdf.addBodyText(
-          "Records are listed by confirmation number using the front-desk Binary Search Tree traversal.",
+          "Records are listed by member ID using the front-desk Binary Search Tree traversal.",
           9);
       pdf.addSpace(6);
 
-      String[] headers = {"Confirm", "Guest Name", "Room", "Type", "Total", "Paid", "Outstanding"};
-      float[] colW = {70, 105, 45, 55, 70, 70, 80};
+      String[] headers = {"Member ID", "Name", "Tier", "Points", "Expiry", "Promotion"};
+      float[] colW = {65, 105, 70, 50, 80, 125};
       java.util.List<String[]> rows = new java.util.ArrayList<>();
       for (int index = 1; index <= sortedRecords.getNumberOfEntries(); index++) {
-        GuestRecord guestRecord = sortedRecords.getEntry(index);
+        RewardsMember memberRecord = sortedRecords.getEntry(index);
         rows.add(new String[]{
-            guestRecord.getConfirmationNumber(), guestRecord.getGuestName(),
-            guestRecord.getRoomNumber(), guestRecord.getRoomType(),
-            money(guestRecord.getTotalAmount()), money(guestRecord.getPaidAmount()),
-            money(guestRecord.getOutstandingAmount())
+            memberRecord.getMemberId(), memberRecord.getName(), memberRecord.getTier().toString(),
+            String.valueOf(memberRecord.getPoints()),
+            String.valueOf(memberRecord.getPointsExpiryDate()),
+            memberRecord.getPromotion()
         });
       }
       if (rows.isEmpty()) {
-        pdf.addBodyText("No guest billing records found.", 10);
+        pdf.addBodyText("No linked member records found.", 10);
       } else {
         pdf.addTable(headers, rows, colW);
       }
@@ -325,22 +324,18 @@ public class FrontDeskService {
       pdf.beginContentPage();
       pdf.addSectionHeading("Detailed Room Availability Records");
       pdf.addBodyText(
-          "Room availability combines housekeeping readiness with assigned front-desk guest records.",
+          "Room availability is checked directly from the shared housekeeping room records.",
           9);
       pdf.addSpace(6);
 
-      String[] headers = {"Room", "Type", "Floor", "Status", "Guest", "Confirm", "Availability"};
-      float[] colW = {45, 65, 35, 95, 80, 65, 110};
+      String[] headers = {"Room", "Type", "Floor", "Status", "Availability"};
+      float[] colW = {55, 85, 45, 145, 165};
       java.util.List<String[]> rows = new java.util.ArrayList<>();
       for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
         Room room = roomList.getEntry(index);
-        GuestRecord assignedGuest = findGuestByRoomNumber(room.getRoomNumber());
-
         rows.add(new String[]{
             room.getRoomNumber(), room.getRoomType(), String.valueOf(room.getFloor()),
-            room.getStatus().getLabel(), guestNameOrDash(assignedGuest),
-            confirmationNumberOrDash(assignedGuest),
-            getRoomAvailabilityLabel(room, assignedGuest)
+            room.getStatus().getLabel(), getRoomAvailabilityLabel(room)
         });
       }
       if (rows.isEmpty()) {
@@ -362,83 +357,78 @@ public class FrontDeskService {
     }
   }
 
-  private String money(double amount) {
-    return String.format("RM %.2f", amount);
+  private String[] tierLabels() {
+    LoyaltyTier[] tiers = LoyaltyTier.values();
+    String[] labels = new String[tiers.length];
+    for (int index = 0; index < tiers.length; index++) {
+      labels[index] = tiers[index].toString();
+    }
+    return labels;
   }
 
-  private GuestRecord promptForGuestRecord(boolean billingLookup) {
+  private double[] countsToValues(int[] counts) {
+    double[] values = new double[counts.length];
+    for (int index = 0; index < counts.length; index++) {
+      values[index] = counts[index];
+    }
+    return values;
+  }
+
+  private RewardsMember promptForMemberRecord(boolean accountLookup) {
     while (true) {
-      String confirmationNumber = frontDeskUI.inputConfirmationNumber();
-      if (confirmationNumber.equalsIgnoreCase("0")) {
-        MessageUI.displayInfoMessage(billingLookup
-            ? "Billing lookup cancelled."
-            : "Guest search cancelled.");
+      String memberId = frontDeskUI.inputMemberId();
+      if (memberId.equalsIgnoreCase("0")) {
+        MessageUI.displayInfoMessage(accountLookup
+            ? "Member account lookup cancelled."
+            : "Member search cancelled.");
         return null;
       }
 
-      if (!isValidConfirmationNumber(confirmationNumber)) {
-        displayConfirmationNumberInputMessage(billingLookup,
-            "  Confirmation number must contain exactly 8 digits.\n"
-            + "  Enter a valid confirmation number, or enter 0 to cancel.");
+      if (!isValidMemberId(memberId)) {
+        displayMemberIdInputMessage(accountLookup,
+            "  Member ID must be LM followed by 3 digits, for example LM001.\n"
+            + "  Enter a valid member ID, or enter 0 to cancel.");
         continue;
       }
 
-      GuestRecord guestRecord = guestSearchTree.search(confirmationNumber);
-      if (guestRecord == null) {
-        displayConfirmationNumberInputMessage(billingLookup,
-            "  No " + (billingLookup ? "billing record" : "guest")
-            + " found for confirmation: " + confirmationNumber
+      RewardsMember memberRecord = memberSearchTree.search(memberId);
+      if (memberRecord == null) {
+        displayMemberIdInputMessage(accountLookup,
+            "  No member record found for ID: " + memberId
             + "\n  Try again, or enter 0 to cancel.");
         continue;
       }
 
-      return guestRecord;
+      return memberRecord;
     }
   }
 
-  private void displayConfirmationNumberInputMessage(boolean billingLookup,
+  private void displayMemberIdInputMessage(boolean accountLookup,
       String message) {
-    if (billingLookup) {
+    if (accountLookup) {
       frontDeskUI.displayBillingResult(message);
     } else {
       frontDeskUI.displaySearchResult(message);
     }
   }
 
-  private String formatRoomAvailability(Room room, GuestRecord assignedGuest) {
-    if (assignedGuest != null) {
-      return "  Room " + assignedGuest.getRoomNumber() + " is "
-          + getRoomAvailabilityLabel(room, assignedGuest)
-          + "\n  Guest            : " + assignedGuest.getGuestName()
-          + "\n  Confirmation No. : " + assignedGuest.getConfirmationNumber()
-          + "\n  Stay Period      : " + assignedGuest.getCheckInDate()
-          + " to " + assignedGuest.getCheckOutDate();
-    }
-
+  private String formatRoomAvailability(Room room) {
     return "  Room No. : " + room.getRoomNumber()
         + "\n  Type     : " + room.getRoomType()
         + "\n  Floor    : " + room.getFloor()
         + "\n  Status   : " + room.getStatus().getLabel()
-        + "\n  Result   : " + getRoomAvailabilityLabel(room, assignedGuest);
+        + "\n  Result   : " + getRoomAvailabilityLabel(room);
   }
 
-  private String getRoomAvailabilityLabel(Room room, GuestRecord assignedGuest) {
-    if (assignedGuest != null) return "OCCUPIED / RESERVED";
+  private String getRoomAvailabilityLabel(Room room) {
+    if (room.getStatus() == RoomStatus.OCCUPIED) return "OCCUPIED / RESERVED";
     return room.getStatus() == RoomStatus.READY_FOR_CHECK_IN
         ? "AVAILABLE FOR CHECK-IN"
         : "NOT AVAILABLE";
   }
 
-  private String guestNameOrDash(GuestRecord guestRecord) {
-    return guestRecord == null ? "-" : guestRecord.getGuestName();
-  }
-
-  private String confirmationNumberOrDash(GuestRecord guestRecord) {
-    return guestRecord == null ? "-" : guestRecord.getConfirmationNumber();
-  }
-
-  private boolean isValidConfirmationNumber(String confirmationNumber) {
-    return confirmationNumber.matches("\\d{8}");
+  private boolean isValidMemberId(String memberId) {
+    return memberId.matches("LM[0-9]{3}");
   }
 
   private boolean isValidRoomNumber(String roomNumber) {
@@ -456,38 +446,31 @@ public class FrontDeskService {
     return null;
   }
 
-  private GuestRecord findGuestByRoomNumber(String roomNumber) {
-    for (int index = 1; index <= guestRecords.getNumberOfEntries(); index++) {
-      GuestRecord guestRecord = guestRecords.getEntry(index);
-      if (guestRecord.getRoomNumber().equalsIgnoreCase(roomNumber)) {
-        return guestRecord;
-      }
-    }
-    return null;
-  }
-
-  private String getAllGuestRecords() {
-    ListInterface<GuestRecord> sortedRecords = guestSearchTree.inOrderTraversal();
+  private String getAllMemberRecords() {
+    ListInterface<RewardsMember> sortedRecords = memberSearchTree.inOrderTraversal();
     StringBuilder output = new StringBuilder();
     for (int index = 1; index <= sortedRecords.getNumberOfEntries(); index++) {
-      output.append(sortedRecords.getEntry(index)).append("\n");
+      RewardsMember memberRecord = sortedRecords.getEntry(index);
+      output.append(String.format("%-12s %-22s %-12s %-10d %s%n",
+          memberRecord.getMemberId(), memberRecord.getName(), memberRecord.getTier(),
+          memberRecord.getPoints(), memberRecord.getPointsExpiryDate()));
     }
     return output.toString();
   }
 
   private void loadData() {
-    ListInterface<GuestRecord> loadedRecords = frontDeskDAO.retrieveGuestRecords();
-    guestRecords.clear();
+    ListInterface<RewardsMember> loadedRecords = frontDeskDAO.retrieveMemberRecords();
+    memberRecords.clear();
     for (int index = 1; index <= loadedRecords.getNumberOfEntries(); index++) {
-      guestRecords.add(loadedRecords.getEntry(index));
+      memberRecords.add(loadedRecords.getEntry(index));
     }
   }
 
-  private void rebuildGuestSearchTree() {
-    guestSearchTree.clear();
-    for (int index = 1; index <= guestRecords.getNumberOfEntries(); index++) {
-      GuestRecord guestRecord = guestRecords.getEntry(index);
-      guestSearchTree.insert(guestRecord.getConfirmationNumber(), guestRecord);
+  private void rebuildMemberSearchTree() {
+    memberSearchTree.clear();
+    for (int index = 1; index <= memberRecords.getNumberOfEntries(); index++) {
+      RewardsMember memberRecord = memberRecords.getEntry(index);
+      memberSearchTree.insert(memberRecord.getMemberId(), memberRecord);
     }
   }
 }

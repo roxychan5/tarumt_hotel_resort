@@ -1,6 +1,6 @@
 package boundary;
 
-import entity.GuestRecord;
+import entity.RewardsMember;
 import utility.ConsoleUI;
 
 /**
@@ -37,19 +37,19 @@ public class FrontDeskServiceUI {
     printTitle("FRONT-DESK  SERVICE", "Module : Amerie Lee");
     printBorder();
 
-    printSectionLabel("GUEST SEARCH  &  ROOM STATUS");
-    printEntry(" 1", "Search Guest", "Find guest by 8-digit confirmation number");
+    printSectionLabel("MEMBER SEARCH  &  ROOM STATUS");
+    printEntry(" 1", "Search Member", "Find member by loyalty member ID");
     printEntry(" 2", "Check Room Availability", "Review occupancy and housekeeping status");
     printBorder();
 
-    printSectionLabel("BILLING  &  RECORDS");
-    printEntry(" 3", "View Billing Details", "Show charges, paid and outstanding amount");
-    printEntry(" 4", "List All Guest Records", "Display records in confirmation order");
+    printSectionLabel("ACCOUNT  &  RECORDS");
+    printEntry(" 3", "View Member Account", "Show tier, points, expiry and promotion");
+    printEntry(" 4", "List All Member Records", "Display records in member ID order");
     printBorder();
 
     printSectionLabel("MANAGEMENT  REPORTS");
-    printEntryHighlight(" 5", "Report 1: Guests Billing", "BST traversal | billing KPI | PDF");
-    printEntryHighlight(" 6", "Report 2: Room Availability", "Room status + guest records | PDF");
+    printEntryHighlight(" 5", "Report 1: Member Accounts", "BST traversal | loyalty KPI | PDF");
+    printEntryHighlight(" 6", "Report 2: Room Availability", "Housekeeping room status | PDF");
     printBorder();
 
     printBack(" 0", "Back to Main Menu");
@@ -57,9 +57,9 @@ public class FrontDeskServiceUI {
     System.out.println();
   }
 
-  public String inputConfirmationNumber() {
-    System.out.print("  " + SB + "Confirmation No." + R + " (8 digits, 0 to cancel) > ");
-    return ConsoleUI.readLine().trim();
+  public String inputMemberId() {
+    System.out.print("  " + SB + "Member ID" + R + " (LM001, 0 to cancel) > ");
+    return ConsoleUI.readLine().trim().toUpperCase();
   }
 
   public String inputRoomNumber() {
@@ -68,31 +68,31 @@ public class FrontDeskServiceUI {
   }
 
   public void displaySearchResult(String result) {
-    sectionHeader("GUEST SEARCH RESULT", "Binary Search Tree lookup by confirmation number.");
+    sectionHeader("MEMBER SEARCH RESULT", "Binary Search Tree lookup by loyalty member ID.");
     for (String line : result.split("\r?\n")) {
       System.out.println(RD + line + R);
     }
   }
 
-  public void displayGuestDetails(GuestRecord guestRecord) {
-    sectionHeader("COMPLETE GUEST INFORMATION", "Full front-desk guest record.");
-    System.out.println(guestRecord.toFullDetailsString());
+  public void displayMemberDetails(RewardsMember memberRecord) {
+    sectionHeader("COMPLETE MEMBER INFORMATION", "Linked loyalty member record.");
+    System.out.println(toMemberDetailsString(memberRecord));
   }
 
-  public void displayBillingDetails(GuestRecord guestRecord) {
-    sectionHeader("GUEST BILLING DETAILS", "Charges, payment and outstanding balance.");
-    System.out.println(guestRecord.toBillingString());
+  public void displayMemberAccountDetails(RewardsMember memberRecord) {
+    sectionHeader("MEMBER ACCOUNT DETAILS", "Front desk check-only account summary.");
+    System.out.println(toMemberAccountString(memberRecord));
   }
 
   public void displayBillingResult(String result) {
-    sectionHeader("BILLING SEARCH RESULT", "Billing lookup by guest confirmation number.");
+    sectionHeader("MEMBER ACCOUNT SEARCH RESULT", "Account lookup by loyalty member ID.");
     for (String line : result.split("\r?\n")) {
       System.out.println(RD + line + R);
     }
   }
 
   public void displayRoomAvailability(String output) {
-    sectionHeader("ROOM AVAILABILITY", "Front-desk occupancy checked against housekeeping status.");
+    sectionHeader("ROOM AVAILABILITY", "Front-desk room check against housekeeping status.");
     for (String line : output.split("\r?\n")) {
       System.out.println(RD + line + R);
     }
@@ -120,14 +120,14 @@ public class FrontDeskServiceUI {
     System.out.println();
   }
 
-  public void displayGuestList(String output) {
-    sectionHeader("GUEST RECORDS", "Records are displayed by confirmation number.");
+  public void displayMemberList(String output) {
+    sectionHeader("MEMBER RECORDS", "Records are displayed by member ID.");
     if (output.isEmpty()) {
-      System.out.println("  " + DM + "(No guest records found)" + R);
+      System.out.println("  " + DM + "(No member records found)" + R);
     } else {
       System.out.println("  " + IB + B
-          + String.format("%-12s %-20s %-10s %-10s %s",
-              "Confirm No.", "Guest Name", "Room", "Type", "Outstanding")
+          + String.format("%-12s %-22s %-12s %-10s %s",
+              "Member ID", "Name", "Tier", "Points", "Expiry")
           + R);
       System.out.println("  " + rep('-', 74));
       for (String line : output.split("\r?\n")) {
@@ -202,6 +202,26 @@ public class FrontDeskServiceUI {
 
   private String padR(String value, int width) {
     return value.length() >= width ? value : value + rep(' ', width - value.length());
+  }
+
+  private String toMemberDetailsString(RewardsMember memberRecord) {
+    return "  Member ID        : " + memberRecord.getMemberId()
+        + "\n  Name             : " + memberRecord.getName()
+        + "\n  Email            : " + memberRecord.getEmail()
+        + "\n  Tier             : " + memberRecord.getTier()
+        + "\n  Reward Points    : " + memberRecord.getPoints()
+        + "\n  Points Expiry    : " + memberRecord.getPointsExpiryDate()
+        + "\n  Promotion        : " + memberRecord.getPromotion();
+  }
+
+  private String toMemberAccountString(RewardsMember memberRecord) {
+    return "  Member ID        : " + memberRecord.getMemberId()
+        + "\n  Name             : " + memberRecord.getName()
+        + "\n  Tier             : " + memberRecord.getTier()
+        + "\n  Reward Points    : " + memberRecord.getPoints()
+        + "\n  Points Expiry    : " + memberRecord.getPointsExpiryDate()
+        + "\n  Promotion        : " + memberRecord.getPromotion()
+        + "\n  Billing Source   : No guest billing file is maintained by Front Desk";
   }
 
   private String rep(char character, int count) {

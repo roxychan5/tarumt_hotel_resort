@@ -9,13 +9,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import utility.DataFiles;
 
 /** Stores product inventory as a readable tab-separated text file. */
 public class ProductDAO {
 
-  private static final Path DATA_DIRECTORY = Paths.get("data");
-  private static final Path PRODUCT_FILE = DATA_DIRECTORY.resolve("products.txt");
+  private static final Path DATA_DIRECTORY = DataFiles.directory();
+  private static final Path PRODUCT_FILE = DataFiles.resolve("products.txt");
 
   public void saveToFile(ListInterface<Product> productList) {
     try {

@@ -11,8 +11,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
+import utility.DataFiles;
 import utility.MessageUI;
 
 /**
@@ -24,7 +24,7 @@ import utility.MessageUI;
 public class LoyaltyRewardsService {
 
     private static final Path DATA_FILE =
-            Paths.get("data", "loyalty_members.txt");
+            DataFiles.resolve("loyalty_members.txt");
 
     private final ListInterface<RewardsMember> members =
             new ArrayList<>();

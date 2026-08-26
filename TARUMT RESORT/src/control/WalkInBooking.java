@@ -12,6 +12,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 
 import utility.ConsoleUI;
+import utility.DataFiles;
 import utility.MessageUI;
 
 /**
@@ -38,14 +39,14 @@ public class WalkInBooking {
     private final ArrayList<WalkInGuest> walkInList
             = new ArrayList<>();
 
-    private static final String DATA_DIRECTORY
-            = "data";
+    private static final File DATA_DIRECTORY
+            = DataFiles.directory().toFile();
 
-    private static final String BOOKING_FILE
-            = DATA_DIRECTORY + File.separator + "standard_bookings.txt";
+    private static final File BOOKING_FILE
+            = DataFiles.resolve("standard_bookings.txt").toFile();
 
-    private static final String WALK_IN_FILE
-            = DATA_DIRECTORY + File.separator + "walk_in_guests.txt";
+    private static final File WALK_IN_FILE
+            = DataFiles.resolve("walk_in_guests.txt").toFile();
 
     private int nextBookingNumber = 1;
     private int nextWalkInNumber = 1;
@@ -400,7 +401,7 @@ public class WalkInBooking {
      */
     private void loadBookingsFromFile() {
 
-        File file = new File(BOOKING_FILE);
+        File file = BOOKING_FILE;
 
         if (!file.exists()) {
             return;
@@ -501,7 +502,7 @@ public class WalkInBooking {
      */
     private void loadWalkInsFromFile() {
 
-        File file = new File(WALK_IN_FILE);
+        File file = WALK_IN_FILE;
 
         if (!file.exists()) {
             return;
@@ -595,9 +596,8 @@ public class WalkInBooking {
     }
 
     private void ensureDataDirectoryExists() {
-        File directory = new File(DATA_DIRECTORY);
-        if (!directory.exists()) {
-            directory.mkdirs();
+        if (!DATA_DIRECTORY.exists()) {
+            DATA_DIRECTORY.mkdirs();
         }
     }
 }

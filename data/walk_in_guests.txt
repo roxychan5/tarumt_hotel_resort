@@ -1,2 +1,0 @@
-W001|cccccccc|0123456789|Standard|2
-W002|roxy|0123456789|Deluxe|9

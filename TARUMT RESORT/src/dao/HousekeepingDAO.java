@@ -14,9 +14,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import utility.DataFiles;
 
 /**
  * DAO = "Data Access Object".
@@ -40,12 +40,12 @@ public class HousekeepingDAO {
   /** How dates/times are written in the files, e.g. "2026-08-18T01:08:13". */
   private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-  // Where everything is stored (paths relative to the project folder):
-  private static final Path DATA_DIRECTORY = Paths.get("data");
-  private static final Path ROOM_FILE = DATA_DIRECTORY.resolve("rooms.txt");
-  private static final Path TASK_FILE = DATA_DIRECTORY.resolve("housekeeping_tasks.txt");
-  private static final Path HISTORY_FILE = DATA_DIRECTORY.resolve("status_history.txt");
-  private static final Path REDO_FILE = DATA_DIRECTORY.resolve("redo_history.txt");
+  // Where everything is stored:
+  private static final Path DATA_DIRECTORY = DataFiles.directory();
+  private static final Path ROOM_FILE = DataFiles.resolve("rooms.txt");
+  private static final Path TASK_FILE = DataFiles.resolve("housekeeping_tasks.txt");
+  private static final Path HISTORY_FILE = DataFiles.resolve("status_history.txt");
+  private static final Path REDO_FILE = DataFiles.resolve("redo_history.txt");
 
   // ═══════════════════════════════════════════════════════════════
   // ROOMS
