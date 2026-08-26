@@ -174,7 +174,7 @@ public class VipLoyaltyAllocation {
           && (roomTypeFilter.isEmpty() || member.getRequestedRoomType().equalsIgnoreCase(roomTypeFilter))) {
         report += String.format("%-5d %-12s %-20s %-12s %-15s%n", position,
             member.getMemberId(), member.getGuestName(), member.getTier(), member.getRequestedRoomType());
-            matchingGuests.add(member);
+        matchingGuests.add(member);
         matches++;
       }
     }
@@ -275,7 +275,7 @@ public class VipLoyaltyAllocation {
       pdf.beginContentPage();
       pdf.addSectionHeading("Detailed VIP Waiting List");
       String[] headers = {"Rank", "Member ID", "Guest", "Tier", "Requested Room"};
-      float[] widths = {45, 85, 155, 90, 125};
+      float[] widths = {45, 85, 150, 90, 125};
       List<String[]> rows = new java.util.ArrayList<>();
       for (int index = 0; index < matchingGuests.size(); index++) {
         LoyaltyMember member = matchingGuests.get(index);
@@ -327,7 +327,7 @@ public class VipLoyaltyAllocation {
       pdf.beginContentPage();
       pdf.addSectionHeading("Detailed Completed Allocations");
       String[] headers = {"Order", "Room", "Guest", "Tier", "Member ID", "Requested Room"};
-      float[] widths = {50, 60, 145, 80, 90, 115};
+      float[] widths = {50, 60, 125, 75, 85, 100};
       List<String[]> rows = new java.util.ArrayList<>();
       for (RoomAllocation allocation : matchingAllocations) {
         LoyaltyMember member = allocation.getMember();
