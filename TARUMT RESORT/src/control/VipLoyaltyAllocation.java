@@ -13,8 +13,12 @@ import entity.RoomAllocation;
 import entity.RoomStatus;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
+import utility.DataFiles;
 import utility.MalaysiaTime;
 import utility.MessageUI;
 import utility.PdfReportEngine;
@@ -29,11 +33,13 @@ public class VipLoyaltyAllocation {
   private final HousekeepingDAO housekeepingDAO = new HousekeepingDAO();
   private final HeapPriorityQueue<LoyaltyMember> waitingGuests = new HeapPriorityQueue<>();
   private final ArrayList<RoomAllocation> completedAllocations = new ArrayList<>();
+  private static final Path WAITING_GUEST_FILE = DataFiles.resolve("vip_waiting_guests.txt");
   private int arrivalSequence;
   private int allocationSequence;
 
   public VipLoyaltyAllocation(LoyaltyRewardsService loyaltyRewardsService) {
     this.loyaltyRewardsService = loyaltyRewardsService;
+    loadWaitingGuests();
   }
 
   public void runVipLoyaltyModule() {
@@ -86,6 +92,7 @@ public class VipLoyaltyAllocation {
       LoyaltyMember member = new LoyaltyMember(registeredMember, roomType, numberOfNights,
           ++arrivalSequence);
       waitingGuests.add(member);
+      saveWaitingGuests();
       MessageUI.displaySuccessMessage(registeredMember.getTier() + " member added for "
           + numberOfNights + " night(s). Queue reordered automatically.");
     }
@@ -116,6 +123,7 @@ public class VipLoyaltyAllocation {
           LoyaltyMember member = waitingGuests.getEntry(queuePosition);
           if (waitingGuests.removeEntry(member)) {
             completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(), ++allocationSequence));
+            saveWaitingGuests();
             MessageUI.displaySuccessMessage("Room " + room.getRoomNumber() + " (" + roomType
                 + ") allocated automatically to " + member.getGuestName() + " ("
               + member.getTier() + ") for " + member.getNumberOfNights() + " night(s).");
@@ -365,6 +373,50 @@ public class VipLoyaltyAllocation {
         // Cleanup failure does not change the export result.
       }
     }
+  }
+
+  private void loadWaitingGuests() {
+    if (!Files.exists(WAITING_GUEST_FILE)) return;
+    try {
+      for (String line : Files.readAllLines(WAITING_GUEST_FILE, StandardCharsets.UTF_8)) {
+        if (line.trim().isEmpty() || line.startsWith("memberId\t")) continue;
+        String[] fields = line.split("\\t", -1);
+        if (fields.length != 4 && fields.length != 5) continue;
+        RewardsMember registeredMember = loyaltyRewardsService.getMemberById(fields[0]);
+        if (registeredMember == null) continue;
+        int dataOffset = fields.length == 5 ? 1 : 0;
+        String roomType = fields[1 + dataOffset];
+        int numberOfNights = Integer.parseInt(fields[2 + dataOffset]);
+        int savedArrivalSequence = Integer.parseInt(fields[3 + dataOffset]);
+        waitingGuests.add(new LoyaltyMember(registeredMember, roomType, numberOfNights,
+            savedArrivalSequence));
+        arrivalSequence = Math.max(arrivalSequence, savedArrivalSequence);
+      }
+    } catch (IOException | IllegalArgumentException ex) {
+      MessageUI.displayErrorMessage("Could not load VIP waiting guests: " + ex.getMessage());
+    }
+  }
+
+  private void saveWaitingGuests() {
+    try {
+      Files.createDirectories(WAITING_GUEST_FILE.getParent());
+      StringBuilder contents = new StringBuilder("memberId\tmemberName\troomType\tnights\tarrivalSequence\n");
+      for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
+        LoyaltyMember member = waitingGuests.getEntry(position);
+        contents.append(clean(member.getMemberId())).append('\t')
+            .append(clean(member.getGuestName())).append('\t')
+            .append(clean(member.getRequestedRoomType())).append('\t')
+            .append(member.getNumberOfNights()).append('\t')
+            .append(member.getArrivalSequence()).append('\n');
+      }
+      Files.write(WAITING_GUEST_FILE, contents.toString().getBytes(StandardCharsets.UTF_8));
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("Could not save VIP waiting guests: " + ex.getMessage());
+    }
+  }
+
+  private String clean(String value) {
+    return value == null ? "" : value.replace('\t', ' ').replace('\n', ' ').replace('\r', ' ');
   }
 
   private void insertionSortAllocations(RoomAllocation[] entries, int length) {
