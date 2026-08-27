@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import utility.DataFiles;
@@ -122,11 +123,15 @@ public class VipLoyaltyAllocation {
         } else {
           LoyaltyMember member = waitingGuests.getEntry(queuePosition);
           if (waitingGuests.removeEntry(member)) {
-            completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(), ++allocationSequence));
+            LocalDate checkInDate = MalaysiaTime.now().toLocalDate();
+            LocalDate checkOutDate = checkInDate.plusDays(member.getNumberOfNights());
+            completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(),
+                ++allocationSequence, checkInDate, checkOutDate));
             saveWaitingGuests();
             MessageUI.displaySuccessMessage("Room " + room.getRoomNumber() + " (" + roomType
                 + ") allocated automatically to " + member.getGuestName() + " ("
-              + member.getTier() + ") for " + member.getNumberOfNights() + " night(s).");
+              + member.getTier() + ") for " + member.getNumberOfNights() + " night(s).\n"
+              + "Check-in date: " + checkInDate + " | Check-out date: " + checkOutDate);
           }
         }
       }
