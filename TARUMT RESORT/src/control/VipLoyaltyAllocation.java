@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
+import utility.ConsoleUI;
 import utility.DataFiles;
 import utility.MalaysiaTime;
 import utility.MessageUI;
@@ -94,8 +95,17 @@ public class VipLoyaltyAllocation {
           ++arrivalSequence);
       waitingGuests.add(member);
       saveWaitingGuests();
-      MessageUI.displaySuccessMessage(registeredMember.getTier() + " member added for "
-          + numberOfNights + " night(s). Queue reordered automatically.");
+      MessageUI.displaySuccessMessage("Priority guest " + registeredMember.getName()
+          + " with member ID " + registeredMember.getMemberId() + " is a "
+          + registeredMember.getTier() + " member requesting a " + roomType
+          + " room for " + numberOfNights + " night(s). Queue reordered automatically.");
+        ConsoleUI.displayDetailPanel("PRIORITY GUEST ADDED",
+          "Member name: " + registeredMember.getName(),
+          "Member ID: " + registeredMember.getMemberId(),
+          "Loyalty tier: " + registeredMember.getTier(),
+          "Requested room type: " + roomType,
+          "Number of nights: " + numberOfNights,
+          "Queue reordered automatically.");
     }
     pause();
   }
