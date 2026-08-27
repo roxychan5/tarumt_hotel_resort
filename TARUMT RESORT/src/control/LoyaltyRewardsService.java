@@ -5,15 +5,20 @@ import adt.ListInterface;
 import boundary.LoyaltyRewardsUI;
 import entity.LoyaltyTier;
 import entity.RewardsMember;
+import java.awt.Color;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
-import utility.DataFiles;
+import java.util.List;
 import utility.MessageUI;
+import utility.MalaysiaTime;
+import utility.PdfReportEngine;
 
 /**
  * Manages loyalty member profiles, reward points, redemption,
@@ -24,7 +29,7 @@ import utility.MessageUI;
 public class LoyaltyRewardsService {
 
     private static final Path DATA_FILE =
-            DataFiles.resolve("loyalty_members.txt");
+            Paths.get("data", "loyalty_members.txt");
 
     private final ListInterface<RewardsMember> members =
             new ArrayList<>();
@@ -69,19 +74,31 @@ public class LoyaltyRewardsService {
                     break;
 
                 case 5:
-                    showExpiryAlerts();
+                    editMember();
                     break;
 
                 case 6:
-                    listMembers();
+                    deleteMember();
                     break;
 
                 case 7:
-                    searchMember();
+                    showExpiryAlerts();
                     break;
 
                 case 8:
-                    generateReports();
+                    listMembers();
+                    break;
+
+                case 9:
+                    searchMember();
+                    break;
+
+                case 10:
+                    generateTierAndPointsReport();
+                    break;
+
+                case 11:
+                    generateExpiryRiskReport();
                     break;
 
                 case 0:
@@ -100,20 +117,21 @@ public class LoyaltyRewardsService {
     // 1. REGISTER MEMBER
     private void registerMember() {
 
-        String id = ui.memberId();
+        String id = nextMemberId();
 
-        if (find(id) != null) {
-
-            MessageUI.displayErrorMessage(
-                    "A member with this ID already exists."
-            );
-
+        String name = ui.name();
+        if (name == null) {
+            MessageUI.displayInfoMessage("Registration cancelled.");
             pause();
             return;
         }
 
-        String name = ui.name();
         String email = ui.email();
+        if (email == null) {
+            MessageUI.displayInfoMessage("Registration cancelled.");
+            pause();
+            return;
+        }
 
         RewardsMember member = new RewardsMember(
                 id,
@@ -143,22 +161,26 @@ public class LoyaltyRewardsService {
     // 2. VIEW MEMBER PROFILE
     private void viewProfile() {
 
-        RewardsMember member =
-                find(ui.memberId());
-
-        if (member == null) {
-
-            MessageUI.displayErrorMessage(
-                    "Member profile was not found."
-            );
-
-        } else {
-
-            ui.display(
-                    "LOYALTY MEMBER PROFILE",
-                    profile(member)
-            );
+        RewardsMember member = null;
+        while (member == null) {
+            String id = ui.memberId();
+            if (id == null) {
+                MessageUI.displayInfoMessage("Cancelled.");
+                pause();
+                return;
+            }
+            member = find(id);
+            if (member == null) {
+                MessageUI.displayErrorMessage(
+                        "Member \"" + id + "\" not found. Try again or enter 0 to cancel."
+                );
+            }
         }
+
+        ui.display(
+                "LOYALTY MEMBER PROFILE",
+                profile(member)
+        );
 
         pause();
     }
@@ -166,24 +188,30 @@ public class LoyaltyRewardsService {
     // 3. ADD REWARD POINTS
     private void addPoints() {
 
-        RewardsMember member =
-                find(ui.memberId());
+        RewardsMember member = null;
+        while (member == null) {
+            String id = ui.memberId();
+            if (id == null) {
+                MessageUI.displayInfoMessage("Cancelled.");
+                pause();
+                return;
+            }
+            member = find(id);
+            if (member == null) {
+                MessageUI.displayErrorMessage(
+                        "Member \"" + id + "\" not found. Try again or enter 0 to cancel."
+                );
+            }
+        }
 
-        if (member == null) {
+        LoyaltyTier before = member.getTier();
 
-            MessageUI.displayErrorMessage(
-                    "Member profile was not found."
-            );
-
+        int points = ui.positivePoints("Points to add");
+        if (points == -1) {
+            MessageUI.displayInfoMessage("Cancelled.");
             pause();
             return;
         }
-
-        LoyaltyTier before =
-                member.getTier();
-
-        int points =
-                ui.positivePoints("Points to add > ");
 
         member.addPoints(points);
 
@@ -233,21 +261,28 @@ public class LoyaltyRewardsService {
     // 4. REDEEM POINTS
     private void redeemPoints() {
 
-        RewardsMember member =
-                find(ui.memberId());
+        RewardsMember member = null;
+        while (member == null) {
+            String id = ui.memberId();
+            if (id == null) {
+                MessageUI.displayInfoMessage("Cancelled.");
+                pause();
+                return;
+            }
+            member = find(id);
+            if (member == null) {
+                MessageUI.displayErrorMessage(
+                        "Member \"" + id + "\" not found. Try again or enter 0 to cancel."
+                );
+            }
+        }
 
-        if (member == null) {
-
-            MessageUI.displayErrorMessage(
-                    "Member profile was not found."
-            );
-
+        int points = ui.positivePoints("Points to redeem");
+        if (points == -1) {
+            MessageUI.displayInfoMessage("Cancelled.");
             pause();
             return;
         }
-
-        int points =
-                ui.positivePoints("Points to redeem > ");
 
         if (!member.redeemPoints(points)) {
 
@@ -292,6 +327,9 @@ public class LoyaltyRewardsService {
 
         LocalDate deadline =
                 today.plusDays(30);
+
+        // Sort main list by member ID ascending before iterating
+        sortByMemberId(members);
 
         StringBuilder output =
                 new StringBuilder();
@@ -371,6 +409,9 @@ public class LoyaltyRewardsService {
     // 6. LIST ALL MEMBERS
     private void listMembers() {
 
+        // Sort by member ID ascending before displaying
+        sortByMemberId(members);
+
         StringBuilder output =
                 new StringBuilder();
 
@@ -432,9 +473,78 @@ public class LoyaltyRewardsService {
     // 7. SEARCH MEMBER
     private void searchMember() {
 
-        String keyword = ui.searchKeyword().toLowerCase();
+        String rawKeyword = ui.searchKeyword();
+        if (rawKeyword == null) {
+            MessageUI.displayInfoMessage("Cancelled.");
+            pause();
+            return;
+        }
 
-        StringBuilder output = new StringBuilder();
+        String keyword = rawKeyword.toLowerCase();
+
+        /*
+        * Temporary Linear List ADT used to store
+        * all members matching the search keyword.
+        *
+        * Partial matching is supported for both
+        * Member ID and Member Name.
+        *
+        * Example:
+        * Searching "xuan" can find:
+        * Huixuan
+        * Rouxuan
+        * Xuanxuan
+        */
+        ListInterface<RewardsMember> searchResults =
+                new ArrayList<>();
+
+        for (int i = 1;
+                i <= members.getNumberOfEntries();
+                i++) {
+
+                RewardsMember member =
+                        members.getEntry(i);
+
+                String memberId =
+                        member.getMemberId().toLowerCase();
+
+                String memberName =
+                        member.getName().toLowerCase();
+
+                /*
+                * contains() allows partial keyword searching.
+                */
+                if (memberId.contains(keyword)
+                        || memberName.contains(keyword)) {
+
+                searchResults.add(member);
+                }
+        }
+
+        // ---------------------------------------------------------
+        // No matching member
+        // ---------------------------------------------------------
+
+        if (searchResults.isEmpty()) {
+
+                MessageUI.displayErrorMessage(
+                        "No members found matching: "
+                        + keyword
+                );
+
+                pause();
+                return;
+        }
+
+        // ---------------------------------------------------------
+        // Display search results
+        // ---------------------------------------------------------
+
+        // Sort search results by member ID ascending
+        sortByMemberId(searchResults);
+
+        StringBuilder output =
+                new StringBuilder();
 
         output.append(
                 String.format(
@@ -451,23 +561,12 @@ public class LoyaltyRewardsService {
                 "-----------------------------------------------------------------------\n"
         );
 
-        int count = 0;
-
         for (int i = 1;
-                i <= members.getNumberOfEntries();
+                i <= searchResults.getNumberOfEntries();
                 i++) {
 
-            RewardsMember member =
-                    members.getEntry(i);
-
-            String memberId =
-                    member.getMemberId().toLowerCase();
-
-            String name =
-                    member.getName().toLowerCase();
-
-            if (memberId.contains(keyword)
-                    || name.contains(keyword)) {
+                RewardsMember member =
+                        searchResults.getEntry(i);
 
                 output.append(
                         String.format(
@@ -479,62 +578,25 @@ public class LoyaltyRewardsService {
                                 member.getPointsExpiryDate()
                         )
                 );
-
-                count++;
-            }
         }
 
-        if (count == 0) {
+        output.append(
+                "\nSearch keyword : "
+        ).append(keyword);
 
-            MessageUI.displayErrorMessage(
-                    "No member was found matching: "
-                    + keyword
-            );
+        output.append(
+                "\nMembers found  : "
+        ).append(
+                searchResults.getNumberOfEntries()
+        );
 
-        } else {
-
-            output.append(
-                    "\nTotal Members Found: "
-            ).append(count);
-
-            ui.display(
-                    "MEMBER SEARCH RESULTS",
-                    output.toString()
-            );
-        }
+        ui.display(
+                "MEMBER SEARCH RESULTS",
+                output.toString()
+        );
 
         pause();
-    }
-
-    // 8. GENERATE REPORTS
-    private void generateReports() {
-
-        int choice;
-
-        do {
-
-            choice =
-                    ui.getReportChoice();
-
-            switch (choice) {
-
-                case 1:
-                    generateTierAndPointsReport();
-                    break;
-
-                case 2:
-                    generateExpiryRiskReport();
-                    break;
-
-                case 0:
-                    break;
-
-                default:
-                    MessageUI.displayInvalidChoiceMessage();
-            }
-
-        } while (choice != 0);
-    }
+        }
 
     // REPORT 1: TIER AND POINTS ANALYSIS
     private void generateTierAndPointsReport() {
@@ -548,6 +610,10 @@ public class LoyaltyRewardsService {
             pause();
             return;
         }
+
+        // Sort master list by member ID before filtering so filtered list
+        // inherits ID-ascending order as its base sequence.
+        sortByMemberId(members);
 
         String selectedTier =
                 ui.tierFilter();
@@ -799,6 +865,17 @@ public class LoyaltyRewardsService {
                 output.toString()
         );
 
+        if (ui.confirmPdfExport()) {
+            exportReport1ToPdf(
+                    filteredMembers,
+                    selectedTier,
+                    minimumPoints,
+                    maximumPoints,
+                    silver, gold, platinum, diamond, elite,
+                    totalPoints, averagePoints
+            );
+        }
+
         pause();
     }
 
@@ -814,6 +891,9 @@ public class LoyaltyRewardsService {
             pause();
             return;
         }
+
+        // Sort by member ID ascending before building report rows
+        sortByMemberId(members);
 
         LocalDate today =
                 LocalDate.now();
@@ -1029,6 +1109,483 @@ public class LoyaltyRewardsService {
                 output.toString()
         );
 
+        if (ui.confirmPdfExport()) {
+            exportReport2ToPdf(
+                    today,
+                    deadline,
+                    expiryCount,
+                    expiryPoints,
+                    highBalanceCount,
+                    totalPoints,
+                    expiringMembers.toString(),
+                    highBalanceMembers.toString()
+            );
+        }
+
+        pause();
+    }
+
+    // EXPORT REPORT 1 TO PDF  (Tier and Points Analysis)
+    private void exportReport1ToPdf(
+            ListInterface<RewardsMember> filtered,
+            String tierFilter,
+            int minPts,
+            int maxPts,
+            int silver, int gold, int platinum, int diamond, int elite,
+            int totalPoints,
+            double avgPoints) {
+
+        PdfReportEngine pdf = null;
+
+        try {
+
+            new File("output/pdf").mkdirs();
+
+            String timestamp = MalaysiaTime.now()
+                    .format(java.time.format.DateTimeFormatter
+                            .ofPattern("yyyyMMdd_HHmmss"));
+
+            String outPath = "output/pdf/loyalty_tier_points_"
+                    + timestamp + ".pdf";
+
+            pdf = new PdfReportEngine();
+
+            // ── Cover page ───────────────────────────────────────────────
+            pdf.addCoverPage(
+                    "TIER AND POINTS ANALYSIS",
+                    "Loyalty Members — Filtered Report",
+                    LocalDate.now().toString(),
+                    "Loyalty & Rewards Service"
+            );
+
+            // ── Page 1: KPI overview ─────────────────────────────────────
+            pdf.beginContentPage();
+
+            pdf.addSectionHeading("Report Criteria");
+            pdf.addKpiRow("Tier Filter",    tierFilter,           PdfReportEngine.TEXT_DARK);
+            pdf.addKpiRow("Min Points",     String.valueOf(minPts), PdfReportEngine.TEXT_DARK);
+            pdf.addKpiRow("Max Points",     String.valueOf(maxPts), PdfReportEngine.TEXT_DARK);
+            pdf.addKpiRow("Members Found",
+                    String.valueOf(filtered.getNumberOfEntries()),
+                    PdfReportEngine.ACCENT_BLUE);
+            pdf.addDivider();
+
+            // KPI cards: Silver / Gold / Platinum / Diamond / Elite
+            pdf.addSectionHeading("Tier Distribution");
+            pdf.addKpiCards(
+                    new String[]{"SILVER", "GOLD", "PLATINUM", "DIAMOND", "ELITE"},
+                    new String[]{
+                        String.valueOf(silver),
+                        String.valueOf(gold),
+                        String.valueOf(platinum),
+                        String.valueOf(diamond),
+                        String.valueOf(elite)
+                    },
+                    new Color[]{
+                        PdfReportEngine.MID_GREY,
+                        PdfReportEngine.BRAND_GOLD,
+                        PdfReportEngine.BRAND_TEAL,
+                        PdfReportEngine.ACCENT_BLUE,
+                        PdfReportEngine.BRAND_NAVY
+                    }
+            );
+            pdf.addDivider();
+
+            // Points summary KPIs
+            pdf.addSectionHeading("Points Summary");
+            pdf.addKpiRow("Total Points",
+                    String.valueOf(totalPoints),   PdfReportEngine.BRAND_TEAL);
+            pdf.addKpiRow("Average Points",
+                    String.format("%.2f", avgPoints), PdfReportEngine.BRAND_TEAL);
+            pdf.addDivider();
+
+            // Bar chart: members per tier
+            pdf.addSectionHeading("Members per Tier — Bar Chart");
+            pdf.addBarChart(
+                    "Members by Loyalty Tier",
+                    new String[]{"SILVER", "GOLD", "PLATINUM", "DIAMOND", "ELITE"},
+                    new double[]{silver, gold, platinum, diamond, elite},
+                    "Number of Members"
+            );
+
+            // ── Page 2: Member table ─────────────────────────────────────
+            pdf.beginContentPage();
+            pdf.addSectionHeading("Filtered Member List");
+
+            String[] headers = {"Member ID", "Name", "Tier", "Points"};
+            float[] colWidths = {80f, 160f, 90f, 80f};
+
+            List<String[]> rows = new java.util.ArrayList<>();
+
+            for (int i = 1; i <= filtered.getNumberOfEntries(); i++) {
+
+                RewardsMember m = filtered.getEntry(i);
+
+                rows.add(new String[]{
+                    m.getMemberId(),
+                    m.getName(),
+                    m.getTier().name(),
+                    String.valueOf(m.getPoints())
+                });
+            }
+
+            pdf.addTable(headers, rows, colWidths);
+
+            // Save
+            pdf.save(outPath);
+            ui.displayPdfExportSuccess(outPath);
+
+        } catch (IOException ex) {
+
+            MessageUI.displayErrorMessage(
+                    "PDF export failed: " + ex.getMessage()
+            );
+
+        } finally {
+
+            if (pdf != null) {
+                try { pdf.close(); } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    // EXPORT REPORT 2 TO PDF  (Points Expiry and Risk Report)
+    private void exportReport2ToPdf(
+            LocalDate today,
+            LocalDate deadline,
+            int expiryCount,
+            int expiryPoints,
+            int highBalanceCount,
+            int totalPoints,
+            String expiringRows,
+            String highBalanceRows) {
+
+        PdfReportEngine pdf = null;
+
+        try {
+
+            new File("output/pdf").mkdirs();
+
+            String timestamp = MalaysiaTime.now()
+                    .format(java.time.format.DateTimeFormatter
+                            .ofPattern("yyyyMMdd_HHmmss"));
+
+            String outPath = "output/pdf/loyalty_expiry_risk_"
+                    + timestamp + ".pdf";
+
+            pdf = new PdfReportEngine();
+
+            // ── Cover page ───────────────────────────────────────────────
+            pdf.addCoverPage(
+                    "POINTS EXPIRY AND RISK REPORT",
+                    "Expiry Alerts & High-Balance Members",
+                    today + " to " + deadline,
+                    "Loyalty & Rewards Service"
+            );
+
+            // ── Page 1: KPI overview ─────────────────────────────────────
+            pdf.beginContentPage();
+
+            pdf.addSectionHeading("Report Period");
+            pdf.addKpiRow("Current Date",      today.toString(),    PdfReportEngine.TEXT_DARK);
+            pdf.addKpiRow("Expiry Alert Date", deadline.toString(), PdfReportEngine.TEXT_DARK);
+            pdf.addDivider();
+
+            pdf.addSectionHeading("Risk Summary");
+            pdf.addKpiCards(
+                    new String[]{
+                        "TOTAL MEMBERS", "TOTAL POINTS",
+                        "EXPIRY RISK",   "HIGH BALANCE"
+                    },
+                    new String[]{
+                        String.valueOf(members.getNumberOfEntries()),
+                        String.valueOf(totalPoints),
+                        String.valueOf(expiryCount),
+                        String.valueOf(highBalanceCount)
+                    },
+                    new Color[]{
+                        PdfReportEngine.ACCENT_BLUE,
+                        PdfReportEngine.BRAND_TEAL,
+                        PdfReportEngine.WARNING,
+                        PdfReportEngine.DANGER
+                    }
+            );
+            pdf.addDivider();
+
+            // Donut chart: expiry risk vs safe
+            int safeCount = members.getNumberOfEntries() - expiryCount;
+            pdf.addSectionHeading("Expiry Risk Distribution");
+            pdf.addDonutChart(
+                    "Members at Expiry Risk vs Safe",
+                    new String[]{"At Risk", "Safe"},
+                    new double[]{expiryCount, Math.max(0, safeCount)}
+            );
+
+            // ── Page 2: Expiring members table ───────────────────────────
+            pdf.beginContentPage();
+            pdf.addSectionHeading("Members with Expiring Points (within 30 days)");
+
+            String[] expiryHeaders = {"Member ID", "Name", "Points", "Expiry Date"};
+            float[] expiryWidths   = {80f, 160f, 80f, 100f};
+            List<String[]> expiryTableRows = new java.util.ArrayList<>();
+
+            if (expiryCount == 0) {
+                expiryTableRows.add(new String[]{
+                    "—", "No members have points expiring within 30 days.", "", ""
+                });
+            } else {
+                for (String line : expiringRows.split("\r?\n")) {
+                    if (line.trim().isEmpty()) continue;
+                    // format: %-10s %-22s %-10d %-15s
+                    String[] parts = line.trim().split("\\s{2,}");
+                    if (parts.length >= 4) {
+                        expiryTableRows.add(new String[]{
+                            parts[0].trim(),
+                            parts[1].trim(),
+                            parts[2].trim(),
+                            parts[3].trim()
+                        });
+                    } else {
+                        expiryTableRows.add(new String[]{line.trim(), "", "", ""});
+                    }
+                }
+            }
+
+            pdf.addTable(expiryHeaders, expiryTableRows, expiryWidths);
+            pdf.addDivider();
+
+            pdf.addSectionHeading("High Point Balance Members (5,000+ points)");
+
+            String[] highHeaders = {"Member ID", "Name", "Tier", "Points"};
+            float[] highWidths   = {80f, 160f, 90f, 80f};
+            List<String[]> highTableRows = new java.util.ArrayList<>();
+
+            if (highBalanceCount == 0) {
+                highTableRows.add(new String[]{
+                    "—", "No members have 5,000 or more points.", "", ""
+                });
+            } else {
+                for (String line : highBalanceRows.split("\r?\n")) {
+                    if (line.trim().isEmpty()) continue;
+                    String[] parts = line.trim().split("\\s{2,}");
+                    if (parts.length >= 4) {
+                        highTableRows.add(new String[]{
+                            parts[0].trim(),
+                            parts[1].trim(),
+                            parts[2].trim(),
+                            parts[3].trim()
+                        });
+                    } else {
+                        highTableRows.add(new String[]{line.trim(), "", "", ""});
+                    }
+                }
+            }
+
+            pdf.addTable(highHeaders, highTableRows, highWidths);
+            pdf.addDivider();
+
+            pdf.addSectionHeading("Management Recommendations");
+            pdf.addBodyText(
+                    "Contact members with expiring points and encourage redemption before expiry.",
+                    10
+            );
+            pdf.addBodyText(
+                    "Consider targeted promotions for high-balance members to drive engagement.",
+                    10
+            );
+            pdf.addBodyText(
+                    "Review tier thresholds periodically to retain Diamond and Elite members.",
+                    10
+            );
+
+            // Save
+            pdf.save(outPath);
+            ui.displayPdfExportSuccess(outPath);
+
+        } catch (IOException ex) {
+
+            MessageUI.displayErrorMessage(
+                    "PDF export failed: " + ex.getMessage()
+            );
+
+        } finally {
+
+            if (pdf != null) {
+                try { pdf.close(); } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    // 5. EDIT MEMBER
+    private void editMember() {
+
+        // Step 1 — keep asking until member is found or user cancels
+        RewardsMember member = null;
+        int position = -1;
+        while (member == null) {
+            String id = ui.memberId();
+            if (id == null) {
+                MessageUI.displayInfoMessage("Cancelled.");
+                pause();
+                return;
+            }
+            for (int i = 1; i <= members.getNumberOfEntries(); i++) {
+                if (members.getEntry(i).getMemberId().equalsIgnoreCase(id)) {
+                    position = i;
+                    member   = members.getEntry(i);
+                    break;
+                }
+            }
+            if (member == null) {
+                MessageUI.displayErrorMessage(
+                        "Member \"" + id + "\" not found. Try again or enter 0 to cancel."
+                );
+            }
+        }
+
+        // Show current profile before editing
+        ui.display(
+                "CURRENT MEMBER PROFILE",
+                profile(member)
+        );
+
+        // Step 2 — pick which field to modify (0 = cancel)
+        int fieldChoice = ui.inputEditChoice();
+
+        if (fieldChoice == 0) {
+            MessageUI.displayInfoMessage("Edit cancelled.");
+            pause();
+            return;
+        }
+
+        // Step 3 — modify the object in place
+        if (fieldChoice == 1) {
+
+            String oldName = member.getName();
+            String newName = ui.name();
+            if (newName == null) {
+                MessageUI.displayInfoMessage("Edit cancelled.");
+                pause();
+                return;
+            }
+
+            member.setName(newName);
+            save();
+
+            ui.displayEditResult(
+                    member.getMemberId(), "Name", oldName, newName
+            );
+
+            MessageUI.displaySuccessMessage(
+                    "Member name updated successfully."
+            );
+
+        } else if (fieldChoice == 2) {
+
+            String oldEmail = member.getEmail();
+            String newEmail = ui.email();
+            if (newEmail == null) {
+                MessageUI.displayInfoMessage("Edit cancelled.");
+                pause();
+                return;
+            }
+
+            member.setEmail(newEmail);
+            save();
+
+            ui.displayEditResult(
+                    member.getMemberId(), "Email", oldEmail, newEmail
+            );
+
+            MessageUI.displaySuccessMessage(
+                    "Member email updated successfully."
+            );
+
+        } else {
+
+            // fieldChoice == 3: edit points, recalculate tier
+            int oldPoints = member.getPoints();
+            int newPoints = ui.inputNewPoints(oldPoints);
+            if (newPoints == -1) {
+                MessageUI.displayInfoMessage("Edit cancelled.");
+                pause();
+                return;
+            }
+
+            member.setPoints(newPoints);
+
+            LoyaltyTier newTier = tierFor(newPoints);
+            member.setTier(newTier);
+
+            save();
+
+            ui.displayEditResult(
+                    member.getMemberId(),
+                    "Points",
+                    String.valueOf(oldPoints),
+                    String.valueOf(newPoints),
+                    newTier.name()
+            );
+
+            MessageUI.displaySuccessMessage(
+                    "Member points updated. New tier: " + newTier + "."
+            );
+        }
+
+        pause();
+    }
+
+    // 6. DELETE MEMBER
+    private void deleteMember() {
+
+        // Step 1 — keep asking until member is found or user cancels
+        RewardsMember target = null;
+        int position = -1;
+        while (target == null) {
+            String id = ui.memberId();
+            if (id == null) {
+                MessageUI.displayInfoMessage("Cancelled.");
+                pause();
+                return;
+            }
+            for (int i = 1; i <= members.getNumberOfEntries(); i++) {
+                if (members.getEntry(i).getMemberId().equalsIgnoreCase(id)) {
+                    position = i;
+                    target   = members.getEntry(i);
+                    break;
+                }
+            }
+            if (target == null) {
+                MessageUI.displayErrorMessage(
+                        "Member \"" + id + "\" not found. Try again or enter 0 to cancel."
+                );
+            }
+        }
+
+        // Step 2 — show member details and confirm deletion
+        boolean confirmed = ui.confirmDelete(
+                target.getMemberId(),
+                target.getName(),
+                target.getTier().name(),
+                target.getPoints()
+        );
+
+        if (!confirmed) {
+            MessageUI.displayInfoMessage("Delete cancelled.");
+            pause();
+            return;
+        }
+
+        // Step 3 — remove from ADT by position
+        members.remove(position);
+
+        save();
+
+        MessageUI.displaySuccessMessage(
+                "Member " + target.getMemberId()
+                + " (" + target.getName() + ") deleted successfully."
+        );
+
         pause();
     }
 
@@ -1127,6 +1684,68 @@ public class LoyaltyRewardsService {
                     );
                 }
             }
+        }
+    }
+
+    // GENERATE NEXT MEMBER ID  (LM001, LM002, ...)
+    private String nextMemberId() {
+
+        int max = 0;
+
+        for (int i = 1;
+                i <= members.getNumberOfEntries();
+                i++) {
+
+            String raw =
+                    members.getEntry(i)
+                           .getMemberId()
+                           .toUpperCase();
+
+            /*
+             * Strip the "LM" prefix and parse the numeric part.
+             * Handles both 3-digit (LM001) and longer IDs (LM0012).
+             */
+            if (raw.startsWith("LM")) {
+
+                try {
+
+                    int num = Integer.parseInt(raw.substring(2));
+
+                    if (num > max) {
+                        max = num;
+                    }
+
+                } catch (NumberFormatException ignored) {
+                    // non-numeric suffix — skip
+                }
+            }
+        }
+
+        // Zero-pad to at least 3 digits: 1 -> "001", 12 -> "012", 100 -> "100"
+        return String.format("LM%03d", max + 1);
+    }
+
+    // SORT LIST BY MEMBER ID ASCENDING  (insertion sort on String)
+    private void sortByMemberId(ListInterface<RewardsMember> list) {
+
+        int size = list.getNumberOfEntries();
+
+        for (int i = 2; i <= size; i++) {
+
+            RewardsMember key = list.getEntry(i);
+
+            int j = i - 1;
+
+            while (j >= 1
+                    && list.getEntry(j)
+                           .getMemberId()
+                           .compareToIgnoreCase(key.getMemberId()) > 0) {
+
+                list.replace(j + 1, list.getEntry(j));
+                j--;
+            }
+
+            list.replace(j + 1, key);
         }
     }
 

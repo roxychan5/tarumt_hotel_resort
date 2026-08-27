@@ -88,6 +88,10 @@ public class RewardsMember {
         this.pointsExpiryDate = date;
     }
 
+    public void setPoints(int points) {
+        this.points = Math.max(0, points);
+    }
+
     /**
      * Returns the personalised promotion based on the member tier.
      */
