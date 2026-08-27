@@ -2,7 +2,7 @@ package boundary;
 
 import utility.ConsoleUI;
 
-/** Boundary class for VIP and loyalty tier room allocation. */
+// Boundary class for VIP and loyalty tier room allocation. //
 public class VipLoyaltyAllocationUI {
 
   private static final int BOX_WIDTH = 76;
@@ -21,7 +21,7 @@ public class VipLoyaltyAllocationUI {
     return ConsoleUI.readMenuChoice("  " + SKY_BLUE + BOLD + "Select option (0-6) > " + RESET);
   }
 
-  /** Displays the VIP Allocation menu without requesting another menu selection. */
+  // Displays the VIP Allocation menu without requesting another menu selection. //
   public void displayMenu() {
     ConsoleUI.clearScreen();
     System.out.println();
@@ -102,7 +102,13 @@ public class VipLoyaltyAllocationUI {
 
   public String inputMemberId() { return readText("Enter member ID: ").toUpperCase(); }
 
-  /** Gives staff a retry or registration route when a member ID is not found. */
+  public void displayVerifiedMember(String memberId, String memberName, String tier) {
+    System.out.println();
+    System.out.println("Registered member: " + memberName + " (" + memberId + ")");
+    System.out.println("Loyalty tier: " + tier);
+  }
+
+  // Gives staff a retry or registration route when a member ID is not found.//
   public int inputMissingMemberAction() {
     System.out.println("  1. Try again");
     System.out.println("  2. Register member in Loyalty & Rewards");
@@ -118,13 +124,13 @@ public class VipLoyaltyAllocationUI {
 
   public int inputNumberOfNights() {
     while (true) {
-      int nights = readInt("How many nights will the VIP stay? ");
+      int nights = readInt("How many nights will the VIP stay: ");
       if (nights > 0 && nights <= 365) return nights;
       System.out.println("Please enter a stay between 1 and 365 nights.");
     }
   }
 
-  /** Selects the room type that should be automatically assigned. */
+  // Selects the room type that should be automatically assigned. //
   public String inputRoomTypeToAllocate() {
     return inputRoomType("ROOM TYPE TO ALLOCATE", "Select room type to allocate (1-6): ");
   }
@@ -156,7 +162,26 @@ public class VipLoyaltyAllocationUI {
   }
 
   public String inputRoomTypeFilter() {
-    return readText("Requested room type filter (press ENTER for all): ");
+    System.out.println("Requested room type filter:");
+    System.out.println("  0. All room types");
+    System.out.println("  1. Standard");
+    System.out.println("  2. Deluxe");
+    System.out.println("  3. Suite");
+    System.out.println("  4. Family");
+    System.out.println("  5. Executive");
+    System.out.println("  6. Presidential");
+    while (true) {
+      switch (readInt("Select room type filter (0-6): ")) {
+        case 0: return "";
+        case 1: return "Standard";
+        case 2: return "Deluxe";
+        case 3: return "Suite";
+        case 4: return "Family";
+        case 5: return "Executive";
+        case 6: return "Presidential";
+        default: System.out.println("Please select a room type from 0 to 6.");
+      }
+    }
   }
 
   public void displayPriorityQueue(String output) {

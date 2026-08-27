@@ -19,12 +19,9 @@ import utility.MalaysiaTime;
 import utility.MessageUI;
 import utility.PdfReportEngine;
 
-/**
- * Controls VIP room allocation using a self-ordering priority queue.
- * Reports combine sequential searching, multiple filters and insertion sort.
- *
- * @author Replace with your name
- */
+
+ //@author Heng Yi Ching//
+
 public class VipLoyaltyAllocation {
 
   private final VipLoyaltyAllocationUI vipUI = new VipLoyaltyAllocationUI();
@@ -78,6 +75,9 @@ public class VipLoyaltyAllocation {
 
     if (registeredMember == null) return;
 
+    vipUI.displayVerifiedMember(registeredMember.getMemberId(), registeredMember.getName(),
+      registeredMember.getTier().toString());
+
     if (isMemberWaiting(memberId)) {
       MessageUI.displayErrorMessage("This member is already in the priority queue.");
     } else {
@@ -126,7 +126,7 @@ public class VipLoyaltyAllocation {
     pause();
   }
 
-  /** Finds the highest-priority waiting guest requesting the selected room type. */
+  // Finds the highest-priority waiting guest requesting the selected room type. //
   private int findHighestPriorityGuestRequesting(String roomType) {
     int highestPriorityPosition = 0;
     for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
@@ -140,7 +140,7 @@ public class VipLoyaltyAllocation {
     return highestPriorityPosition;
   }
 
-  /** Finds the first cleaned room of the selected type and marks it occupied. */
+  // Finds the first cleaned room of the selected type and marks it occupied. //
   private Room reserveAvailableRoom(String roomType) {
     ListInterface<Room> rooms = housekeepingDAO.retrieveRooms();
     for (int position = 1; position <= rooms.getNumberOfEntries(); position++) {
@@ -155,7 +155,7 @@ public class VipLoyaltyAllocation {
     return null;
   }
 
-  /** Report 1: searches the queue and filters by tier and room type. */
+  // Report 1: searches the queue and filters by tier and room type. //
   private void generateWaitingListReport() {
     int minimumTier = vipUI.inputMinimumTier();
     String roomTypeFilter = vipUI.inputRoomTypeFilter();
@@ -190,7 +190,7 @@ public class VipLoyaltyAllocation {
     pause();
   }
 
-  /** Report 2: filters allocations, then insertion-sorts them by tier and allocation sequence. */
+  // Report 2: filters allocations, then insertion-sorts them by tier and allocation sequence. //
   private void generateAllocationPerformanceReport() {
     int minimumTier = vipUI.inputMinimumTier();
     String roomTypeFilter = vipUI.inputRoomTypeFilter();
@@ -279,7 +279,7 @@ public class VipLoyaltyAllocation {
       pdf.beginContentPage();
       pdf.addSectionHeading("Detailed VIP Waiting List");
       String[] headers = {"Rank", "Member ID", "Guest", "Tier", "Requested Room", "Nights"};
-      float[] widths = {45, 85, 150, 90, 110, 55};
+      float[] widths = {40, 80, 120, 75, 125, 55};
       List<String[]> rows = new java.util.ArrayList<>();
       for (int index = 0; index < matchingGuests.size(); index++) {
         LoyaltyMember member = matchingGuests.get(index);
@@ -331,7 +331,7 @@ public class VipLoyaltyAllocation {
       pdf.beginContentPage();
       pdf.addSectionHeading("Detailed Completed Allocations");
       String[] headers = {"Order", "Room", "Guest", "Tier", "Member ID", "Requested Room", "Nights"};
-      float[] widths = {50, 60, 125, 75, 85, 95, 50};
+      float[] widths = {42, 55, 105, 65, 75, 105, 48};
       List<String[]> rows = new java.util.ArrayList<>();
       for (RoomAllocation allocation : matchingAllocations) {
         LoyaltyMember member = allocation.getMember();

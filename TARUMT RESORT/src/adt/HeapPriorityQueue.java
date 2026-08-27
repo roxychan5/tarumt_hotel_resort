@@ -31,7 +31,7 @@ public class HeapPriorityQueue<T extends Comparable<T>>
     return removed;
   }
 
-  /** Removes a matching entry and restores the heap property. */
+  // Removes a matching entry and restores the heap property. //
   public boolean removeEntry(T entry) {
     for (int index = 0; index < numberOfEntries; index++) {
       if (entries[index].compareTo(entry) == 0) {
@@ -52,7 +52,7 @@ public class HeapPriorityQueue<T extends Comparable<T>>
     return isEmpty() ? null : entries[0];
   }
 
-  /** Returns the heap entry at a one-based position for reporting and filtering. */
+  // Returns the heap entry at a one-based position for reporting and filtering. //
   public T getEntry(int position) {
     return position < 1 || position > numberOfEntries ? null : entries[position - 1];
   }
