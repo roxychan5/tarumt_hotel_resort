@@ -1,0 +1,2 @@
+# VIP priority queue data
+# Format: memberId|requestedRoomType|numberOfNights|arrivalSequence

@@ -28,7 +28,7 @@ public class FrontDeskServiceUI {
     ConsoleUI.clearScreen();
     printMenu();
     return ConsoleUI.readMenuChoice(
-        "  " + SB + B + "  Select option (0-6) > " + R + " ");
+        "  " + SB + B + "  Select option (0-7) > " + R + " ");
   }
 
   private void printMenu() {
@@ -40,16 +40,17 @@ public class FrontDeskServiceUI {
     printSectionLabel("MEMBER SEARCH  &  ROOM STATUS");
     printEntry(" 1", "Search Member", "Find member by loyalty member ID");
     printEntry(" 2", "Check Room Availability", "Review occupancy and housekeeping status");
+    printEntry(" 3", "Check-Out Room", "Release occupied room to housekeeping");
     printBorder();
 
     printSectionLabel("ACCOUNT  &  RECORDS");
-    printEntry(" 3", "View Member Account", "Show tier, points, expiry and promotion");
-    printEntry(" 4", "List All Member Records", "Display records in member ID order");
+    printEntry(" 4", "View Member Account", "Show tier, points, expiry and promotion");
+    printEntry(" 5", "List All Member Records", "Display records in member ID order");
     printBorder();
 
     printSectionLabel("MANAGEMENT  REPORTS");
-    printEntryHighlight(" 5", "Report 1: Member Accounts", "BST traversal | loyalty KPI | PDF");
-    printEntryHighlight(" 6", "Report 2: Room Availability", "Housekeeping room status | PDF");
+    printEntryHighlight(" 6", "Report 1: Member Accounts", "BST traversal | loyalty KPI | PDF");
+    printEntryHighlight(" 7", "Report 2: Room Availability", "Housekeeping room status | PDF");
     printBorder();
 
     printBack(" 0", "Back to Main Menu");
@@ -96,6 +97,21 @@ public class FrontDeskServiceUI {
     for (String line : output.split("\r?\n")) {
       System.out.println(RD + line + R);
     }
+  }
+
+  public void displayCheckoutResult(String output) {
+    sectionHeader("ROOM CHECK-OUT", "Occupied room release to housekeeping.");
+    for (String line : output.split("\r?\n")) {
+      System.out.println(RD + line + R);
+    }
+  }
+
+  public boolean confirmCheckout(String roomNumber) {
+    System.out.println();
+    System.out.print("  " + C + B + "Confirm check-out for room " + roomNumber
+        + "? (y/n) > " + R);
+    String answer = ConsoleUI.readLine().trim().toLowerCase();
+    return answer.equals("y") || answer.equals("yes");
   }
 
   public void displayReport(String title, String content) {

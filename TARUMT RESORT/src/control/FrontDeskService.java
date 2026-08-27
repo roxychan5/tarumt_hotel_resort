@@ -2,6 +2,7 @@ package control;
 
 import adt.ArrayList;
 import adt.BinarySearchTree;
+import adt.StackInterface;
 import adt.ListInterface;
 import adt.SearchTreeInterface;
 import boundary.FrontDeskServiceUI;
@@ -11,6 +12,7 @@ import entity.LoyaltyTier;
 import entity.RewardsMember;
 import entity.Room;
 import entity.RoomStatus;
+import entity.StatusChangeRecord;
 import utility.MalaysiaTime;
 import utility.MessageUI;
 import utility.PdfReportEngine;
@@ -52,16 +54,19 @@ public class FrontDeskService {
           checkRoomAvailability();
           break;
         case 3:
-          viewMemberAccountDetails();
+          checkOutRoom();
           break;
         case 4:
+          viewMemberAccountDetails();
+          break;
+        case 5:
           frontDeskUI.displayMemberList(getAllMemberRecords());
           MessageUI.pressEnterToContinue();
           break;
-        case 5:
+        case 6:
           memberAccountReport();
           break;
-        case 6:
+        case 7:
           guestsRoomAvailabilityReport();
           break;
         default:
@@ -102,6 +107,59 @@ public class FrontDeskService {
       }
 
       frontDeskUI.displayRoomAvailability(formatRoomAvailability(room));
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+  }
+
+  private void checkOutRoom() {
+    ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
+    while (true) {
+      String roomNumber = frontDeskUI.inputRoomNumber();
+      if (roomNumber.equalsIgnoreCase("0")) {
+        MessageUI.displayInfoMessage("Room check-out cancelled.");
+        return;
+      }
+
+      if (!isValidRoomNumber(roomNumber)) {
+        frontDeskUI.displayCheckoutResult(
+            "  Room number must be R followed by 3-4 digits, for example R101.\n"
+            + "  Enter a valid room number, or enter 0 to cancel.");
+        continue;
+      }
+
+      Room room = findRoom(roomList, roomNumber);
+      if (room == null) {
+        frontDeskUI.displayCheckoutResult(
+            "  Room " + roomNumber + " was not found.\n"
+            + "  Try again, or enter 0 to cancel.");
+        continue;
+      }
+
+      if (room.getStatus() != RoomStatus.OCCUPIED) {
+        frontDeskUI.displayCheckoutResult(
+            "  Room " + room.getRoomNumber() + " cannot be checked out.\n"
+            + "  Current status: " + room.getStatus().getLabel()
+            + "\n  Only occupied rooms can be checked out.");
+        MessageUI.pressEnterToContinue();
+        return;
+      }
+
+      frontDeskUI.displayCheckoutResult(formatRoomAvailability(room));
+      if (!frontDeskUI.confirmCheckout(room.getRoomNumber())) {
+        MessageUI.displayInfoMessage("Room check-out cancelled.");
+        MessageUI.pressEnterToContinue();
+        return;
+      }
+
+      RoomStatus previousStatus = room.getStatus();
+      room.setStatus(RoomStatus.DIRTY);
+      housekeepingDAO.saveRooms(roomList);
+      recordCheckoutStatusChange(room.getRoomNumber(), previousStatus);
+
+      frontDeskUI.displayCheckoutResult(formatRoomAvailability(room));
+      MessageUI.displaySuccessMessage(
+          "Room " + room.getRoomNumber() + " checked out and marked Dirty for housekeeping.");
       MessageUI.pressEnterToContinue();
       return;
     }
@@ -437,6 +495,10 @@ public class FrontDeskService {
 
   private Room findRoom(String roomNumber) {
     ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
+    return findRoom(roomList, roomNumber);
+  }
+
+  private Room findRoom(ListInterface<Room> roomList, String roomNumber) {
     for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
       Room room = roomList.getEntry(index);
       if (room.getRoomNumber().equalsIgnoreCase(roomNumber)) {
@@ -444,6 +506,16 @@ public class FrontDeskService {
       }
     }
     return null;
+  }
+
+  private void recordCheckoutStatusChange(String roomNumber, RoomStatus previousStatus) {
+    StackInterface<StatusChangeRecord> history = housekeepingDAO.retrieveHistory();
+    StackInterface<StatusChangeRecord> redoHistory = housekeepingDAO.retrieveRedoHistory();
+    history.push(new StatusChangeRecord(roomNumber, previousStatus, RoomStatus.DIRTY,
+        "Guest checked out at Front Desk", MalaysiaTime.now()));
+    redoHistory.clear();
+    housekeepingDAO.saveHistory(history);
+    housekeepingDAO.saveRedoHistory(redoHistory);
   }
 
   private String getAllMemberRecords() {

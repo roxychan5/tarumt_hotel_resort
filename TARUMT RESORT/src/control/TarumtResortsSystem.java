@@ -41,7 +41,7 @@ public class TarumtResortsSystem {
       }
     } while (choice != 0);
   }
-
+  
   public static void main(String[] args) {
     TarumtResortsSystem system = new TarumtResortsSystem();
     system.runSystem();

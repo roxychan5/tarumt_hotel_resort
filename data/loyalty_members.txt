@@ -1,4 +1,0 @@
-memberId	name	email	tier	points	pointsExpiryDate
-LM001	huixuan	huixuan@gmail.com	GOLD	1500	2027-08-27
-LM002	rouxuan	rouxuan@gmail.com	SILVER	0	2027-08-27
-LM003	amerie	amerie@gmail.com	GOLD	1500	2027-08-27

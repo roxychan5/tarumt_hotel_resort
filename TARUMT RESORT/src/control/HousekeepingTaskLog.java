@@ -91,6 +91,10 @@ public class HousekeepingTaskLog {
    * until the user chooses 0 to go back to the main system menu.
    */
   public void runHousekeepingModule() {
+    loadData();
+    if (roomList.isEmpty()) {
+      seedSampleRooms();
+    }
     int choice; // what the user picked
     do {
       choice = housekeepingUI.getMenuChoice(); // ask the user what to do
@@ -181,24 +185,16 @@ public class HousekeepingTaskLog {
 
     // ── Guard: only DIRTY rooms with no existing task can get a task ──
     // Search the task list BACKWARDS to find the newest task for this room.
-    String activeStaff = ""; // who is assigned (empty = nobody)
-    String activeTask  = ""; // which task (empty = no task)
-    for (int i = taskList.getNumberOfEntries(); i >= 1; i--) {
-      HousekeepingTask t = taskList.getEntry(i);
-      if (t.getRoomNumber().equalsIgnoreCase(roomNumber)) {
-        activeStaff = t.getAssignedStaff();
-        activeTask  = t.getTaskId();
-        break; // found the newest one - stop looking
-      }
-    }
+    HousekeepingTask activeTask = findActiveTaskForRoom(roomNumber);
 
     // Refuse if: room is not Dirty, OR it already has an active task.
-    if (room.getStatus() != RoomStatus.DIRTY || !activeTask.isEmpty()) {
+    if (room.getStatus() != RoomStatus.DIRTY || activeTask != null) {
       MessageUI.displayErrorMessage(
           "Room " + roomNumber + " already has an active assignment - status: "
           + room.getStatus().getLabel()
-          + (activeTask.isEmpty() ? ""
-              : ". Task: " + activeTask + " (Staff: " + activeStaff + ")"));
+          + (activeTask == null ? ""
+              : ". Task: " + activeTask.getTaskId()
+                  + " (Staff: " + activeTask.getAssignedStaff() + ")"));
       MessageUI.pressEnterToContinue();
       return;
     }
@@ -248,8 +244,7 @@ public class HousekeepingTaskLog {
     // Count how many ACTIVE tasks every staff member has.
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       HousekeepingTask t = taskList.getEntry(i); // one task
-      Room r = findRoom(t.getRoomNumber());      // that task's room
-      if (r != null && r.getStatus() != RoomStatus.DIRTY) {
+      if (isActiveHousekeepingTask(t)) {
         workload.merge(t.getAssignedStaff(), 1, Integer::sum); // +1 task
       } else if (!workload.containsKey(t.getAssignedStaff())) {
         workload.put(t.getAssignedStaff(), 0); // staff seen, 0 tasks so far
@@ -276,20 +271,12 @@ public class HousekeepingTaskLog {
     StringBuilder sb = new StringBuilder(); // we build the text here
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
       Room r = roomList.getEntry(i); // one room
-      String taskId = "-";   // shows a dash if no task
-      String staff  = "-";   // shows a dash if no staff
-      // Find the newest task for this room (search from the end):
-      for (int j = taskList.getNumberOfEntries(); j >= 1; j--) {
-        HousekeepingTask t = taskList.getEntry(j);
-        if (t.getRoomNumber().equalsIgnoreCase(r.getRoomNumber())) {
-          taskId = t.getTaskId();
-          staff  = t.getAssignedStaff();
-          break; // stop at the newest match
-        }
-      }
+      HousekeepingTask activeTask = findActiveTaskForRoom(r.getRoomNumber());
+      String taskId = activeTask == null ? "-" : activeTask.getTaskId();
+      String staff  = activeTask == null ? "-" : activeTask.getAssignedStaff();
       // Decide the availability reason:
       String reason;
-      if (!taskId.equals("-")) {
+      if (activeTask != null) {
         reason = "ACTIVE TASK " + taskId;            // already has a task
       } else if (r.getStatus() == RoomStatus.DIRTY) {
         reason = "AVAILABLE";                         // can assign
@@ -1391,9 +1378,8 @@ public class HousekeepingTaskLog {
     int count = 0;
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
       HousekeepingTask task = taskList.getEntry(i);
-      // Task is pending if it is assigned to staff AND not ready yet.
-      if (task.getAssignedStaff().equals(staffId)
-          && task.getCurrentStatus() != RoomStatus.READY_FOR_CHECK_IN) {
+      // Task is pending only while cleaning/inspection work is still active.
+      if (task.getAssignedStaff().equals(staffId) && isActiveHousekeepingTask(task)) {
         count++;
       }
     }
@@ -1426,6 +1412,21 @@ public class HousekeepingTaskLog {
         break; // only update the newest matching task
       }
     }
+  }
+
+  private HousekeepingTask findActiveTaskForRoom(String roomNumber) {
+    for (int i = taskList.getNumberOfEntries(); i >= 1; i--) {
+      HousekeepingTask task = taskList.getEntry(i);
+      if (task.getRoomNumber().equalsIgnoreCase(roomNumber) && isActiveHousekeepingTask(task)) {
+        return task;
+      }
+    }
+    return null;
+  }
+
+  private boolean isActiveHousekeepingTask(HousekeepingTask task) {
+    RoomStatus status = task.getCurrentStatus();
+    return status == RoomStatus.CLEANING_IN_PROGRESS || status == RoomStatus.INSPECTED;
   }
 
   /** Finds a room by its room number using a simple linear search. */
