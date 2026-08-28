@@ -6,6 +6,7 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
 
   /** The registered loyalty profile this priority-queue entry belongs to. */
   private final RewardsMember loyaltyMember;
+  private final String bookingId;
   private String requestedRoomType;
   private final int numberOfNights;
   private final int arrivalSequence;
@@ -15,19 +16,27 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence) {
     this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence,
-      LocalDate.now(), LocalDate.now());
+      "VIP-" + String.format("%04d", arrivalSequence), LocalDate.now(), LocalDate.now());
   }
 
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence, LocalDate waitingSince) {
     this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence,
-      LocalDate.now(), waitingSince);
+      "VIP-" + String.format("%04d", arrivalSequence), LocalDate.now(), waitingSince);
     }
 
     public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence, LocalDate requestedCheckInDate,
       LocalDate waitingSince) {
+    this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence,
+      "VIP-" + String.format("%04d", arrivalSequence), requestedCheckInDate, waitingSince);
+  }
+
+  public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
+      int numberOfNights, int arrivalSequence, String bookingId,
+      LocalDate requestedCheckInDate, LocalDate waitingSince) {
     this.loyaltyMember = loyaltyMember;
+    this.bookingId = bookingId;
     this.requestedRoomType = requestedRoomType;
     this.numberOfNights = numberOfNights;
     this.arrivalSequence = arrivalSequence;
@@ -41,6 +50,10 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
 
   public String getMemberId() { 
     return loyaltyMember.getMemberId(); 
+  }
+
+  public String getBookingId() {
+    return bookingId;
   }
 
   public String getGuestName() { 

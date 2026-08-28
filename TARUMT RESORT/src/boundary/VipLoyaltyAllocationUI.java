@@ -41,7 +41,7 @@ public class VipLoyaltyAllocationUI {
     printBorder();
 
     printSection("ROOM ALLOCATION");
-    printEntry("4", "Allocate Available Room", "Assign room to next priority guest");
+    printEntry("4", "Check In Booking", "Enter booking ID and allocate a ready room");
     printEntry("5", "View Allocated Room Board", "View member allocated rooms details");
     printEntry("6", "Cancel Waiting Booking", "Cancel a booking before room allocation");
     printBorder();
@@ -113,6 +113,15 @@ public class VipLoyaltyAllocationUI {
       if (memberId.equals("0")) return "";
       if (memberId.matches("LM[0-9]{3,6}")) return memberId;
       System.out.println("Member ID must be LM followed by 3 to 6 digits.");
+    }
+  }
+
+  public String inputBookingId() {
+    while (true) {
+      String bookingId = readText("Enter booking ID (VIP-0001, 0 to cancel): ").toUpperCase();
+      if (bookingId.equals("0")) return "";
+      if (bookingId.matches("VIP-[0-9]{4,}")) return bookingId;
+      System.out.println("Booking ID must use the format VIP-0001.");
     }
   }
 
@@ -197,6 +206,11 @@ public class VipLoyaltyAllocationUI {
 
   public void displayPaymentInformation(String output) {
     ConsoleUI.displaySubHeader("PAYMENT INFORMATION");
+    System.out.println(output);
+  }
+
+  public void displayCheckInInformation(String output) {
+    ConsoleUI.displaySubHeader("VIP CHECK-IN INFORMATION");
     System.out.println(output);
   }
 
