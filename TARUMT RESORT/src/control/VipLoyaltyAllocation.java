@@ -126,6 +126,7 @@ public class VipLoyaltyAllocation {
     if (waitingGuests.isEmpty()) {
       MessageUI.displayErrorMessage("No priority guest is waiting for allocation.");
     } else {
+      vipUI.displayPriorityQueue(buildQueueDisplay());
       String roomType = vipUI.inputRoomTypeToAllocate();
       if (roomType.isEmpty()) {
         MessageUI.displayInfoMessage("Room allocation cancelled.");
