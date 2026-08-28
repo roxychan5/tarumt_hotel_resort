@@ -1,8 +1,8 @@
 memberId	name	email	tier	points	pointsExpiryDate
-LM001	Huixuan	huixuan@gmail.com	GOLD	1500	2027-08-27
+LM001	Huixuan	huixuan@gmail.com	GOLD	2000	2027-08-28
 LM002	Rouxuan	rouxuan@gmail.com	SILVER	0	2027-08-27
-LM003	Amerie	amerie@gmail.com	GOLD	1500	2027-08-27
+LM003	Amerie	amerie@gmail.com	SILVER	800	2027-08-27
 LM004	Aina Rahman	aina.rahman@example.com	GOLD	1000	2027-08-27
-LM005	Jason Lim	jason.lim@example.com	PLATINUM	3000	2027-08-27
 LM006	Priya Nair	priya.nair@example.com	DIAMOND	6000	2027-08-27
 LM007	Daniel Tan	daniel.tan@example.com	ELITE	10000	2027-08-27
+LM008	yiching	yiching@gmail.com	SILVER	0	2027-08-28
