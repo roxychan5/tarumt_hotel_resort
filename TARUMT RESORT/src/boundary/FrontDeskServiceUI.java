@@ -28,7 +28,7 @@ public class FrontDeskServiceUI {
     ConsoleUI.clearScreen();
     printMenu();
     return ConsoleUI.readMenuChoice(
-        "  " + SB + B + "  Select option (0-10) > " + R + " ");
+        "  " + SB + B + "  Select option (0-11) > " + R + " ");
   }
 
   private void printMenu() {
@@ -46,14 +46,15 @@ public class FrontDeskServiceUI {
 
     printSectionLabel("ACCOUNT  &  RECORDS");
     printEntry(" 5", "View Member Account", "Show tier, points, expiry and promotion");
-    printEntry(" 6", "List All Member Records", "Display records in member ID order");
-    printEntry(" 7", "Check-Out History", "Review recent room check-out records");
-    printEntry(" 8", "Late Check-Out History", "Review late check-out extension records");
+    printEntry(" 6", "View Billing Details", "Find payment by confirmation/member");
+    printEntry(" 7", "List All Member Records", "Display records in member ID order");
+    printEntry(" 8", "Check-Out History", "Review recent room check-out records");
+    printEntry(" 9", "Late Check-Out History", "Review late check-out extension records");
     printBorder();
 
     printSectionLabel("MANAGEMENT  REPORTS");
-    printEntryHighlight(" 9", "Report 1: Member Accounts", "BST traversal | loyalty KPI | PDF");
-    printEntryHighlight("10", "Report 2: Room Availability", "LCO | today | overdue | PDF");
+    printEntryHighlight("10", "Report 1: Member Accounts", "BST traversal | loyalty KPI | PDF");
+    printEntryHighlight("11", "Report 2: Booking Billing", "VIP payment | revenue | PDF");
     printBorder();
 
     printBack(" 0", "Back to Main Menu");
@@ -70,6 +71,12 @@ public class FrontDeskServiceUI {
     System.out.print("  " + SB + "Member name / ID" + R
         + " (e.g. Andy or LM001, 0 to cancel) > ");
     return ConsoleUI.readLine().trim();
+  }
+
+  public String inputBillingSearchKey() {
+    System.out.print("  " + SB + "Confirmation / Booking / Member ID" + R
+        + " (e.g. 12345678, VIP-0001 or LM001, 0 to cancel) > ");
+    return ConsoleUI.readLine().trim().toUpperCase();
   }
 
   public String inputRoomNumber() {
@@ -115,6 +122,11 @@ public class FrontDeskServiceUI {
   public void displayMemberAccountDetails(RewardsMember memberRecord) {
     sectionHeader("MEMBER ACCOUNT DETAILS", "Front desk check-only account summary.");
     System.out.println(toMemberAccountString(memberRecord));
+  }
+
+  public void displayBillingDetails(String output) {
+    sectionHeader("BILLING DETAILS", "VIP payment lookup by confirmation number, booking ID or member ID.");
+    System.out.println(output);
   }
 
   public void displayRoomAvailability(String output) {
