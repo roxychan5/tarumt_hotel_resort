@@ -28,7 +28,7 @@ public class FrontDeskServiceUI {
     ConsoleUI.clearScreen();
     printMenu();
     return ConsoleUI.readMenuChoice(
-        "  " + SB + B + "  Select option (0-8) > " + R + " ");
+        "  " + SB + B + "  Select option (0-10) > " + R + " ");
   }
 
   private void printMenu() {
@@ -41,17 +41,19 @@ public class FrontDeskServiceUI {
     printEntry(" 1", "Search Member", "Find member by name or loyalty member ID");
     printEntry(" 2", "Check Room Availability", "Review occupancy and housekeeping status");
     printEntry(" 3", "Check-Out Room", "Release occupied room to housekeeping");
+    printEntry(" 4", "Handle Late Checkout", "Extend expected check-out for an occupied room");
     printBorder();
 
     printSectionLabel("ACCOUNT  &  RECORDS");
-    printEntry(" 4", "View Member Account", "Show tier, points, expiry and promotion");
-    printEntry(" 5", "List All Member Records", "Display records in member ID order");
-    printEntry(" 6", "Check-Out History", "Review recent room check-out records");
+    printEntry(" 5", "View Member Account", "Show tier, points, expiry and promotion");
+    printEntry(" 6", "List All Member Records", "Display records in member ID order");
+    printEntry(" 7", "Check-Out History", "Review recent room check-out records");
+    printEntry(" 8", "Late Check-Out History", "Review late check-out extension records");
     printBorder();
 
     printSectionLabel("MANAGEMENT  REPORTS");
-    printEntryHighlight(" 7", "Report 1: Member Accounts", "BST traversal | loyalty KPI | PDF");
-    printEntryHighlight(" 8", "Report 2: Room Availability", "Housekeeping room status | PDF");
+    printEntryHighlight(" 9", "Report 1: Member Accounts", "BST traversal | loyalty KPI | PDF");
+    printEntryHighlight("10", "Report 2: Room Availability", "LCO | today | overdue | PDF");
     printBorder();
 
     printBack(" 0", "Back to Main Menu");
@@ -60,7 +62,7 @@ public class FrontDeskServiceUI {
   }
 
   public String inputMemberId() {
-    System.out.print("  " + SB + "Member ID" + R + " (LM001-LM999999, 0 to cancel) > ");
+    System.out.print("  " + SB + "Member ID" + R + " (0 to cancel) > ");
     return ConsoleUI.readLine().trim().toUpperCase();
   }
 
@@ -73,6 +75,24 @@ public class FrontDeskServiceUI {
   public String inputRoomNumber() {
     System.out.print("  " + SB + "Room No." + R + " (e.g. R101, 0 to cancel) > ");
     return ConsoleUI.readLine().trim().toUpperCase();
+  }
+
+  public String inputCheckoutHistoryDate(String label) {
+    System.out.print("  " + SB + label + R
+        + " (yyyy-MM-dd, blank for all, 0 to cancel) > ");
+    return ConsoleUI.readLine().trim();
+  }
+
+  public String inputNewExpectedCheckoutDate() {
+    System.out.print("  " + SB + "New expected check-out date" + R
+        + " (yyyy-MM-dd, 0 to cancel) > ");
+    return ConsoleUI.readLine().trim();
+  }
+
+  public String inputNewExpectedCheckoutTime(String defaultTime) {
+    System.out.print("  " + SB + "New expected check-out time" + R
+        + " (HH:mm, blank for " + defaultTime + ", 0 to cancel) > ");
+    return ConsoleUI.readLine().trim();
   }
 
   public void displaySearchResult(String result) {
@@ -97,25 +117,34 @@ public class FrontDeskServiceUI {
     System.out.println(toMemberAccountString(memberRecord));
   }
 
-  public void displayBillingResult(String result) {
-    sectionHeader("MEMBER ACCOUNT SEARCH RESULT", "Account lookup by loyalty member ID.");
-    for (String line : result.split("\r?\n")) {
-      System.out.println(RD + line + R);
-    }
-  }
-
   public void displayRoomAvailability(String output) {
     sectionHeader("ROOM AVAILABILITY", "Front-desk room check against housekeeping status.");
     for (String line : output.split("\r?\n")) {
-      System.out.println(RD + line + R);
+      System.out.println(line + R);
     }
   }
 
   public void displayCheckoutResult(String output) {
     sectionHeader("ROOM CHECK-OUT", "Occupied room release to housekeeping.");
     for (String line : output.split("\r?\n")) {
-      System.out.println(RD + line + R);
+      System.out.println(line + R);
     }
+  }
+
+  public void displayLateCheckoutResult(String output) {
+    sectionHeader("HANDLE LATE CHECKOUT", "Extend an occupied guest stay by member ID.");
+    for (String line : output.split("\r?\n")) {
+      System.out.println(line + R);
+    }
+  }
+
+  public void displayLateCheckoutSummary(String output) {
+    System.out.println();
+    System.out.println("  --- LATE CHECK-OUT UPDATED SUCCESSFULLY ---");
+    for (String line : output.split("\r?\n")) {
+      System.out.println("  " + line);
+    }
+    System.out.println("  -------------------------------------------");
   }
 
   public void displayCheckoutAvailability(String output) {
@@ -129,10 +158,40 @@ public class FrontDeskServiceUI {
     System.out.println(output);
   }
 
+  public void displayLateCheckoutHistory(String output) {
+    sectionHeader("LATE CHECK-OUT HISTORY", "Newest late check-out extension records first.");
+    System.out.println(output);
+  }
+
+  public void displayCheckoutConfirmationSummary(String output) {
+    System.out.println();
+    System.out.println("  --- CHECK-OUT CONFIRMATION SUMMARY ---");
+    for (String line : output.split("\r?\n")) {
+      System.out.println("  " + line);
+    }
+    System.out.println("  --------------------------------------");
+  }
+
+  public boolean confirmLateCheckout(String roomNumber) {
+    System.out.println();
+    System.out.print("  " + C + B + "Is room " + roomNumber
+        + " a late check-out? (y/n) > " + R);
+    String answer = ConsoleUI.readLine().trim().toLowerCase();
+    return answer.equals("y") || answer.equals("yes");
+  }
+
   public boolean confirmCheckout(String roomNumber) {
     System.out.println();
     System.out.print("  " + C + B + "Confirm check-out for room " + roomNumber
         + "? (y/n) > " + R);
+    String answer = ConsoleUI.readLine().trim().toLowerCase();
+    return answer.equals("y") || answer.equals("yes");
+  }
+
+  public boolean confirmLateCheckoutExtension(String roomNumber) {
+    System.out.println();
+    System.out.print("  " + C + B + "Confirm late check-out update for room "
+        + roomNumber + "? (y/n) > " + R);
     String answer = ConsoleUI.readLine().trim().toLowerCase();
     return answer.equals("y") || answer.equals("yes");
   }
@@ -259,8 +318,7 @@ public class FrontDeskServiceUI {
         + "\n  Tier             : " + memberRecord.getTier()
         + "\n  Reward Points    : " + memberRecord.getPoints()
         + "\n  Points Expiry    : " + memberRecord.getPointsExpiryDate()
-        + "\n  Promotion        : " + memberRecord.getPromotion()
-        + "\n  Billing Source   : No guest billing file is maintained by Front Desk";
+        + "\n  Promotion        : " + memberRecord.getPromotion();
   }
 
   private String rep(char character, int count) {

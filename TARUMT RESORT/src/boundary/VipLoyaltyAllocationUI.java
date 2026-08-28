@@ -1,6 +1,11 @@
 package boundary;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import utility.ConsoleUI;
+import utility.MalaysiaTime;
 
 // Boundary class for VIP and loyalty tier room allocation. //
 public class VipLoyaltyAllocationUI {
@@ -141,6 +146,39 @@ public class VipLoyaltyAllocationUI {
       int nights = readInt("How many nights will the member stay: ");
       if (nights > 0 && nights <= 365) return nights;
       System.out.println("Please enter a stay between 1 and 365 nights.");
+    }
+  }
+
+  public LocalDateTime inputCheckInAt() {
+    LocalDate today = MalaysiaTime.now().toLocalDate();
+    while (true) {
+      String dateText = readText("Enter check-in date (yyyy-MM-dd, Enter for today): ");
+      LocalDate checkInDate;
+      try {
+        checkInDate = dateText.isEmpty() ? today : LocalDate.parse(dateText);
+      } catch (DateTimeParseException ex) {
+        System.out.println("Please enter a valid date in yyyy-MM-dd format.");
+        continue;
+      }
+
+      if (checkInDate.isBefore(today)) {
+        System.out.println("Check-in date cannot be before today (" + today + ").");
+        continue;
+      }
+
+      LocalTime defaultTime = checkInDate.equals(today)
+          ? MalaysiaTime.now().toLocalTime().withSecond(0).withNano(0)
+          : LocalTime.of(14, 0);
+      while (true) {
+        String timeText = readText("Enter check-in time (HH:mm, Enter for "
+            + defaultTime + "): ");
+        try {
+          LocalTime checkInTime = timeText.isEmpty() ? defaultTime : LocalTime.parse(timeText);
+          return LocalDateTime.of(checkInDate, checkInTime);
+        } catch (DateTimeParseException ex) {
+          System.out.println("Please enter a valid time in HH:mm format.");
+        }
+      }
     }
   }
 

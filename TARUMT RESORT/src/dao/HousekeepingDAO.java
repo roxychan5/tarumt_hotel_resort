@@ -58,13 +58,16 @@ public class HousekeepingDAO {
    */
   public void saveRooms(ListInterface<Room> rooms) {
     try (BufferedWriter writer = openWriter(ROOM_FILE)) {
-      writer.write("roomNumber\troomType\tfloor\tstatus"); // header line
+      writer.write("roomNumber\troomType\tfloor\tstatus\tcheckInAt\texpectedCheckoutAt\tmemberId"); // header line
       writer.newLine();
       // Write every room in the list, one per line:
       for (int i = 1; i <= rooms.getNumberOfEntries(); i++) {
         Room room = rooms.getEntry(i);
         writer.write(room.getRoomNumber() + "\t" + clean(room.getRoomType()) + "\t"
-            + room.getFloor() + "\t" + room.getStatus().name());
+            + room.getFloor() + "\t" + room.getStatus().name() + "\t"
+            + formatOptionalDateTime(room.getCheckInAt()) + "\t"
+            + formatOptionalDateTime(room.getExpectedCheckoutAt()) + "\t"
+            + formatOptionalText(room.getOccupantMemberId()));
         writer.newLine();
       }
     } catch (IOException ex) {
@@ -85,8 +88,10 @@ public class HousekeepingDAO {
       String line;
       while ((line = reader.readLine()) != null) { // read every data line
         String[] fields = line.split("\\t", -1);  // split on TAB
-        if (fields.length == 4) {
-          rooms.add(new Room(fields[0], fields[1], Integer.parseInt(fields[2]), RoomStatus.valueOf(fields[3])));
+        if (fields.length >= 4) {
+          rooms.add(new Room(fields[0], fields[1], Integer.parseInt(fields[2]),
+              RoomStatus.valueOf(fields[3]), parseOptionalDateTime(fields, 4),
+              parseOptionalDateTime(fields, 5), parseOptionalText(fields, 6)));
         }
       }
     } catch (IOException | IllegalArgumentException ex) {
@@ -238,7 +243,31 @@ public class HousekeepingDAO {
 
   /** Removes TAB / newline characters so a single field stays on one line. */
   private String clean(String value) {
-    return value.replace('\t', ' ').replace('\n', ' ').replace('\r', ' ');
+    return value == null ? "" : value.replace('\t', ' ').replace('\n', ' ').replace('\r', ' ');
+  }
+
+  private String formatOptionalDateTime(LocalDateTime value) {
+    return value == null ? "-" : DATE_FORMAT.format(value);
+  }
+
+  private LocalDateTime parseOptionalDateTime(String[] fields, int index) {
+    if (fields.length <= index || fields[index].trim().isEmpty()
+        || fields[index].trim().equals("-")) {
+      return null;
+    }
+    return LocalDateTime.parse(fields[index], DATE_FORMAT);
+  }
+
+  private String formatOptionalText(String value) {
+    return value == null || value.trim().isEmpty() ? "-" : clean(value);
+  }
+
+  private String parseOptionalText(String[] fields, int index) {
+    if (fields.length <= index || fields[index].trim().isEmpty()
+        || fields[index].trim().equals("-")) {
+      return null;
+    }
+    return fields[index].trim();
   }
 
   /** Friendly error message when saving fails. */

@@ -1,6 +1,7 @@
 package entity;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
@@ -23,6 +24,9 @@ public class Room implements Serializable {
   private String roomType;     // e.g. Standard, Deluxe, Suite
   private int floor;           // e.g. 1, 2, 3
   private RoomStatus status;   // current cleaning stage (see RoomStatus)
+  private LocalDateTime checkInAt;
+  private LocalDateTime expectedCheckoutAt;
+  private String occupantMemberId;
 
   /** Empty constructor - needed so the class can be rebuilt from a saved file. */
   public Room() {
@@ -30,10 +34,23 @@ public class Room implements Serializable {
 
   /** Full constructor - creates a room with all its details filled in. */
   public Room(String roomNumber, String roomType, int floor, RoomStatus status) {
+    this(roomNumber, roomType, floor, status, null, null, null);
+  }
+
+  public Room(String roomNumber, String roomType, int floor, RoomStatus status,
+      LocalDateTime checkInAt, LocalDateTime expectedCheckoutAt) {
+    this(roomNumber, roomType, floor, status, checkInAt, expectedCheckoutAt, null);
+  }
+
+  public Room(String roomNumber, String roomType, int floor, RoomStatus status,
+      LocalDateTime checkInAt, LocalDateTime expectedCheckoutAt, String occupantMemberId) {
     this.roomNumber = roomNumber;
     this.roomType = roomType;
     this.floor = floor;
     this.status = status;
+    this.checkInAt = checkInAt;
+    this.expectedCheckoutAt = expectedCheckoutAt;
+    this.occupantMemberId = occupantMemberId;
   }
 
   // ---------- Getters & Setters (read / update each field) ----------
@@ -68,6 +85,30 @@ public class Room implements Serializable {
 
   public void setStatus(RoomStatus status) {
     this.status = status;
+  }
+
+  public LocalDateTime getCheckInAt() {
+    return checkInAt;
+  }
+
+  public void setCheckInAt(LocalDateTime checkInAt) {
+    this.checkInAt = checkInAt;
+  }
+
+  public LocalDateTime getExpectedCheckoutAt() {
+    return expectedCheckoutAt;
+  }
+
+  public void setExpectedCheckoutAt(LocalDateTime expectedCheckoutAt) {
+    this.expectedCheckoutAt = expectedCheckoutAt;
+  }
+
+  public String getOccupantMemberId() {
+    return occupantMemberId;
+  }
+
+  public void setOccupantMemberId(String occupantMemberId) {
+    this.occupantMemberId = occupantMemberId;
   }
 
   /**

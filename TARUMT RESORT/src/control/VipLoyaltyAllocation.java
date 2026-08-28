@@ -3,6 +3,7 @@ package control;
 import adt.ArrayList;
 import adt.HeapPriorityQueue;
 import adt.ListInterface;
+import adt.StackInterface;
 import boundary.VipLoyaltyAllocationUI;
 import dao.HousekeepingDAO;
 import entity.LoyaltyMember;
@@ -11,12 +12,16 @@ import entity.RewardsMember;
 import entity.Room;
 import entity.RoomAllocation;
 import entity.RoomStatus;
+import entity.StatusChangeRecord;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import utility.ConsoleUI;
@@ -29,6 +34,9 @@ import utility.PdfReportEngine;
  //@author Heng Yi Ching//
 
 public class VipLoyaltyAllocation {
+
+  private static final DateTimeFormatter CHECKOUT_DEADLINE_FORMAT =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
   private final VipLoyaltyAllocationUI vipUI = new VipLoyaltyAllocationUI();
   private final LoyaltyRewardsService loyaltyRewardsService;
@@ -136,22 +144,36 @@ public class VipLoyaltyAllocation {
       if (queuePosition == 0) {
         MessageUI.displayErrorMessage("No waiting VIP member has requested a " + roomType + " room.");
       } else {
-        Room room = reserveAvailableRoom(roomType);
+        LoyaltyMember member = waitingGuests.getEntry(queuePosition);
+        Room currentRoom = findOccupiedRoomByMemberId(member.getMemberId());
+        if (currentRoom != null) {
+          MessageUI.displayErrorMessage(member.getGuestName() + " (" + member.getMemberId()
+              + ") is already checked in to room " + currentRoom.getRoomNumber()
+              + ". Check out the current room before allocating another room.");
+          pause();
+          return;
+        }
+        LocalDateTime checkInAt = vipUI.inputCheckInAt();
+        LocalDate checkInDate = checkInAt.toLocalDate();
+        LocalDate checkOutDate = checkInDate.plusDays(member.getNumberOfNights());
+        LocalDateTime expectedCheckoutAt = LocalDateTime.of(checkOutDate, LocalTime.NOON);
+        Room room = reserveAvailableRoom(roomType, member.getMemberId(), checkInAt,
+            expectedCheckoutAt);
         if (room == null) {
           MessageUI.displayErrorMessage("No " + roomType
               + " room is ready for check-in. Complete housekeeping first.");
         } else {
-          LoyaltyMember member = waitingGuests.getEntry(queuePosition);
           if (waitingGuests.removeEntry(member)) {
-            LocalDate checkInDate = MalaysiaTime.now().toLocalDate();
-            LocalDate checkOutDate = checkInDate.plusDays(member.getNumberOfNights());
             completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(),
                 ++allocationSequence, checkInDate, checkOutDate));
+            recordCheckInStatusChange(room.getRoomNumber(), member.getMemberId(),
+                checkInAt, expectedCheckoutAt);
             saveWaitingGuests();
             MessageUI.displaySuccessMessage("Room " + room.getRoomNumber() + " (" + roomType
                 + ") allocated automatically to " + member.getGuestName() + " ("
               + member.getTier() + ") for " + member.getNumberOfNights() + " night(s).\n"
-              + "Check-in date: " + checkInDate + " | Check-out date: " + checkOutDate);
+              + "Check-in time: " + MalaysiaTime.format(checkInAt)
+              + " | Expected check-out: " + MalaysiaTime.format(expectedCheckoutAt));
           }
         }
       }
@@ -180,18 +202,49 @@ public class VipLoyaltyAllocation {
   }
 
   // Finds the first cleaned room of the selected type and marks it occupied. //
-  private Room reserveAvailableRoom(String roomType) {
+  private Room reserveAvailableRoom(String roomType, String memberId, LocalDateTime checkInAt,
+      LocalDateTime expectedCheckoutAt) {
     ListInterface<Room> rooms = housekeepingDAO.retrieveRooms();
     for (int position = 1; position <= rooms.getNumberOfEntries(); position++) {
       Room room = rooms.getEntry(position);
       if (room.getRoomType().equalsIgnoreCase(roomType)
           && room.getStatus() == RoomStatus.READY_FOR_CHECK_IN) {
         room.setStatus(RoomStatus.OCCUPIED);
+        room.setCheckInAt(checkInAt);
+        room.setExpectedCheckoutAt(expectedCheckoutAt);
+        room.setOccupantMemberId(memberId);
         housekeepingDAO.saveRooms(rooms);
         return room;
       }
     }
     return null;
+  }
+
+  private Room findOccupiedRoomByMemberId(String memberId) {
+    ListInterface<Room> rooms = housekeepingDAO.retrieveRooms();
+    for (int position = 1; position <= rooms.getNumberOfEntries(); position++) {
+      Room room = rooms.getEntry(position);
+      String occupantMemberId = room.getOccupantMemberId();
+      if ((room.getStatus() == RoomStatus.OCCUPIED || room.getStatus() == RoomStatus.LCO)
+          && occupantMemberId != null
+          && occupantMemberId.equalsIgnoreCase(memberId)) {
+        return room;
+      }
+    }
+    return null;
+  }
+
+  private void recordCheckInStatusChange(String roomNumber, String memberId,
+      LocalDateTime checkInAt, LocalDateTime expectedCheckoutAt) {
+    StackInterface<StatusChangeRecord> history = housekeepingDAO.retrieveHistory();
+    StackInterface<StatusChangeRecord> redoHistory = housekeepingDAO.retrieveRedoHistory();
+    history.push(new StatusChangeRecord(roomNumber, RoomStatus.READY_FOR_CHECK_IN,
+        RoomStatus.OCCUPIED, "Guest checked in by VIP Allocation | Member: "
+        + memberId + " | Expected check-out: "
+        + expectedCheckoutAt.format(CHECKOUT_DEADLINE_FORMAT), checkInAt));
+    redoHistory.clear();
+    housekeepingDAO.saveHistory(history);
+    housekeepingDAO.saveRedoHistory(redoHistory);
   }
 
   // Report 1: searches the queue and filters by tier and room type. //
