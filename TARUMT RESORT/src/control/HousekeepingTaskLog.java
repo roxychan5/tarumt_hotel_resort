@@ -412,6 +412,7 @@ public class HousekeepingTaskLog {
     // A room that is already READY cannot move forward anymore.
     if (!room.getStatus().canAdvance()) {
       String extraMessage = room.getStatus() == RoomStatus.OCCUPIED
+          || room.getStatus() == RoomStatus.LCO
         ? " Room is occupied and cannot enter the cleaning workflow."
         : " Room is already Ready for Check-In.";
       MessageUI.displayErrorMessage(
@@ -446,7 +447,7 @@ public class HousekeepingTaskLog {
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
       Room r = roomList.getEntry(i);
       RoomStatus s = r.getStatus();
-      if (s != RoomStatus.DIRTY && s != RoomStatus.READY_FOR_CHECK_IN) {
+      if (s.canAdvance()) {
         String nextLabel = s.nextStatus() != null ? s.nextStatus().getLabel() : "-";
         sb.append(String.format("%-8s %-21s -> %s\n",
             r.getRoomNumber(), s.getLabel(), nextLabel));

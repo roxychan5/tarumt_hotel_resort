@@ -6,3 +6,5 @@ LM004	Aina Rahman	aina.rahman@example.com	GOLD	1000	2027-08-27
 LM006	Priya Nair	priya.nair@example.com	DIAMOND	6000	2027-08-27
 LM007	Daniel Tan	daniel.tan@example.com	ELITE	10000	2027-08-27
 LM008	yiching	yiching@gmail.com	SILVER	0	2027-08-28
+LM009	ycc	123ycc@gmail.com	SILVER	0	2027-08-28
+LM010	bppp	bppp@gmail.com	SILVER	0	2027-08-28

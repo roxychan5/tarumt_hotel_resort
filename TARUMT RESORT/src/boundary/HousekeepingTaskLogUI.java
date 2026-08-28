@@ -534,7 +534,7 @@ public class HousekeepingTaskLogUI {
   public String[] inputReport1Filters() {
     sectionHeader("REPORT 1 - SET FILTERS", "Leave date blank to include all dates.");
     System.out.println("  " + DM
-        + "Date: yyyy-MM-dd  |  Status: 0=ALL 1=Dirty 2=Cleaning 3=Inspected 4=Ready"
+        + "Date: yyyy-MM-dd  |  Status: 0=ALL 1=Dirty 2=Cleaning 3=Inspected 4=Ready 5=LCO"
         + R);
     System.out.println("  " + DM
         + "Room Type: 0=ALL  1=Standard  2=Deluxe  3=Suite" + R);
@@ -551,11 +551,12 @@ public class HousekeepingTaskLogUI {
     }
 
     String statusFilter;
-    switch (readChoiceInRange("  Status filter     (0-4) > ", 0, 4)) {
+    switch (readChoiceInRange("  Status filter     (0-5) > ", 0, 5)) {
       case 1:  statusFilter = "DIRTY"; break;
       case 2:  statusFilter = "CLEANING_IN_PROGRESS"; break;
       case 3:  statusFilter = "INSPECTED"; break;
       case 4:  statusFilter = "READY_FOR_CHECK_IN"; break;
+      case 5:  statusFilter = "LCO"; break;
       default: statusFilter = "ALL";
     }
 
@@ -883,6 +884,7 @@ public class HousekeepingTaskLogUI {
       case INSPECTED:            return "\u001B[44m\u001B[97m INSPECTED \u001B[0m";
       case READY_FOR_CHECK_IN:   return "\u001B[42m\u001B[97m READY FOR CHECK-IN \u001B[0m";
       case OCCUPIED:             return "\u001B[45m\u001B[97m OCCUPIED \u001B[0m";
+      case LCO:                  return "\u001B[46m\u001B[30m LCO \u001B[0m";
       default:                   return status.getLabel();
     }
   }
