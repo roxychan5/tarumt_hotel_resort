@@ -191,9 +191,8 @@ public class LoyaltyRewardsUI {
     /** Asks whether the user wants to save the report as a PDF. */
     public boolean confirmPdfExport() {
         System.out.println();
-        System.out.print("  " + C + B + "Export as professional PDF? (y/n) > " + R);
-        String answer = ConsoleUI.readLine().trim().toLowerCase();
-        return answer.equals("y") || answer.equals("yes");
+        return readYesNo(
+                "  " + C + B + "Export as professional PDF? (y/n) > " + R);
     }
 
     /** Prints a success banner with the exported file path. */
@@ -396,7 +395,7 @@ public class LoyaltyRewardsUI {
 
     /**
      * Shows the member's details and asks "are you sure?" before deletion.
-     * Only 'y' or 'yes' (case-insensitive) confirms.
+     * Only Y/y confirms and only N/n declines; all other input is rejected.
      */
     public boolean confirmDelete(String memberId, String name,
             String tier, int points) {
@@ -416,10 +415,8 @@ public class LoyaltyRewardsUI {
         rowBlank();
         printBorder();
         System.out.println();
-        System.out.print("  " + RD + B + "Confirm DELETE " + memberId
+        return readYesNo("  " + RD + B + "Confirm DELETE " + memberId
                 + "? (y/n) > " + R);
-        String answer = ConsoleUI.readLine().trim().toLowerCase();
-        return answer.equals("y") || answer.equals("yes");
     }
 
     // ======================================================================
@@ -486,12 +483,15 @@ public class LoyaltyRewardsUI {
     public String searchKeyword() {
         System.out.println("  " + DM + "(Enter 0 to cancel)" + R);
         while (true) {
-            System.out.print("  " + SB + "Member ID or name to search" + R + " > ");
+            System.out.print("  " + SB
+                    + "Member ID, name, email or tier to search" + R + " > ");
             String value = ConsoleUI.readLine().trim();
             if (value.equals("0")) return null;
-            if (value.matches("[A-Za-z0-9 .'-]{3,60}")) return value;
+            if (value.matches("[A-Za-z0-9@._+ '\\-]{2,100}")) return value;
             MessageUI.displayErrorMessage(
-                    "Search keyword must contain 3 to 60 valid characters.  Enter 0 to cancel.");
+                    "Search keyword must contain 2 to 100 valid characters. "
+                    + "You may enter a member ID, name, email address, or tier. "
+                    + "Enter 0 to cancel.");
         }
     }
 
@@ -589,14 +589,12 @@ public class LoyaltyRewardsUI {
         }
     }
 
-    /** Asks "are you sure?" before a generic action (y/yes confirms). */
+    /** Asks "are you sure?" before a generic action. */
     public boolean confirmAction(String prompt) {
         System.out.println();
-        System.out.print("  " + WH + B + prompt + "  "
+        return readYesNo("  " + WH + B + prompt + "  "
                 + SB + B + "[Y] Yes" + R + "    "
                 + RD + B + "[N] No" + R + " > ");
-        String answer = ConsoleUI.readLine().trim().toLowerCase();
-        return answer.equals("y") || answer.equals("yes");
     }
 
     // ======================================================================
@@ -694,6 +692,18 @@ public class LoyaltyRewardsUI {
     // ======================================================================
     // Private utilities
     // ======================================================================
+
+    /** Reads a strict one-character Y/N response and retries invalid input. */
+    private boolean readYesNo(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String answer = ConsoleUI.readLine().trim();
+            if (answer.equalsIgnoreCase("y")) return true;
+            if (answer.equalsIgnoreCase("n")) return false;
+            MessageUI.displayErrorMessage(
+                    "Invalid response: enter Y or N only.");
+        }
+    }
 
     /** Displays progress within the member's current tier using real thresholds. */
     private void displayTierProgress(int points, String tier) {

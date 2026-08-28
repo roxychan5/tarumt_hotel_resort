@@ -29,7 +29,7 @@ public class FrontDeskDAO {
         if (fields.length == 6) {
           memberRecords.add(new RewardsMember(fields[0], fields[1], fields[2],
               LoyaltyTier.valueOf(fields[3]), Integer.parseInt(fields[4]),
-              LocalDate.parse(fields[5])));
+              parseExpiryDate(fields[5])));
         }
       }
     } catch (IOException | IllegalArgumentException ex) {
@@ -38,5 +38,14 @@ public class FrontDeskDAO {
       memberRecords.clear();
     }
     return memberRecords;
+  }
+
+  /** Supports loyalty records whose optional expiry date has not been set. */
+  private LocalDate parseExpiryDate(String value) {
+    if (value == null || value.trim().isEmpty()
+        || value.trim().equalsIgnoreCase("null")) {
+      return null;
+    }
+    return LocalDate.parse(value.trim());
   }
 }

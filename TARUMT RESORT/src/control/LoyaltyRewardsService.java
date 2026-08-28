@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import utility.DataFiles;
 import utility.MessageUI;
 import utility.MalaysiaTime;
@@ -174,7 +175,7 @@ public class LoyaltyRewardsService {
         ui.displayMemberProfile(
                 member.getMemberId(), member.getName(), member.getEmail(),
                 member.getTier().name(), member.getPoints(),
-                member.getPointsExpiryDate().toString(), member.getPromotion());
+                displayExpiryDate(member.getPointsExpiryDate()), member.getPromotion());
 
         MessageUI.displaySuccessMessage(
                 "Welcome promotion: 5% dining discount for Silver members."
@@ -214,7 +215,7 @@ public class LoyaltyRewardsService {
         ui.displayMemberProfile(
                 member.getMemberId(), member.getName(), member.getEmail(),
                 member.getTier().name(), member.getPoints(),
-                member.getPointsExpiryDate().toString(), member.getPromotion());
+                displayExpiryDate(member.getPointsExpiryDate()), member.getPromotion());
 
         pause();
     }
@@ -266,12 +267,14 @@ public class LoyaltyRewardsService {
         member.setTier(newTier);
 
         /*
-         * Extend the points expiry date when
-         * new points are accumulated.
+         * Adding points may extend validity, but must never shorten an
+         * existing expiry date that is already more than one year away.
          */
-        member.setPointsExpiryDate(
-                LocalDate.now().plusYears(1)
-        );
+        LocalDate proposedExpiry = MalaysiaTime.now().toLocalDate().plusYears(1);
+        LocalDate currentExpiry = member.getPointsExpiryDate();
+        if (currentExpiry == null || proposedExpiry.isAfter(currentExpiry)) {
+            member.setPointsExpiryDate(proposedExpiry);
+        }
 
         save();
 
@@ -508,7 +511,7 @@ public class LoyaltyRewardsService {
                             member.getName(),
                             member.getTier(),
                             member.getPoints(),
-                            member.getPointsExpiryDate()
+                            displayExpiryDate(member.getPointsExpiryDate())
                     )
             );
         }
@@ -544,14 +547,13 @@ public class LoyaltyRewardsService {
             return;
         }
 
-        String keyword = rawKeyword.toLowerCase();
+        String keyword = rawKeyword.toLowerCase(Locale.ROOT);
 
         /*
         * Temporary Linear List ADT used to store
         * all members matching the search keyword.
         *
-        * Partial matching is supported for both
-        * Member ID and Member Name.
+        * Partial matching is supported for member ID, name, email, and tier.
         *
         * Example:
         * Searching "xuan" can find:
@@ -569,17 +571,22 @@ public class LoyaltyRewardsService {
                 RewardsMember member =
                         members.getEntry(i);
 
-                String memberId =
-                        member.getMemberId().toLowerCase();
+                String memberId = normalizedSearchValue(member.getMemberId());
 
-                String memberName =
-                        member.getName().toLowerCase();
+                String memberName = normalizedSearchValue(member.getName());
+
+                String memberEmail = normalizedSearchValue(member.getEmail());
+
+                String memberTier = member.getTier() == null
+                        ? "" : member.getTier().name().toLowerCase(Locale.ROOT);
 
                 /*
                 * contains() allows partial keyword searching.
                 */
                 if (memberId.contains(keyword)
-                        || memberName.contains(keyword)) {
+                        || memberName.contains(keyword)
+                        || memberEmail.contains(keyword)
+                        || memberTier.contains(keyword)) {
 
                 searchResults.add(member);
                 }
@@ -592,8 +599,8 @@ public class LoyaltyRewardsService {
         if (searchResults.isEmpty()) {
 
                 MessageUI.displayErrorMessage(
-                        "No members found matching: "
-                        + keyword
+                        "No active members found matching \"" + rawKeyword
+                        + "\" in member ID, name, email, or tier."
                 );
 
                 pause();
@@ -612,9 +619,10 @@ public class LoyaltyRewardsService {
 
         output.append(
                 String.format(
-                        "%-10s %-22s %-12s %-10s %-15s%n",
+                        "%-9s %-16s %-25s %-10s %8s %-10s%n",
                         "Member ID",
                         "Name",
+                        "Email",
                         "Tier",
                         "Points",
                         "Expires"
@@ -622,7 +630,7 @@ public class LoyaltyRewardsService {
         );
 
         output.append(
-                "-----------------------------------------------------------------------\n"
+                "------------------------------------------------------------------------------------\n"
         );
 
         for (int i = 1;
@@ -634,12 +642,13 @@ public class LoyaltyRewardsService {
 
                 output.append(
                         String.format(
-                                "%-10s %-22s %-12s %-10d %-15s%n",
+                                "%-9s %-16s %-25s %-10s %,8d %-10s%n",
                                 member.getMemberId(),
-                                member.getName(),
+                                shorten(member.getName(), 16),
+                                shorten(member.getEmail(), 25),
                                 member.getTier(),
                                 member.getPoints(),
-                                member.getPointsExpiryDate()
+                                displayExpiryDate(member.getPointsExpiryDate())
                         )
                 );
         }
@@ -1933,6 +1942,26 @@ public class LoyaltyRewardsService {
         return value.substring(0, maximumLength - 3) + "...";
     }
 
+    private String normalizedSearchValue(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT);
+    }
+
+    private String displayExpiryDate(LocalDate expiryDate) {
+        return expiryDate == null ? "Not set" : expiryDate.toString();
+    }
+
+    private String storageExpiryDate(LocalDate expiryDate) {
+        return expiryDate == null ? "" : expiryDate.toString();
+    }
+
+    private LocalDate parseExpiryDate(String value) {
+        if (value == null || value.trim().isEmpty()
+                || value.trim().equalsIgnoreCase("null")) {
+            return null;
+        }
+        return LocalDate.parse(value.trim());
+    }
+
     /** Explains whether an ID is invalid because it is missing or deleted. */
     private String memberNotFoundError(String id, String action) {
         if (findDeleted(id) != null) {
@@ -2074,7 +2103,7 @@ public class LoyaltyRewardsService {
                 + member.getPoints()
 
                 + "\nPoints Expire  : "
-                + member.getPointsExpiryDate()
+                + displayExpiryDate(member.getPointsExpiryDate())
 
                 + "\nPromotion      : "
                 + promotion(member.getTier());
@@ -2148,7 +2177,7 @@ public class LoyaltyRewardsService {
                             + "\t"
                             + member.getPoints()
                             + "\t"
-                            + member.getPointsExpiryDate()
+                            + storageExpiryDate(member.getPointsExpiryDate())
                     );
 
                     writer.newLine();
@@ -2196,7 +2225,7 @@ public class LoyaltyRewardsService {
                                     fields[2],
                                     LoyaltyTier.valueOf(fields[3]),
                                     Integer.parseInt(fields[4]),
-                                    LocalDate.parse(fields[5])
+                                    parseExpiryDate(fields[5])
                             );
 
                     members.add(member);
@@ -2234,7 +2263,7 @@ public class LoyaltyRewardsService {
                             + "\t" + clean(member.getEmail())
                             + "\t" + member.getTier().name()
                             + "\t" + member.getPoints()
-                            + "\t" + member.getPointsExpiryDate()
+                            + "\t" + storageExpiryDate(member.getPointsExpiryDate())
                             + "\t" + deleted.getDeletedDate());
                     writer.newLine();
                 }
@@ -2270,7 +2299,7 @@ public class LoyaltyRewardsService {
                             fields[0], fields[1], fields[2],
                             LoyaltyTier.valueOf(fields[3]),
                             Integer.parseInt(fields[4]),
-                            LocalDate.parse(fields[5]));
+                            parseExpiryDate(fields[5]));
                     deleteHistory.add(new DeletedRewardsMember(
                             member, LocalDate.parse(fields[6])));
                 } catch (IllegalArgumentException ex) {
