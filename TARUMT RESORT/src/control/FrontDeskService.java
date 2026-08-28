@@ -444,7 +444,7 @@ public class FrontDeskService {
 
       if (!isValidMemberId(memberId)) {
         displayMemberIdInputMessage(accountLookup,
-            "  Member ID must be LM followed by 3 digits, for example LM001.\n"
+            "  Member ID must be LM followed by 3 to 6 digits, for example LM001.\n"
             + "  Enter a valid member ID, or enter 0 to cancel.");
         continue;
       }
@@ -486,7 +486,9 @@ public class FrontDeskService {
   }
 
   private boolean isValidMemberId(String memberId) {
-    return memberId.matches("LM[0-9]{3}");
+    // Keep this rule consistent with Loyalty & Rewards, which supports IDs
+    // from LM001 through IDs with up to six digits.
+    return memberId.matches("LM[0-9]{3,6}");
   }
 
   private boolean isValidRoomNumber(String roomNumber) {

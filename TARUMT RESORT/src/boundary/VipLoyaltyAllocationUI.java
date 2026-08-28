@@ -18,7 +18,7 @@ public class VipLoyaltyAllocationUI {
 
   public int getMenuChoice() {
     displayMenu();
-    return ConsoleUI.readMenuChoice("  " + SKY_BLUE + BOLD + "Select option (0-6) > " + RESET);
+    return ConsoleUI.readMenuChoice("  " + SKY_BLUE + BOLD + "Select option (0-7) > " + RESET);
   }
 
   // Displays the VIP Allocation menu without requesting another menu selection. //
@@ -37,11 +37,12 @@ public class VipLoyaltyAllocationUI {
 
     printSection("ROOM ALLOCATION");
     printEntry("4", "Allocate Available Room", "Assign room to next priority guest");
+    printEntry("5", "View Allocated Room Board", "View member allocated rooms details");
     printBorder();
 
     printSection("REPORTS & ANALYTICS");
-    printHighlightEntry("5", "Priority Waiting List Report", "Filter guests by tier and room type");
-    printHighlightEntry("6", "Allocation Performance Report", "Review completed VIP allocations");
+    printHighlightEntry("6", "Priority Waiting List Report", "Filter guests by tier and room type");
+    printHighlightEntry("7", "Allocation Performance Report", "Review completed VIP allocations");
     printBorder();
 
     printBack();
@@ -100,7 +101,14 @@ public class VipLoyaltyAllocationUI {
     return output.toString();
   }
 
-  public String inputMemberId() { return readText("Enter member ID: ").toUpperCase(); }
+  public String inputMemberId() {
+    while (true) {
+      String memberId = readText("Enter member ID (LM001-LM999999, 0 to cancel): ").toUpperCase();
+      if (memberId.equals("0")) return "";
+      if (memberId.matches("LM[0-9]{3,6}")) return memberId;
+      System.out.println("Member ID must be LM followed by 3 to 6 digits.");
+    }
+  }
 
   public void displayVerifiedMember(String memberId, String memberName, String tier) {
     System.out.println();
@@ -119,12 +127,12 @@ public class VipLoyaltyAllocationUI {
     }
   }
   public String inputRequestedRoomType() {
-    return inputRoomType("REQUESTED ROOM TYPE", "Select requested room type (1-6): ");
+    return inputRoomType("REQUESTED ROOM TYPE", "Select requested room type (1-6): ", false);
   }
 
   public int inputNumberOfNights() {
     while (true) {
-      int nights = readInt("How many nights will the VIP stay: ");
+      int nights = readInt("How many nights will the member stay: ");
       if (nights > 0 && nights <= 365) return nights;
       System.out.println("Please enter a stay between 1 and 365 nights.");
     }
@@ -132,10 +140,10 @@ public class VipLoyaltyAllocationUI {
 
   // Selects the room type that should be automatically assigned. //
   public String inputRoomTypeToAllocate() {
-    return inputRoomType("ROOM TYPE TO ALLOCATE", "Select room type to allocate (1-6): ");
+    return inputRoomType("ROOM TYPE TO ALLOCATE", "Select room type to allocate (0-6): ", true);
   }
 
-  private String inputRoomType(String title, String prompt) {
+  private String inputRoomType(String title, String prompt, boolean allowCancel) {
     System.out.println(title + ":");
     System.out.println("  1. Standard");
     System.out.println("  2. Deluxe");
@@ -143,22 +151,33 @@ public class VipLoyaltyAllocationUI {
     System.out.println("  4. Family");
     System.out.println("  5. Executive");
     System.out.println("  6. Presidential");
+    if (allowCancel) System.out.println("  0. Cancel");
     while (true) {
       switch (readInt(prompt)) {
+        case 0:
+          if (allowCancel) return "";
+          break;
         case 1: return "Standard";
         case 2: return "Deluxe";
         case 3: return "Suite";
         case 4: return "Family";
         case 5: return "Executive";
         case 6: return "Presidential";
-        default: System.out.println("Please select a room type from 1 to 6.");
+        default: break;
       }
+      System.out.println(allowCancel
+          ? "Please select a room type from 0 to 6."
+          : "Please select a room type from 1 to 6.");
     }
   }
 
   public int inputMinimumTier() {
     System.out.println("Minimum tier filter: 1=Silver, 2=Gold, 3=Platinum, 4=Diamond, 5=Elite");
-    return readInt("Enter minimum tier: ");
+    while (true) {
+      int tier = readInt("Enter minimum tier: ");
+      if (tier >= 1 && tier <= 5) return tier;
+      System.out.println("Please select a tier from 1 to 5.");
+    }
   }
 
   public String inputRoomTypeFilter() {
@@ -192,6 +211,12 @@ public class VipLoyaltyAllocationUI {
   public void displayNextGuest(String details) {
     ConsoleUI.displaySubHeader("NEXT PRIORITY GUEST");
     System.out.println(details);
+  }
+
+  /** Shows every completed VIP room allocation with the guest stay dates. */
+  public void displayAllocatedRoomBoard(String output) {
+    ConsoleUI.displaySubHeader("VIP ALLOCATED ROOM BOARD");
+    System.out.println(output);
   }
 
   public void displayReport(String title, String content) {

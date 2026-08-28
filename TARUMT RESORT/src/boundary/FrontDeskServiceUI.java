@@ -59,7 +59,7 @@ public class FrontDeskServiceUI {
   }
 
   public String inputMemberId() {
-    System.out.print("  " + SB + "Member ID" + R + " (LM001, 0 to cancel) > ");
+    System.out.print("  " + SB + "Member ID" + R + " (LM001-LM999999, 0 to cancel) > ");
     return ConsoleUI.readLine().trim().toUpperCase();
   }
 

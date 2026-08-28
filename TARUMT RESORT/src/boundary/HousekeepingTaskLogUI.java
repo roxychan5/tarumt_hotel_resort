@@ -4,6 +4,8 @@ import entity.HousekeepingTask;
 import entity.Room;
 import entity.RoomStatus;
 import entity.StatusChangeRecord;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import utility.ConsoleUI;
 import utility.MalaysiaTime;
@@ -482,22 +484,18 @@ public class HousekeepingTaskLogUI {
         + "Room Type: 0=ALL  1=Standard  2=Deluxe  3=Suite" + R);
     System.out.println();
 
-    System.out.print("  " + SB + "From date" + R + " (yyyy-MM-dd or ENTER) > ");
-    String from = ConsoleUI.readLine().trim();
-    if (!from.isEmpty() && !from.matches("\\d{4}-\\d{2}-\\d{2}")) {
-      MessageUI.displayErrorMessage("Invalid date format - filter skipped.");
-      from = "";
-    }
-
-    System.out.print("  " + SB + "To date  " + R + " (yyyy-MM-dd or ENTER) > ");
-    String to = ConsoleUI.readLine().trim();
-    if (!to.isEmpty() && !to.matches("\\d{4}-\\d{2}-\\d{2}")) {
-      MessageUI.displayErrorMessage("Invalid date format - filter skipped.");
-      to = "";
+    String from = inputOptionalDate("From date");
+    String to;
+    while (true) {
+      to = inputOptionalDate("To date  ");
+      if (from.isEmpty() || to.isEmpty() || !LocalDate.parse(to).isBefore(LocalDate.parse(from))) {
+        break;
+      }
+      MessageUI.displayErrorMessage("To date must be on or after the from date.");
     }
 
     String statusFilter;
-    switch (ConsoleUI.readMenuChoice("  Status filter     (0-4) > ")) {
+    switch (readChoiceInRange("  Status filter     (0-4) > ", 0, 4)) {
       case 1:  statusFilter = "DIRTY"; break;
       case 2:  statusFilter = "CLEANING_IN_PROGRESS"; break;
       case 3:  statusFilter = "INSPECTED"; break;
@@ -506,7 +504,7 @@ public class HousekeepingTaskLogUI {
     }
 
     String roomTypeFilter;
-    switch (ConsoleUI.readMenuChoice("  Room type filter  (0-3) > ")) {
+    switch (readChoiceInRange("  Room type filter  (0-3) > ", 0, 3)) {
       case 1:  roomTypeFilter = "Standard"; break;
       case 2:  roomTypeFilter = "Deluxe"; break;
       case 3:  roomTypeFilter = "Suite"; break;
@@ -559,8 +557,13 @@ public class HousekeepingTaskLogUI {
         + R);
     System.out.println();
 
-    System.out.print("  " + SB + "Staff prefix" + R + " (or ENTER for all) > ");
-    String prefix = ConsoleUI.readLine().trim().toUpperCase();
+    String prefix;
+    while (true) {
+      System.out.print("  " + SB + "Staff prefix" + R + " (HK, HK001, or ENTER for all) > ");
+      prefix = ConsoleUI.readLine().trim().toUpperCase();
+      if (prefix.isEmpty() || prefix.matches("HK[0-9]{0,5}")) break;
+      MessageUI.displayErrorMessage("Staff prefix must be HK followed by up to 5 digits.");
+    }
 
     int minTasks = 0;
     while (true) {
@@ -573,6 +576,29 @@ public class HousekeepingTaskLogUI {
     }
 
     return new String[]{prefix, String.valueOf(minTasks)};
+  }
+
+  /** Reads an integer menu option and keeps prompting until it is in range. */
+  private int readChoiceInRange(String prompt, int minimum, int maximum) {
+    while (true) {
+      int choice = ConsoleUI.readMenuChoice(prompt);
+      if (choice >= minimum && choice <= maximum) return choice;
+      MessageUI.displayErrorMessage("Enter a number from " + minimum + " to " + maximum + ".");
+    }
+  }
+
+  /** Reads an optional calendar date and rejects impossible dates such as 2026-02-30. */
+  private String inputOptionalDate(String label) {
+    while (true) {
+      System.out.print("  " + SB + label + R + " (yyyy-MM-dd or ENTER) > ");
+      String value = ConsoleUI.readLine().trim();
+      if (value.isEmpty()) return "";
+      try {
+        return LocalDate.parse(value).toString();
+      } catch (DateTimeParseException ex) {
+        MessageUI.displayErrorMessage("Enter a valid calendar date in yyyy-MM-dd format.");
+      }
+    }
   }
 
   /** Asks whether the user wants to save the report as a PDF. */

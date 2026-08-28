@@ -54,8 +54,9 @@ public class VipLoyaltyAllocation {
         case 2: viewNextGuest(); break;
         case 3: vipUI.displayPriorityQueue(buildQueueDisplay()); pause(); break;
         case 4: allocateRoom(); break;
-        case 5: generateWaitingListReport(); break;
-        case 6: generateAllocationPerformanceReport(); break;
+        case 5: viewAllocatedRoomBoard(); break;
+        case 6: generateWaitingListReport(); break;
+        case 7: generateAllocationPerformanceReport(); break;
         default: MessageUI.displayInvalidChoiceMessage();
       }
     } while (choice != 0);
@@ -66,12 +67,15 @@ public class VipLoyaltyAllocation {
     RewardsMember registeredMember;
     while (true) {
       memberId = vipUI.inputMemberId();
+      if (memberId.isEmpty()) {
+        MessageUI.displayInfoMessage("Priority guest registration cancelled.");
+        return;
+      }
       registeredMember = loyaltyRewardsService.getMemberById(memberId);
-      if (!memberId.isEmpty() && registeredMember != null) break;
+      if (registeredMember != null) break;
 
-      MessageUI.displayErrorMessage(memberId.isEmpty()
-          ? "Member ID is required."
-          : "This ID is not a registered loyalty member. Register the member in Loyalty & Rewards first.");
+      MessageUI.displayErrorMessage(
+          "This ID is not a registered loyalty member. Register the member in Loyalty & Rewards first.");
       int action = vipUI.inputMissingMemberAction();
       pause();
       if (action == 2) {
@@ -122,6 +126,10 @@ public class VipLoyaltyAllocation {
       MessageUI.displayErrorMessage("No priority guest is waiting for allocation.");
     } else {
       String roomType = vipUI.inputRoomTypeToAllocate();
+      if (roomType.isEmpty()) {
+        MessageUI.displayInfoMessage("Room allocation cancelled.");
+        return;
+      }
       int queuePosition = findHighestPriorityGuestRequesting(roomType);
       if (queuePosition == 0) {
         MessageUI.displayErrorMessage("No waiting VIP member has requested a " + roomType + " room.");
@@ -146,6 +154,12 @@ public class VipLoyaltyAllocation {
         }
       }
     }
+    pause();
+  }
+
+  /** Displays all completed VIP room allocations for the current system session. */
+  private void viewAllocatedRoomBoard() {
+    vipUI.displayAllocatedRoomBoard(buildAllocatedRoomBoard());
     pause();
   }
 
@@ -473,6 +487,28 @@ public class VipLoyaltyAllocation {
       output += formatMember(sortedGuests[position], position + 1) + "\n";
     }
     return output;
+  }
+
+  /** Builds the stay board from allocations in their completed order. */
+  private String buildAllocatedRoomBoard() {
+    if (completedAllocations.isEmpty()) {
+      return "  No VIP rooms have been allocated in this session.";
+    }
+
+    StringBuilder board = new StringBuilder();
+    board.append(String.format("%-7s %-8s %-12s %-20s %-11s %-12s %-12s %-6s%n",
+        "Order", "Room", "Member ID", "Guest", "Tier", "Check-In", "Check-Out", "Nights"));
+    board.append("----------------------------------------------------------------------------------------------\n");
+    for (int position = 1; position <= completedAllocations.getNumberOfEntries(); position++) {
+      RoomAllocation allocation = completedAllocations.getEntry(position);
+      LoyaltyMember member = allocation.getMember();
+      board.append(String.format("%-7d %-8s %-12s %-20s %-11s %-12s %-12s %-6d%n",
+          allocation.getAllocationSequence(), allocation.getRoomNumber(), member.getMemberId(),
+          member.getGuestName(), member.getTier(), allocation.getCheckInDate(),
+          allocation.getCheckOutDate(), member.getNumberOfNights()));
+    }
+    board.append("\nTotal allocated rooms: ").append(completedAllocations.getNumberOfEntries());
+    return board.toString();
   }
 
   private void sortPriorityGuests(LoyaltyMember[] entries) {

@@ -15,6 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -466,6 +467,11 @@ public class HousekeepingTaskLog {
 
     // Step 1: look at the TOP of the stack (peek = view but do NOT remove).
     StatusChangeRecord latest = undoStack.peek();
+    Room room = findRoom(latest.getRoomNumber());
+    if (!canApplyStatusRecord(room, latest.getNewStatus(), "undo")) {
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     housekeepingUI.displayUndoLatest(latest);
 
     // Step 2: ask the user before changing anything.
@@ -478,13 +484,6 @@ public class HousekeepingTaskLog {
 
     // Step 3: POP (remove) the top record and reverse the change.
     StatusChangeRecord record = undoStack.pop();
-    Room room = findRoom(record.getRoomNumber());
-    if (room == null) {
-      MessageUI.displayErrorMessage("Room no longer exists. Undo cancelled.");
-      undoStack.push(record); // put it back - cannot undo without the room
-      MessageUI.pressEnterToContinue();
-      return;
-    }
 
     room.setStatus(record.getPreviousStatus());  // go back to the OLD status
     syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus()); // keep in sync
@@ -508,6 +507,11 @@ public class HousekeepingTaskLog {
 
     // Step 1: show the change we would redone.
     StatusChangeRecord latest = redoStack.peek();
+    Room room = findRoom(latest.getRoomNumber());
+    if (!canApplyStatusRecord(room, latest.getPreviousStatus(), "redo")) {
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     housekeepingUI.displayRedoLatest(latest);
 
     // Step 2: ask for confirmation.
@@ -520,13 +524,6 @@ public class HousekeepingTaskLog {
 
     // Step 3: pop from redo, re-apply, push back to undo.
     StatusChangeRecord record = redoStack.pop();
-    Room room = findRoom(record.getRoomNumber());
-    if (room == null) {
-      MessageUI.displayErrorMessage("Room no longer exists. Redo cancelled.");
-      redoStack.push(record);
-      MessageUI.pressEnterToContinue();
-      return;
-    }
     room.setStatus(record.getNewStatus());   // re-apply the NEW status
     syncTaskStatus(record.getRoomNumber(), record.getNewStatus()); // sync task
     undoStack.push(record);                  // can be undone again now
@@ -593,6 +590,10 @@ public class HousekeepingTaskLog {
         changes.add(history.get(i)); // those that will be undone
       }
     }
+    if (!canUndoRecords(changes)) {
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     housekeepingUI.displayUndoMultipleConfirm(count, changes); // show them
 
     // Step 4 - final confirmation.
@@ -608,10 +609,8 @@ public class HousekeepingTaskLog {
     for (int i = 0; i < count; i++) {
       StatusChangeRecord record = undoStack.pop(); // newest first
       Room room = findRoom(record.getRoomNumber());
-      if (room != null) {
-        room.setStatus(record.getPreviousStatus()); // go back
-        syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus());
-      }
+      room.setStatus(record.getPreviousStatus()); // validated before confirmation
+      syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus());
       redoStack.push(record); // keep for redo
     }
     saveData(); // save
@@ -658,14 +657,17 @@ public class HousekeepingTaskLog {
       }
       temporaryStack.push(record); // not ours - set it aside
     }
-    // Put the untouched records BACK in their original order.
-    while (!temporaryStack.isEmpty()) {
-      undoStack.push(temporaryStack.pop());
-    }
-
     if (target == null) {
+      restoreStackRecords(temporaryStack);
       MessageUI.displayErrorMessage(
           "No undoable change was found for Room " + roomNumber + ".");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    if (!canApplyStatusRecord(room, target.getNewStatus(), "undo")) {
+      undoStack.push(target);
+      restoreStackRecords(temporaryStack);
       MessageUI.pressEnterToContinue();
       return;
     }
@@ -675,12 +677,15 @@ public class HousekeepingTaskLog {
     if (!housekeepingUI.confirmAction(
         "Are you sure you want to undo the latest change for Room "
             + roomNumber + "?")) {
+      undoStack.push(target);
+      restoreStackRecords(temporaryStack);
       MessageUI.displayInfoMessage("Undo cancelled. No changes were made.");
       MessageUI.pressEnterToContinue();
       return;
     }
 
     // Step 2 - apply the undo.
+    restoreStackRecords(temporaryStack);
     room.setStatus(target.getPreviousStatus());
     syncTaskStatus(roomNumber, target.getPreviousStatus());
     redoStack.push(target); // remember for redo
@@ -730,8 +735,21 @@ public class HousekeepingTaskLog {
     String roomTypeFilter = filters[3]; // "Standard"/"Deluxe"/"Suite"/"ALL"
 
     // Convert the date strings into LocalDate objects (null = no limit).
-    LocalDate fromDate = fromDateStr.isEmpty() ? null : LocalDate.parse(fromDateStr);
-    LocalDate toDate   = toDateStr.isEmpty()   ? null : LocalDate.parse(toDateStr);
+    LocalDate fromDate;
+    LocalDate toDate;
+    try {
+      fromDate = fromDateStr.isEmpty() ? null : LocalDate.parse(fromDateStr);
+      toDate = toDateStr.isEmpty() ? null : LocalDate.parse(toDateStr);
+    } catch (DateTimeParseException ex) {
+      MessageUI.displayErrorMessage("Report dates must be valid calendar dates.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+    if (fromDate != null && toDate != null && toDate.isBefore(fromDate)) {
+      MessageUI.displayErrorMessage("Report end date must not be before the start date.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
 
     // ── Step 2: Bubble-sort ALL tasks by date (ascending) ───────────────
     //          Sorting is REQUIRED before we can use binary search.
@@ -1398,6 +1416,56 @@ public class HousekeepingTaskLog {
         roomNumber, previous, current, reason, MalaysiaTime.now());
     undoStack.push(record);  // push - newest goes on TOP
     redoStack.clear();       // clear any old redo entries
+  }
+
+  /**
+   * Ensures an undo/redo record still applies to the room's present state.
+   * A room may have been changed by Front Desk or VIP allocation after the
+   * record was created, in which case applying an older record would corrupt
+   * the shared room status.
+   */
+  private boolean canApplyStatusRecord(Room room, RoomStatus expectedStatus, String action) {
+    if (room == null) {
+      MessageUI.displayErrorMessage("Room no longer exists. " + action + " cancelled.");
+      return false;
+    }
+    if (room.getStatus() != expectedStatus) {
+      MessageUI.displayErrorMessage("Cannot " + action + " room " + room.getRoomNumber()
+          + ": its status changed to " + room.getStatus().getLabel()
+          + " after this record was created.");
+      return false;
+    }
+    return true;
+  }
+
+  /** Validates every selected record before a bulk undo changes any room. */
+  private boolean canUndoRecords(List<StatusChangeRecord> records) {
+    Map<String, RoomStatus> simulatedStatuses = new LinkedHashMap<>();
+    for (StatusChangeRecord record : records) {
+      Room room = findRoom(record.getRoomNumber());
+      if (room == null) {
+        MessageUI.displayErrorMessage("Room " + record.getRoomNumber()
+            + " no longer exists. Bulk undo cancelled.");
+        return false;
+      }
+      RoomStatus currentStatus = simulatedStatuses.containsKey(record.getRoomNumber())
+          ? simulatedStatuses.get(record.getRoomNumber())
+          : room.getStatus();
+      if (currentStatus != record.getNewStatus()) {
+        MessageUI.displayErrorMessage("Cannot undo room " + record.getRoomNumber()
+            + ": its status changed after one of the selected records was created.");
+        return false;
+      }
+      simulatedStatuses.put(record.getRoomNumber(), record.getPreviousStatus());
+    }
+    return true;
+  }
+
+  /** Restores temporarily popped history entries without changing their LIFO order. */
+  private void restoreStackRecords(StackInterface<StatusChangeRecord> temporaryStack) {
+    while (!temporaryStack.isEmpty()) {
+      undoStack.push(temporaryStack.pop());
+    }
   }
 
   /**
