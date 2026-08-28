@@ -29,6 +29,7 @@ import utility.MessageUI;
 public class HousekeepingTaskLogUI {
 
   private static final int  BOX_W  = 78;   // total visible chars inside | |
+  private static final int  ACTIVE_ROOMS_BOX_W = 100;
   private static final int  LABEL_W = 30;   // visible width of label column
   private static final char HL    = '-';
   private static final char VL    = '|';
@@ -51,7 +52,7 @@ public class HousekeepingTaskLogUI {
     ConsoleUI.clearScreen();
     printMenu();
     return ConsoleUI.readMenuChoice(
-        "  " + SB + B + "  Select option (0-15) > " + R + " ");
+        "  " + SB + B + "  Select option (0-14) > " + R + " ");
   }
 
   private void printMenu() {
@@ -70,19 +71,18 @@ public class HousekeepingTaskLogUI {
 
     printSectionLabel("STATUS CHANGE CONTROL");
     printEntry(" 6", "Undo Latest Change",       "Reverse the most recent update");
-    printEntry(" 7", "Redo Latest Change",       "Reapply the most recently undone update");
-    printEntry(" 8", "Undo Multiple Changes",    "Reverse several recent updates at once");
-    printEntry(" 9", "Undo Change for Room",     "Reverse a specific room's latest update");
-    printEntry("10", "View Change History",      "See undo stack from TOP to BOTTOM");
-    printEntry("11", "View Undo/Redo Summary",   "Count of available undo/redo changes");
+    printEntry(" 7", "Undo Multiple Changes",    "Reverse several recent updates at once");
+    printEntry(" 8", "Undo Change for Room",     "Reverse a specific room's latest update");
+    printEntry(" 9", "View Change History",      "See undo stack from TOP to BOTTOM");
+    printEntry("10", "View Undo Summary",        "Count of available rollback changes");
     printBorder();
 
     printSectionLabel("OPERATIONS  &  REPORTS");
-    printEntry("12", "Record Late Check-Out",    "Reset room back to Dirty status");
-    printEntry("13", "Room Status Board",        "Monitor every room at a glance");
-    printEntryHighlight("14", "Report 1: Operational Summary",
+    printEntry("11", "Late Check-Out Guidance",  "Use Front Desk to restore booking and mark room LCO");
+    printEntry("12", "Room Status Board",        "Monitor every room at a glance");
+    printEntryHighlight("13", "Report 1: Operational Summary",
         "Binary search + bubble sort | PDF");
-    printEntryHighlight("15", "Report 2: Staff Workload",
+    printEntryHighlight("14", "Report 2: Staff Workload",
         "Insertion sort ranking      | PDF");
     printBorder();
 
@@ -100,6 +100,10 @@ public class HousekeepingTaskLogUI {
 
   private void printBorder() {
     System.out.println("  " + SB + B + "+" + rep(HL, BOX_W) + "+" + R);
+  }
+
+  private void printBorder(int width) {
+    System.out.println("  " + SB + B + "+" + rep(HL, width) + "+" + R);
   }
 
   private void printTitle(String title, String sub) {
@@ -158,7 +162,11 @@ public class HousekeepingTaskLogUI {
    * in content (ANSI codes excluded).  Pads to BOX_W before closing |.
    */
   private void rowV(String content, int visibleLen) {
-    int pad = BOX_W - visibleLen;
+    rowV(content, visibleLen, BOX_W);
+  }
+
+  private void rowV(String content, int visibleLen, int width) {
+    int pad = width - visibleLen;
     System.out.println("  " + SB + B + VL + R
         + content + rep(' ', Math.max(0, pad))
         + SB + B + VL + R);
@@ -181,39 +189,39 @@ public class HousekeepingTaskLogUI {
    */
   public void displayActiveRooms(String summary) {
     System.out.println();
-    printBorder();
+    printBorder(ACTIVE_ROOMS_BOX_W);
     rowV("  " + C + B + "ROOM AVAILABILITY FOR NEW TASK ASSIGNMENT" + R,
-        2 + "ROOM AVAILABILITY FOR NEW TASK ASSIGNMENT".length());
-    printBorder();
+        2 + "ROOM AVAILABILITY FOR NEW TASK ASSIGNMENT".length(), ACTIVE_ROOMS_BOX_W);
+    printBorder(ACTIVE_ROOMS_BOX_W);
 
     if (summary == null || summary.isEmpty()) {
       String msg = "  No rooms registered.";
-      rowV(DM + msg + R, msg.length());
+      rowV(DM + msg + R, msg.length(), ACTIVE_ROOMS_BOX_W);
     } else {
       // Legend — explains the Availability column
       String legend = "  " + "\033[92m" + "AVAILABLE" + R + " = can assign a task   "
           + RD + "UNAVAILABLE" + R + " = cannot assign a task";
-      rowV(legend, visLen(legend));
-      row();
+      rowV(legend, visLen(legend), ACTIVE_ROOMS_BOX_W);
+      rowV("", 0, ACTIVE_ROOMS_BOX_W);
 
       // Header — must match control format: Task(8) Room(8) Staff(8) Status(21) Reason
       String hdr = String.format("  %-8s %-8s %-8s %-21s %s",
           "Task ID", "Room", "Staff", "Status", "Availability");
-      rowV(IB + B + hdr + R, hdr.length());
-      rowV("  " + rep('-', 74), 2 + 74);
+      rowV(IB + B + hdr + R, hdr.length(), ACTIVE_ROOMS_BOX_W);
+      rowV("  " + rep('-', 96), 2 + 96, ACTIVE_ROOMS_BOX_W);
 
       // Data rows — color-coded: green = available, red = unavailable
       for (String line : summary.split("\r?\n")) {
         if (line.trim().isEmpty()) continue;
         line = line.replace("\r", "");
         if (line.contains("AVAILABLE")) {
-          rowV("  " + "\033[92m" + line + R, 2 + line.length());
+          rowV("  " + "\033[92m" + line + R, 2 + line.length(), ACTIVE_ROOMS_BOX_W);
         } else {
-          rowV("  " + RD + line + R, 2 + line.length());
+          rowV("  " + RD + line + R, 2 + line.length(), ACTIVE_ROOMS_BOX_W);
         }
       }
     }
-    printBorder();
+    printBorder(ACTIVE_ROOMS_BOX_W);
     System.out.println();
   }
 
@@ -675,19 +683,7 @@ public class HousekeepingTaskLogUI {
     closePanel();
   }
 
-  /** [7] Shows the latest undone change that will be redone before confirmation. */
-  public void displayRedoLatest(StatusChangeRecord record) {
-    openPanel("REDO LATEST CHANGE");
-    panelText("The latest undone change is:", SB);
-    row();
-    rowKV("Room", record.getRoomNumber(), true);
-    rowKVPair("Status", record.getPreviousStatus().getLabel(),
-        record.getNewStatus().getLabel());
-    rowKV("Change", "Restore the previous status change", false);
-    closePanel();
-  }
-
-  /** [8] Shows the available undo history (newest first) before asking for the count. */
+  /** [7] Shows the available undo history (newest first) before asking for the count. */
   public void displayUndoMultipleAvailable(List<StatusChangeRecord> history) {
     openPanel("UNDO MULTIPLE CHANGES");
     panelText("Available Changes:", "");
@@ -696,7 +692,7 @@ public class HousekeepingTaskLogUI {
     closePanel();
   }
 
-  /** [8] Shows exactly which changes will be undone before confirmation. */
+  /** [7] Shows exactly which changes will be undone before confirmation. */
   public void displayUndoMultipleConfirm(int count, List<StatusChangeRecord> changes) {
     openPanel("CONFIRM UNDO");
     String plural = (count == 1) ? "change" : "changes";
@@ -706,7 +702,7 @@ public class HousekeepingTaskLogUI {
     closePanel();
   }
 
-  /** [9] Shows the latest change for a specific room before confirmation. */
+  /** [8] Shows the latest change for a specific room before confirmation. */
   public void displayRoomUndo(String roomNumber, StatusChangeRecord record) {
     openPanel("UNDO ROOM CHANGE");
     rowKV("Room", roomNumber, true);
@@ -719,7 +715,7 @@ public class HousekeepingTaskLogUI {
     closePanel();
   }
 
-  /** [10] Shows the complete change history from newest (top) to oldest (bottom). */
+  /** [9] Shows the complete change history from newest (top) to oldest (bottom). */
   public void displayChangeHistory(List<StatusChangeRecord> history) {
     openPanel("CHANGE HISTORY");
     panelText("Newest / Latest", "");
@@ -735,13 +731,11 @@ public class HousekeepingTaskLogUI {
     closePanel();
   }
 
-  /** [11] Shows the current number of available undo/redo changes and their latest entries. */
-  public void displayUndoRedoSummary(int undoCount, int redoCount,
-      StatusChangeRecord latestUndo, StatusChangeRecord latestRedo) {
-    openPanel("UNDO / REDO SUMMARY");
+  /** [10] Shows the current number of available rollback changes and the latest entry. */
+  public void displayUndoSummary(int undoCount, StatusChangeRecord latestUndo) {
+    openPanel("UNDO SUMMARY");
     row();
     rowKV("Available Undo Changes", String.valueOf(undoCount), true);
-    rowKV("Available Redo Changes", String.valueOf(redoCount), true);
     row();
     panelText("Latest Undoable Change:", "");
     if (latestUndo == null) {
@@ -750,15 +744,6 @@ public class HousekeepingTaskLogUI {
       rowText("Room " + latestUndo.getRoomNumber() + ": "
           + latestUndo.getPreviousStatus().getLabel() + " -> "
           + latestUndo.getNewStatus().getLabel(), WH);
-    }
-    row();
-    panelText("Latest Redoable Change:", "");
-    if (latestRedo == null) {
-      panelText("None", WH);
-    } else {
-      rowText("Room " + latestRedo.getRoomNumber() + ": "
-          + latestRedo.getPreviousStatus().getLabel() + " -> "
-          + latestRedo.getNewStatus().getLabel(), WH);
     }
     closePanel();
   }

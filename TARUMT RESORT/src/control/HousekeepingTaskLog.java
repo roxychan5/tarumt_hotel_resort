@@ -53,8 +53,6 @@ public class HousekeepingTaskLog {
   private final ListInterface<HousekeepingTask> taskList = new ArrayList<>();
   // Stack ADT #1: most recent status change sits on TOP -> undo pops it first.
   private final StackInterface<StatusChangeRecord> undoStack = new LinkedStack<>();
-  // Stack ADT #2: changes we undid sit here so they can be redone again.
-  private final StackInterface<StatusChangeRecord> redoStack = new LinkedStack<>();
 
   // The DAO reads/saves our data from/to text files (rooms.txt, tasks.txt, etc.).
   private final HousekeepingDAO housekeepingDAO = new HousekeepingDAO();
@@ -121,41 +119,38 @@ public class HousekeepingTaskLog {
         case 5:
           deleteTaskById(); // remove a task after confirmation
           break;
-        // ── Status Change Control (6-11) ───────────────────────────────
+        // ── Status Change Control (6-10) ───────────────────────────────
         case 6:
           undoLastChange(); // reverse the latest status change
           break;
         case 7:
-          redoLastChange(); // re-apply the last undone change
-          break;
-        case 8:
           rollbackMultipleChanges(); // undo several changes at once
           break;
-        case 9:
+        case 8:
           rollbackSpecificRoom(); // undo one specific room's latest change
           break;
-        case 10:
+        case 9:
           displayStatusHistory(); // show the whole change history
           break;
-        case 11:
+        case 10:
           displayStackSummary(); // show how many undo/redo entries exist
           break;
-        // ── Operations & Reports (12-15) ───────────────────────────────
-        case 12:
-          handleLateCheckout(); // late check-out -> reset room to Dirty
+        // ── Operations & Reports (11-14) ───────────────────────────────
+        case 11:
+          showLateCheckoutDirection();
           break;
-        case 13:
+        case 12:
           housekeepingUI.listRoomStatuses(getAllRooms()); // room status board
           MessageUI.pressEnterToContinue();
           break;
-        case 14:
+        case 13:
           generateTasksByStatusReport(); // report 1 (console + PDF)
           break;
-        case 15:
+        case 14:
           generateStaffWorkloadReport(); // report 2 (console + PDF)
           break;
         default:
-          MessageUI.displayInvalidChoiceMessage(); // number outside 0-15
+          MessageUI.displayInvalidChoiceMessage(); // number outside 0-14
       }
     } while (choice != 0); // keep looping until the user says 0 (exit)
   }
@@ -512,49 +507,10 @@ public class HousekeepingTaskLog {
 
     room.setStatus(record.getPreviousStatus());  // go back to the OLD status
     syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus()); // keep in sync
-    redoStack.push(record); // remember it so it can be redone if wanted
     saveData(); // save everything
 
     System.out.println("\nUndone: " + record);
     MessageUI.displaySuccessMessage("Latest change undone successfully.");
-    housekeepingUI.displayRoomDetails(room);
-    MessageUI.pressEnterToContinue();
-  }
-
-  /** Option 7 - Redo the last undone change, after showing it and confirming. */
-  private void redoLastChange() {
-    if (redoStack.isEmpty()) {  // nothing to redo
-      MessageUI.displayErrorMessage(
-          "No changes are currently available for redo.");
-      MessageUI.pressEnterToContinue();
-      return;
-    }
-
-    // Step 1: show the change we would redone.
-    StatusChangeRecord latest = redoStack.peek();
-    Room room = findRoom(latest.getRoomNumber());
-    if (!canApplyStatusRecord(room, latest.getPreviousStatus(), "redo")) {
-      MessageUI.pressEnterToContinue();
-      return;
-    }
-    housekeepingUI.displayRedoLatest(latest);
-
-    // Step 2: ask for confirmation.
-    if (!housekeepingUI.confirmAction(
-        "Are you sure you want to redo this change?")) {
-      MessageUI.displayInfoMessage("Redo cancelled. No changes were made.");
-      MessageUI.pressEnterToContinue();
-      return;
-    }
-
-    // Step 3: pop from redo, re-apply, push back to undo.
-    StatusChangeRecord record = redoStack.pop();
-    room.setStatus(record.getNewStatus());   // re-apply the NEW status
-    syncTaskStatus(record.getRoomNumber(), record.getNewStatus()); // sync task
-    undoStack.push(record);                  // can be undone again now
-    saveData();                              // save everything
-
-    MessageUI.displaySuccessMessage("Latest change redone successfully.");
     housekeepingUI.displayRoomDetails(room);
     MessageUI.pressEnterToContinue();
   }
@@ -641,7 +597,6 @@ public class HousekeepingTaskLog {
       Room room = findRoom(record.getRoomNumber());
       room.setStatus(record.getPreviousStatus()); // validated before confirmation
       syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus());
-      redoStack.push(record); // keep for redo
     }
     saveData(); // save
     MessageUI.displaySuccessMessage(
@@ -656,13 +611,11 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
-  /** Option 11 - Show how many undo/redo entries exist and the latest each. */
+  /** Shows the number of available rollback changes and the latest entry. */
   private void displayStackSummary() {
-    housekeepingUI.displayUndoRedoSummary(
-        undoStack.getSize(),                    // how many undoable
-        redoStack.getSize(),                    // how many redoable
-        undoStack.isEmpty() ? null : undoStack.peek(), // latest undoable
-        redoStack.isEmpty() ? null : redoStack.peek()); // latest redoable
+    housekeepingUI.displayUndoSummary(
+        undoStack.getSize(),
+        undoStack.isEmpty() ? null : undoStack.peek());
     MessageUI.pressEnterToContinue();
   }
 
@@ -723,7 +676,6 @@ public class HousekeepingTaskLog {
     restoreStackRecords(temporaryStack);
     room.setStatus(target.getPreviousStatus());
     syncTaskStatus(roomNumber, target.getPreviousStatus());
-    redoStack.push(target); // remember for redo
     saveData();
     MessageUI.displaySuccessMessage(
         "Latest status change for " + roomNumber + " was rolled back.");
@@ -1454,13 +1406,19 @@ public class HousekeepingTaskLog {
    * IMPORTANT: we also CLEAR the redo stack, because after a brand-new
    * change, the old "redo" actions no longer make sense (standard undo/redo).
    */
+  /** Directs booking-related late check-out handling to the Front-Desk module. */
+  private void showLateCheckoutDirection() {
+    MessageUI.displayInfoMessage(
+        "Use Front-Desk Service > Handle Late Check-Out to restore the booking and mark the room LCO.");
+    MessageUI.pressEnterToContinue();
+  }
+
   private void recordStatusChange(String roomNumber, RoomStatus previous,
       RoomStatus current, String reason) {
     // Wrap the change information in a small object.
     StatusChangeRecord record = new StatusChangeRecord(
         roomNumber, previous, current, reason, MalaysiaTime.now());
     undoStack.push(record);  // push - newest goes on TOP
-    redoStack.clear();       // clear any old redo entries
   }
 
   /**
@@ -1600,7 +1558,6 @@ public class HousekeepingTaskLog {
     ListInterface<Room> loadedRooms = housekeepingDAO.retrieveRooms();
     ListInterface<HousekeepingTask> loadedTasks = housekeepingDAO.retrieveTasks();
     StackInterface<StatusChangeRecord> loadedHistory = housekeepingDAO.retrieveHistory();
-    StackInterface<StatusChangeRecord> loadedRedoHistory = housekeepingDAO.retrieveRedoHistory();
 
     // Fill the room list with the loaded rooms.
     roomList.clear(); // keep it empty first
@@ -1638,21 +1595,12 @@ public class HousekeepingTaskLog {
       undoStack.push(tempStack.pop()); // back into undo, reversed correctly
     }
 
-    // Restore the redo stack the same way.
-    redoStack.clear();
-    while (!loadedRedoHistory.isEmpty()) {
-      tempStack.push(loadedRedoHistory.pop());
-    }
-    while (!tempStack.isEmpty()) {
-      redoStack.push(tempStack.pop());
-    }
   }
 
-  /** Saves everything to disk: rooms, tasks, undo history, redo history. */
+  /** Saves rooms, tasks, and the rollback history to disk. */
   private void saveData() {
     housekeepingDAO.saveRooms(roomList);        // rooms
     housekeepingDAO.saveTasks(taskList);        // tasks
     housekeepingDAO.saveHistory(undoStack);     // undo stack
-    housekeepingDAO.saveRedoHistory(redoStack); // redo stack
   }
 }
