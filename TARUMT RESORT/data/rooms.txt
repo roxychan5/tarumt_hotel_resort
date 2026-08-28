@@ -1,5 +1,5 @@
 roomNumber	roomType	floor	status
-R101	Standard	1	CLEANING_IN_PROGRESS
+R101	Standard	1	DIRTY
 R102	Standard	1	DIRTY
 R103	Standard	1	INSPECTED
 R104	Standard	1	DIRTY
