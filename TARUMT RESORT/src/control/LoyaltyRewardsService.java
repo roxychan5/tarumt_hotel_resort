@@ -46,6 +46,15 @@ public class LoyaltyRewardsService {
       return find(memberId);
     }
 
+    /** Returns the registered loyalty members for use by other resort modules. */
+    public RewardsMember[] getRegisteredMembers() {
+        RewardsMember[] registeredMembers = new RewardsMember[members.getNumberOfEntries()];
+        for (int index = 1; index <= members.getNumberOfEntries(); index++) {
+            registeredMembers[index - 1] = members.getEntry(index);
+        }
+        return registeredMembers;
+    }
+
     // MAIN LOYALTY MODULE
     public void runLoyaltyRewardsModule() {
 

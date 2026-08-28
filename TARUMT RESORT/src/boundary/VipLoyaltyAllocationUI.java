@@ -110,6 +110,12 @@ public class VipLoyaltyAllocationUI {
     }
   }
 
+  /** Shows registered loyalty members before staff selects a member ID. */
+  public void displayRegisteredMembers(String output) {
+    ConsoleUI.displaySubHeader("REGISTERED LOYALTY MEMBERS");
+    System.out.println(output);
+  }
+
   public void displayVerifiedMember(String memberId, String memberName, String tier) {
     System.out.println();
     System.out.println("Registered member: " + memberName + " (" + memberId + ")");

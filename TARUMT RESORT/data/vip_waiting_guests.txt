@@ -1,4 +1,6 @@
 memberId	memberName	roomType	nights	arrivalSequence
+LM006	Priya Nair	Presidential	3	6
 LM001	Huixuan	Standard	2	2
+LM005	Jason Lim	Family	2	7
 LM002	Rouxuan	Deluxe	2	3
 LM003	Amerie	Presidential	2	4

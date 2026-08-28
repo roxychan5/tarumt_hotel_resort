@@ -63,6 +63,7 @@ public class VipLoyaltyAllocation {
   }
 
   private void addPriorityGuest() {
+    vipUI.displayRegisteredMembers(buildRegisteredMemberList());
     String memberId;
     RewardsMember registeredMember;
     while (true) {
@@ -509,6 +510,37 @@ public class VipLoyaltyAllocation {
     }
     board.append("\nTotal allocated rooms: ").append(completedAllocations.getNumberOfEntries());
     return board.toString();
+  }
+
+  /** Builds a member reference list so staff can choose an ID for the priority queue. */
+  private String buildRegisteredMemberList() {
+    RewardsMember[] members = loyaltyRewardsService.getRegisteredMembers();
+    if (members.length == 0) {
+      return "  No loyalty members are registered. Enter 0 to cancel, then register a member in Loyalty & Rewards.";
+    }
+
+    for (int index = 1; index < members.length; index++) {
+      RewardsMember current = members[index];
+      int previous = index - 1;
+      while (previous >= 0
+          && members[previous].getMemberId().compareToIgnoreCase(current.getMemberId()) > 0) {
+        members[previous + 1] = members[previous];
+        previous--;
+      }
+      members[previous + 1] = current;
+    }
+
+    StringBuilder list = new StringBuilder();
+    list.append(String.format("%-12s %-24s %-12s %-8s%n",
+        "Member ID", "Name", "Tier", "Points"));
+    list.append("--------------------------------------------------------------\n");
+    for (RewardsMember member : members) {
+      list.append(String.format("%-12s %-24s %-12s %-8d%n",
+          member.getMemberId(), member.getName(), member.getTier(), member.getPoints()));
+    }
+    list.append("\nTotal registered members: ").append(members.length)
+        .append("\nEnter a Member ID below, or 0 to cancel.");
+    return list.toString();
   }
 
   private void sortPriorityGuests(LoyaltyMember[] entries) {
