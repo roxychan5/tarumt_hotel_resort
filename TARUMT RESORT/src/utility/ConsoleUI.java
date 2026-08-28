@@ -30,10 +30,6 @@ public class ConsoleUI {
   private static final String[] BANNER_GRADIENT = {
       WHITE, ICE_BLUE, CYAN, SKY_BLUE, LIGHT_BLUE, STEEL_BLUE
   };
-  private static final String[] BANNER_GLOW = {
-      ICE_BLUE, CYAN, SKY_BLUE, LIGHT_BLUE, STEEL_BLUE, DEEP_BLUE
-  };
-
   private static final String BANNER_GAP = "    ";
   private static final String[] BANNER_TARUMT = {
       "████████╗  █████╗  ██████╗  ██╗   ██╗ ███╗   ███╗ ████████╗",
@@ -55,7 +51,8 @@ public class ConsoleUI {
   private static final int RESORTS_BLOCK_WIDTH = maxLineWidth(BANNER_RESORTS);
   private static final String[] GLITCH_BANNER = buildGlitchBanner();
 
-  private static final int TERMINAL_WIDTH = resolveScreenWidth();
+  /* Refreshed before every menu so the logo and menu stay centred after a resize. */
+  private static int terminalWidth = resolveScreenWidth();
   private static final int BANNER_WIDTH = computeBannerWidth();
   private static final int MENU_BOX_WIDTH = 54;
   private static final int LAYOUT_WIDTH = Math.max(BANNER_WIDTH, MENU_BOX_WIDTH);
@@ -65,6 +62,7 @@ public class ConsoleUI {
 
   /** Clears the terminal and moves the cursor to the top-left corner. */
   public static void clearScreen() {
+    terminalWidth = resolveScreenWidth();
     System.out.print("\033[H\033[2J\033[3J");
     System.out.flush();
   }
@@ -90,7 +88,7 @@ public class ConsoleUI {
     }
   }
 
-  /** Prints the gradient banner used on the main menu. */
+  /** Prints the stable neon banner used on the main menu. */
   public static void displayGlitchBanner() {
     System.out.println();
     for (int i = 0; i < BANNER_TARUMT.length; i++) {
@@ -167,7 +165,12 @@ public class ConsoleUI {
   }
 
   private static int centerWidth() {
-    return Math.max(TERMINAL_WIDTH, LAYOUT_WIDTH);
+    return Math.max(terminalWidth, LAYOUT_WIDTH);
+  }
+
+  /** Uses the same centre point for the logo, menu box, and prompt. */
+  private static int leftPaddingFor(int contentWidth) {
+    return Math.max(0, (centerWidth() - contentWidth) / 2);
   }
 
   private static int resolveScreenWidth() {
@@ -219,15 +222,11 @@ public class ConsoleUI {
       return;
     }
 
-    int leftPad = Math.max(0, (centerWidth() - content.length()) / 2);
-    String basePad = repeat(' ', leftPad);
     String rowColor = BANNER_GRADIENT[index];
-    String glowColor = BANNER_GLOW[index];
 
-    System.out.print("\033[2K\r");
-    System.out.println(NAVY_BG + glowColor + basePad + " " + rowColor + content + RESET);
-    System.out.print("\033[1A\033[2K\r");
-    System.out.println(NAVY_BG + rowColor + BOLD + basePad + content + RESET);
+    // Print one complete row. Cursor-up rendering caused some terminals to
+    // show every banner row twice and shifted the menu out of alignment.
+    System.out.println(padToCenter(NAVY_BG + rowColor + BOLD + content + RESET));
   }
 
   private static String formatBoxLineCentered(String text, int innerWidth, String color) {
@@ -262,7 +261,7 @@ public class ConsoleUI {
     if (plain.length() >= width) {
       return line;
     }
-    int leftPad = (width - plain.length()) / 2;
+    int leftPad = leftPaddingFor(plain.length());
     return repeat(' ', leftPad) + line;
   }
 
