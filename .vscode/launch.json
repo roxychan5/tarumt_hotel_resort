@@ -6,6 +6,7 @@
       "name": "Launch TARUMT Resorts System",
       "request": "launch",
       "mainClass": "control.TarumtResortsSystem",
+      "javaExec": "C:\\Program Files\\Java\\jdk-11\\bin\\java.exe",
       "classPaths": [
         "${workspaceFolder}/TARUMT RESORT/build/classes",
         "${workspaceFolder}/TARUMT RESORT/lib/pdfbox-app-3.0.3.jar"

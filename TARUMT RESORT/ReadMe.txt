@@ -14,7 +14,7 @@ HOW TO RUN (VS Code - recommended, no JDK setup needed)
 
 HOW TO RUN (command prompt, from the TARUMT RESORT folder)
 ----------------------------------------------------------
-  javac --release 8 -encoding UTF-8 -cp lib\pdfbox-app-3.0.3.jar -d build\classes src\adt\*.java src\boundary\*.java src\control\*.java src\dao\*.java src\entity\*.java src\utility\*.java
+  javac --release 11 -encoding UTF-8 -cp lib\pdfbox-app-3.0.3.jar -d build\classes src\adt\*.java src\boundary\*.java src\control\*.java src\dao\*.java src\entity\*.java src\utility\*.java
   java -Dfile.encoding=UTF-8 -cp build\classes;lib\pdfbox-app-3.0.3.jar control.TarumtResortsSystem
 
 Note: Java programs need a JVM to run, so a JDK (or JRE) is always
