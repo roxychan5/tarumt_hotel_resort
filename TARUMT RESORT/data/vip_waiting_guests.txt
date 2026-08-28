@@ -1,2 +1,3 @@
-bookingId	memberId	memberName	roomType	nights	arrivalSequence	requestedCheckInDate	waitingSince
-VIP-0007	LM009	ycc	Family	3	7	2026-08-28	2026-08-28
+bookingId	confirmationNumber	memberId	memberName	roomType	nights	arrivalSequence	requestedCheckInDate	waitingSince
+VIP-0008	00000008	LM001	Huixuan	Executive	2	8	2026-08-29	2026-08-29
+VIP-0007	00000007	LM009	ycc	Family	3	7	2026-08-28	2026-08-28

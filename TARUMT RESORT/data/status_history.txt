@@ -1,4 +1,11 @@
 roomNumber	previousStatus	newStatus	reason	changedAt
+R503	READY_FOR_CHECK_IN	OCCUPIED	Guest checked in by VIP Allocation | Member: LM008 | Expected check-out: 2026-08-30 12:00	2026-08-29T01:21:00
+R303	INSPECTED	READY_FOR_CHECK_IN	Status advanced by supervisor	2026-08-29T01:15:01.7535129
+R303	CLEANING_IN_PROGRESS	INSPECTED	Status advanced by supervisor	2026-08-29T01:14:57.9592887
+R303	DIRTY	CLEANING_IN_PROGRESS	Status advanced by supervisor	2026-08-29T01:14:52.4196883
+R304	INSPECTED	READY_FOR_CHECK_IN	Status advanced by supervisor	2026-08-29T01:14:37.7502517
+R304	CLEANING_IN_PROGRESS	INSPECTED	Status advanced by supervisor	2026-08-29T01:14:33.143303
+R303	OCCUPIED	DIRTY	On-time check-out at Front Desk | Member: LM002 | Check-in: 2026-08-29 00:21:00 AM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 01:05:47 AM	2026-08-29T01:05:47.8406279
 R303	READY_FOR_CHECK_IN	OCCUPIED	Guest checked in by VIP Allocation | Member: LM002 | Expected check-out: 2026-08-30 12:00	2026-08-29T00:21:00
 R501	OCCUPIED	DIRTY	On-time check-out at Front Desk | Member: LM002 | Check-in: 2026-08-28 15:00:00 PM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 00:21:17 AM	2026-08-29T00:21:17.1980944
 R601	READY_FOR_CHECK_IN	OCCUPIED	Guest checked in by VIP Allocation | Member: LM010 | Expected check-out: 2026-09-02 12:00	2026-08-29T00:09:00

@@ -48,17 +48,10 @@ public enum RoomStatus {
    * Used by the "Advance Room Workflow" menu option.
    */
   public RoomStatus nextStatus() {
-    switch (this) {
-      case DIRTY:
-        return CLEANING_IN_PROGRESS;
-      case CLEANING_IN_PROGRESS:
-        return INSPECTED;
-      case INSPECTED:
-        return READY_FOR_CHECK_IN;
-      default:
-        // READY_FOR_CHECK_IN has no next stage, so it stays the same:
-        return this;
-    }
+    if (this == DIRTY) return CLEANING_IN_PROGRESS;
+    if (this == CLEANING_IN_PROGRESS) return INSPECTED;
+    if (this == INSPECTED) return READY_FOR_CHECK_IN;
+    return this;
   }
 
   /**

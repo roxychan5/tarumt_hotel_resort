@@ -125,6 +125,16 @@ public class VipLoyaltyAllocationUI {
     }
   }
 
+  public String inputConfirmationNumber() {
+    while (true) {
+      String confirmationNumber = readText(
+          "Enter confirmation number (8 digits, 0 to cancel): ").toUpperCase();
+      if (confirmationNumber.equals("0")) return "";
+      if (confirmationNumber.matches("[0-9]{8}")) return confirmationNumber;
+      System.out.println("Confirmation number must contain exactly 8 digits.");
+    }
+  }
+
   /** Shows registered loyalty members before staff selects a member ID. */
   public void displayRegisteredMembers(String output) {
     ConsoleUI.displaySubHeader("REGISTERED LOYALTY MEMBERS");
