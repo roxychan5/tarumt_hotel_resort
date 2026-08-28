@@ -300,14 +300,17 @@ public class HousekeepingTaskLogUI {
     System.out.println();
   }
 
-  /** Asks for a Task ID (e.g. T1001) and keeps asking until it is valid. */
+  /** Asks for a Task ID (e.g. T1001), or returns null when 0 cancels. */
   public String inputTaskId(String action) {
+    System.out.println("  " + DM + "(Enter 0 to cancel)" + R);
     while (true) {
-      System.out.print("  " + SB + action + " Task ID" + R + " (e.g. T1001) > ");
+      System.out.print("  " + SB + action + " Task ID" + R + " (e.g. T1001, 0 to cancel) > ");
       String value = ConsoleUI.readLine().trim().toUpperCase();
+      if (value.equals("0")) return null;
       // Accept both old HK-prefix and new T-prefix task IDs
       if (value.matches("(T|HK)[0-9]+")) return value;
-      MessageUI.displayErrorMessage("Task ID must start with T (or HK) followed by digits.");
+      MessageUI.displayErrorMessage(
+          "Task ID must start with T (or HK) followed by digits. Enter 0 to cancel.");
     }
   }
 
@@ -320,14 +323,16 @@ public class HousekeepingTaskLogUI {
     return ans.equals("y") || ans.equals("yes");
   }
 
-  /** Asks the user for a room number (e.g. R101) and keeps asking until valid. */
+  /** Asks for a room number (e.g. R101), or returns null when 0 cancels. */
   public String inputRoomNumber() {
+    System.out.println("  " + DM + "(Enter 0 to cancel)" + R);
     while (true) {
-      System.out.print("  " + SB + "Room No. (e.g. R101)" + R + " > ");
+      System.out.print("  " + SB + "Room No." + R + " (e.g. R101, 0 to cancel) > ");
       String value = ConsoleUI.readLine().trim().toUpperCase();
+      if (value.equals("0")) return null;
       if (value.matches("R[0-9]{3,4}")) return value;
       MessageUI.displayErrorMessage(
-          "Room number must be R followed by 3-4 digits (e.g. R101).");
+          "Room number must be R followed by 3-4 digits (e.g. R101). Enter 0 to cancel.");
     }
   }
 
@@ -341,7 +346,7 @@ public class HousekeepingTaskLogUI {
     }
   }
 
-  /** Asks what kind of cleaning task it is (1-4 menu). */
+  /** Asks what kind of cleaning task it is (1-4 menu), or returns null when 0 cancels. */
   public String inputTaskType() {
     System.out.println();
     System.out.println("  " + SB + B + "TASK TYPE" + R);
@@ -350,14 +355,16 @@ public class HousekeepingTaskLogUI {
         + SB + "[2]" + R + " Deep Clean");
     System.out.println("  " + SB + "[3]" + R + " Turndown          "
         + SB + "[4]" + R + " Inspection");
+    System.out.println("  " + RD + "[0]" + R + " Cancel");
     System.out.println();
     while (true) {
-      switch (ConsoleUI.readMenuChoice("  Select task type (1-4) > ")) {
+      switch (ConsoleUI.readMenuChoice("  Select task type (0-4) > ")) {
+        case 0: return null;
         case 1: return "CHECKOUT_CLEAN";
         case 2: return "DEEP_CLEAN";
         case 3: return "TURNDOWN";
         case 4: return "INSPECTION";
-        default: MessageUI.displayErrorMessage("Enter a number from 1 to 4.");
+        default: MessageUI.displayErrorMessage("Enter a number from 0 to 4.");
       }
     }
   }
@@ -531,20 +538,26 @@ public class HousekeepingTaskLogUI {
   }
 
   public String inputSearchTaskId() {
+    System.out.println("  " + DM + "(Enter 0 to cancel)" + R);
     while (true) {
-      System.out.print("  " + SB + "Task ID to search" + R + " (e.g. T1001) > ");
+      System.out.print("  " + SB + "Task ID to search" + R + " (e.g. T1001, 0 to cancel) > ");
       String value = ConsoleUI.readLine().trim().toUpperCase();
+      if (value.equals("0")) return null;
       if (value.matches("(T|HK)[0-9]+")) return value;
-      MessageUI.displayErrorMessage("Task ID must start with T (or HK) followed by digits.");
+      MessageUI.displayErrorMessage(
+          "Task ID must start with T (or HK) followed by digits. Enter 0 to cancel.");
     }
   }
 
   public String inputSearchRoomNumber() {
+    System.out.println("  " + DM + "(Enter 0 to cancel)" + R);
     while (true) {
-      System.out.print("  " + SB + "Room No. to search" + R + " (e.g. R101) > ");
+      System.out.print("  " + SB + "Room No. to search" + R + " (e.g. R101, 0 to cancel) > ");
       String value = ConsoleUI.readLine().trim().toUpperCase();
+      if (value.equals("0")) return null;
       if (value.matches("R[0-9]{3,4}")) return value;
-      MessageUI.displayErrorMessage("Room number must be R followed by 3-4 digits (e.g. R101).");
+      MessageUI.displayErrorMessage(
+          "Room number must be R followed by 3-4 digits (e.g. R101). Enter 0 to cancel.");
     }
   }
 

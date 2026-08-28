@@ -177,6 +177,11 @@ public class HousekeepingTaskLog {
     housekeepingUI.displayActiveRooms(getActiveRoomSummary());
 
     String roomNumber = housekeepingUI.inputRoomNumber(); // e.g. R101
+    if (roomNumber == null) {
+      MessageUI.displayInfoMessage("Add cleaning task cancelled.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     Room room = findRoom(roomNumber); // find the Room object
     if (room == null) {
       MessageUI.displayErrorMessage("Room " + roomNumber + " not found.");
@@ -206,6 +211,11 @@ public class HousekeepingTaskLog {
     housekeepingUI.displayAutoAssign(staffId); // tell the user who was picked
 
     String taskType = housekeepingUI.inputTaskType(); // what kind of cleaning
+    if (taskType == null) {
+      MessageUI.displayInfoMessage("Add cleaning task cancelled.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     taskCounter++;                        // 1000 -> 1001, then 1002, ...
     String taskId = "T" + taskCounter;    // build the new ID: e.g. "T1001"
 
@@ -297,6 +307,11 @@ public class HousekeepingTaskLog {
     // Show all tasks first so the user knows which IDs exist.
     housekeepingUI.listTaskQueue(getAllTasks());
     String query = housekeepingUI.inputTaskId("Search"); // e.g. T1002
+    if (query == null) {
+      MessageUI.displayInfoMessage("Search cancelled.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     HousekeepingTask found = null; // nothing found yet
     // Linear search: check position 1, 2, 3... until a match.
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
@@ -319,6 +334,11 @@ public class HousekeepingTaskLog {
   private void deleteTaskById() {
     housekeepingUI.listTaskQueue(getAllTasks()); // show what is available
     String query = housekeepingUI.inputTaskId("Delete"); // ask for the ID
+    if (query == null) {
+      MessageUI.displayInfoMessage("Delete cancelled.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
 
     // Linear search for the task to delete:
     int foundIndex = -1;       // position in the list (-1 = not found)
@@ -380,6 +400,11 @@ public class HousekeepingTaskLog {
     housekeepingUI.displayAdvanceableRooms(getAdvanceableRoomSummary());
 
     String roomNumber = housekeepingUI.inputRoomNumber();
+    if (roomNumber == null) {
+      MessageUI.displayInfoMessage("Room status update cancelled.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     Room room = findRoom(roomNumber);
     if (room == null) {
       MessageUI.displayErrorMessage("Room not found.");
@@ -540,6 +565,11 @@ public class HousekeepingTaskLog {
     housekeepingUI.displayLateCheckoutRooms(getLateCheckoutRoomSummary());
 
     String roomNumber = housekeepingUI.inputRoomNumber(); // e.g. R101
+    if (roomNumber == null) {
+      MessageUI.displayInfoMessage("Late check-out handling cancelled.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     Room room = findRoom(roomNumber);
     if (room == null) {
       MessageUI.displayErrorMessage("Room not found.");
@@ -639,6 +669,11 @@ public class HousekeepingTaskLog {
   /** Option 9 - Undo only the NEWEST change for ONE given room. */
   private void rollbackSpecificRoom() {
     String roomNumber = housekeepingUI.inputRoomNumber();
+    if (roomNumber == null) {
+      MessageUI.displayInfoMessage("Room-specific undo cancelled.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     Room room = findRoom(roomNumber);
     if (room == null) {
       MessageUI.displayErrorMessage("Room not found. Undo cancelled.");
@@ -835,6 +870,11 @@ public class HousekeepingTaskLog {
     if (searchOption == 1) {
       // Search by Task ID - binary search needs the list SORTED by ID.
       String searchId = housekeepingUI.inputSearchTaskId();
+      if (searchId == null) {
+        MessageUI.displayInfoMessage("Report search cancelled.");
+        MessageUI.pressEnterToContinue();
+        return;
+      }
       HousekeepingTask[] byId = filtered.toArray(new HousekeepingTask[0]);
       // Bubble sort ascending by Task ID:
       for (int i = 0; i < byId.length - 1; i++) {
@@ -866,6 +906,11 @@ public class HousekeepingTaskLog {
     } else if (searchOption == 2) {
       // Binary search by Room Number - same idea, sort by room first.
       String searchRoom = housekeepingUI.inputSearchRoomNumber();
+      if (searchRoom == null) {
+        MessageUI.displayInfoMessage("Report search cancelled.");
+        MessageUI.pressEnterToContinue();
+        return;
+      }
       HousekeepingTask[] byRoom = filtered.toArray(new HousekeepingTask[0]);
       // Bubble sort ascending by Room Number:
       for (int i = 0; i < byRoom.length - 1; i++) {
