@@ -1,1 +1,1 @@
-roomNumber	previousStatus	newStatus	reason	changedAt
+roomNumber,previousStatus,newStatus,reason,changedAt

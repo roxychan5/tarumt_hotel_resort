@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import utility.CsvUtils;
 import utility.DataFiles;
 
 /** Reads shared member records for front-desk lookup. */
@@ -25,7 +26,7 @@ public class FrontDeskDAO {
       String line;
       while ((line = reader.readLine()) != null) {
         if (line.trim().isEmpty()) continue;
-        String[] fields = line.split("\\t", -1);
+        String[] fields = CsvUtils.parse(line);
         if (fields.length == 6) {
           memberRecords.add(new RewardsMember(fields[0], fields[1], fields[2],
               LoyaltyTier.valueOf(fields[3]), Integer.parseInt(fields[4]),

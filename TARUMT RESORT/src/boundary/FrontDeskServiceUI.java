@@ -41,7 +41,7 @@ public class FrontDeskServiceUI {
     printEntry(" 1", "Search Member", "Find member by name or loyalty member ID");
     printEntry(" 2", "Check Room Availability", "Review occupancy and housekeeping status");
     printEntry(" 3", "Check-Out Room", "Release occupied room to housekeeping");
-    printEntry(" 4", "Handle Late Checkout", "Extend expected check-out for an occupied room");
+    printEntry(" 4", "Handle Late Checkout", "Enter a new expected check-out date and time");
     printBorder();
 
     printSectionLabel("ACCOUNT  &  RECORDS");

@@ -182,9 +182,9 @@ public class FrontDeskService {
       RoomStatus previousStatus = room.getStatus();
       String occupantMemberId = room.getOccupantMemberId();
       room.setStatus(RoomStatus.DIRTY);
-      room.setCheckInAt(null);
-      room.setExpectedCheckoutAt(null);
-      room.setOccupantMemberId(null);
+      // Keep the most recent stay details until a new guest is allocated.
+      // Housekeeping may need to roll a READY room back to LCO, after which
+      // Front Desk uses these details to identify the guest and extend the date.
       housekeepingDAO.saveRooms(roomList);
       recordCheckoutStatusChange(room.getRoomNumber(), previousStatus, timeline,
           occupantMemberId, lateCheckout, actualCheckoutAt);

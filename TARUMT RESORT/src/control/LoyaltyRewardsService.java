@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import utility.DataFiles;
+import utility.CsvUtils;
 import utility.MessageUI;
 import utility.MalaysiaTime;
 import utility.PdfReportEngine;
@@ -2153,9 +2154,8 @@ public class LoyaltyRewardsService {
                             StandardCharsets.UTF_8
                     )) {
 
-                writer.write(
-                        "memberId\tname\temail\ttier\tpoints\tpointsExpiryDate"
-                );
+                writer.write(CsvUtils.row(
+                        "memberId", "name", "email", "tier", "points", "pointsExpiryDate"));
 
                 writer.newLine();
 
@@ -2166,19 +2166,10 @@ public class LoyaltyRewardsService {
                     RewardsMember member =
                             members.getEntry(i);
 
-                    writer.write(
-                            member.getMemberId()
-                            + "\t"
-                            + clean(member.getName())
-                            + "\t"
-                            + clean(member.getEmail())
-                            + "\t"
-                            + member.getTier().name()
-                            + "\t"
-                            + member.getPoints()
-                            + "\t"
-                            + storageExpiryDate(member.getPointsExpiryDate())
-                    );
+                    writer.write(CsvUtils.row(
+                            member.getMemberId(), clean(member.getName()), clean(member.getEmail()),
+                            member.getTier().name(), String.valueOf(member.getPoints()),
+                            storageExpiryDate(member.getPointsExpiryDate())));
 
                     writer.newLine();
                 }
@@ -2213,8 +2204,7 @@ public class LoyaltyRewardsService {
 
             while ((line = reader.readLine()) != null) {
 
-                String[] fields =
-                        line.split("\\t", -1);
+                String[] fields = CsvUtils.parse(line);
 
                 if (fields.length == 6) {
 
@@ -2252,19 +2242,18 @@ public class LoyaltyRewardsService {
 
             try (BufferedWriter writer = Files.newBufferedWriter(
                     DELETE_HISTORY_FILE, StandardCharsets.UTF_8)) {
-                writer.write("memberId\tname\temail\ttier\tpoints\tpointsExpiryDate\tdeletedDate");
+                writer.write(CsvUtils.row("memberId", "name", "email", "tier", "points",
+                        "pointsExpiryDate", "deletedDate"));
                 writer.newLine();
 
                 for (int i = 1; i <= deleteHistory.getNumberOfEntries(); i++) {
                     DeletedRewardsMember deleted = deleteHistory.getEntry(i);
                     RewardsMember member = deleted.getMember();
-                    writer.write(member.getMemberId()
-                            + "\t" + clean(member.getName())
-                            + "\t" + clean(member.getEmail())
-                            + "\t" + member.getTier().name()
-                            + "\t" + member.getPoints()
-                            + "\t" + storageExpiryDate(member.getPointsExpiryDate())
-                            + "\t" + deleted.getDeletedDate());
+                    writer.write(CsvUtils.row(member.getMemberId(), clean(member.getName()),
+                            clean(member.getEmail()), member.getTier().name(),
+                            String.valueOf(member.getPoints()),
+                            storageExpiryDate(member.getPointsExpiryDate()),
+                            String.valueOf(deleted.getDeletedDate())));
                     writer.newLine();
                 }
             }
@@ -2286,7 +2275,7 @@ public class LoyaltyRewardsService {
             int lineNumber = 1;
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
-                String[] fields = line.split("\\t", -1);
+                String[] fields = CsvUtils.parse(line);
                 if (fields.length != 7) {
                     MessageUI.displayErrorMessage(
                             "Skipped invalid Delete History row " + lineNumber

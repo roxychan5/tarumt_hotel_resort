@@ -9,9 +9,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import utility.CsvUtils;
 import utility.DataFiles;
 
-/** Stores product inventory as a readable tab-separated text file. */
+/** Stores product inventory as a readable comma-separated text file. */
 public class ProductDAO {
 
   private static final Path DATA_DIRECTORY = DataFiles.directory();
@@ -21,11 +22,12 @@ public class ProductDAO {
     try {
       Files.createDirectories(DATA_DIRECTORY);
       try (BufferedWriter writer = Files.newBufferedWriter(PRODUCT_FILE, StandardCharsets.UTF_8)) {
-        writer.write("productNumber\tproductName\tquantity");
+        writer.write(CsvUtils.row("productNumber", "productName", "quantity"));
         writer.newLine();
         for (int i = 1; i <= productList.getNumberOfEntries(); i++) {
           Product product = productList.getEntry(i);
-          writer.write(clean(product.getNumber()) + "\t" + clean(product.getName()) + "\t" + product.getQuantity());
+          writer.write(CsvUtils.row(clean(product.getNumber()), clean(product.getName()),
+              String.valueOf(product.getQuantity())));
           writer.newLine();
         }
       }
@@ -41,7 +43,7 @@ public class ProductDAO {
       reader.readLine();
       String line;
       while ((line = reader.readLine()) != null) {
-        String[] field = line.split("\\t", -1);
+        String[] field = CsvUtils.parse(line);
         if (field.length == 3) productList.add(new Product(field[0], field[1], Integer.parseInt(field[2])));
       }
     } catch (IOException | IllegalArgumentException ex) {

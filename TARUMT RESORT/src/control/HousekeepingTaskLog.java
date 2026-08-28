@@ -14,9 +14,7 @@ import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
-import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -137,7 +135,7 @@ public class HousekeepingTaskLog {
           break;
         // ── Operations & Reports (11-14) ───────────────────────────────
         case 11:
-          showLateCheckoutDirection();
+          handleLateCheckout();
           break;
         case 12:
           housekeepingUI.listRoomStatuses(getAllRooms()); // room status board
@@ -456,20 +454,14 @@ public class HousekeepingTaskLog {
     return sb.toString();
   }
 
-  /**
-   * Builds a display of EVERY room with its current status so the supervisor
-   * can see which rooms a late check-out applies to
-   * (i.e. NOT already Dirty - those have nothing to reset).
-   * Display only - nothing is changed here.
-   */
+  /** Shows which rooms are eligible for the Ready-for-Check-In rollback. */
   private String getLateCheckoutRoomSummary() {
     StringBuilder sb = new StringBuilder();
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
       Room r = roomList.getEntry(i);
       RoomStatus s = r.getStatus();
-      String action = (s == RoomStatus.DIRTY)
-          ? "Already Dirty"       // late check-out makes no sense here
-          : "-> Reset to Dirty";  // late check-out CAN be recorded
+      String action = (s == RoomStatus.READY_FOR_CHECK_IN)
+          ? "-> Mark LCO" : "Not eligible";
       // Same column layout as the Room Status Board + an Action column:
       sb.append(String.format("%-8s %-12s %-6d %-22s %s\n",
           r.getRoomNumber(), r.getRoomType(), r.getFloor(),
@@ -518,7 +510,10 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
-  /** Option 12 - Late checkout: force the room back to DIRTY. */
+  /**
+   * Option 11 - roll a completed housekeeping schedule back when the guest
+   * extends the stay. Only READY_FOR_CHECK_IN rooms can be changed to LCO.
+   */
   private void handleLateCheckout() {
     // ── Show ALL rooms first so the supervisor picks the right one ─────────
     housekeepingUI.displayLateCheckoutRooms(getLateCheckoutRoomSummary());
@@ -535,20 +530,25 @@ public class HousekeepingTaskLog {
       return; // stop - no such room
     }
 
-    RoomStatus previousStatus = room.getStatus(); // remember old status
-    if (previousStatus == RoomStatus.DIRTY) {     // already dirty?
-      MessageUI.displayInfoMessage("Room is already marked Dirty.");
+    RoomStatus previousStatus = room.getStatus();
+    if (previousStatus != RoomStatus.READY_FOR_CHECK_IN) {
+      MessageUI.displayErrorMessage(
+          "Only a room with status Ready for Check-In can be marked LCO. "
+          + "Current status: " + previousStatus.getLabel() + ".");
+      MessageUI.pressEnterToContinue();
       return;
     }
 
-    // Save the change for undo, then set the room to DIRTY:
-    recordStatusChange(roomNumber, previousStatus, RoomStatus.DIRTY, "Late check-out requested");
-    room.setStatus(RoomStatus.DIRTY);
-    syncTaskStatus(roomNumber, RoomStatus.DIRTY); // update the task too
-    saveData(); // save to disk
+    // Save the rollback so the supervisor can undo it if the request was incorrect.
+    recordStatusChange(roomNumber, previousStatus, RoomStatus.LCO,
+        "Late check-out requested - Ready for Check-In rolled back to LCO");
+    room.setStatus(RoomStatus.LCO);
+    syncTaskStatus(roomNumber, RoomStatus.LCO);
+    saveData();
 
     housekeepingUI.displayRoomDetails(room);
-    MessageUI.displaySuccessMessage("Late check-out handled. Room reset to Dirty.");
+    MessageUI.displaySuccessMessage(
+        "Late check-out recorded. Room changed from Ready for Check-In to LCO.");
     MessageUI.pressEnterToContinue();
   }
 
@@ -1409,13 +1409,6 @@ public class HousekeepingTaskLog {
    * IMPORTANT: we also CLEAR the redo stack, because after a brand-new
    * change, the old "redo" actions no longer make sense (standard undo/redo).
    */
-  /** Directs booking-related late check-out handling to the Front-Desk module. */
-  private void showLateCheckoutDirection() {
-    MessageUI.displayInfoMessage(
-        "Use Front-Desk Service > Handle Late Check-Out to restore the booking and mark the room LCO.");
-    MessageUI.pressEnterToContinue();
-  }
-
   private void recordStatusChange(String roomNumber, RoomStatus previous,
       RoomStatus current, String reason) {
     // Wrap the change information in a small object.

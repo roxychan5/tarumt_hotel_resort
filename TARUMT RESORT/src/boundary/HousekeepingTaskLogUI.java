@@ -78,7 +78,7 @@ public class HousekeepingTaskLogUI {
     printBorder();
 
     printSectionLabel("OPERATIONS  &  REPORTS");
-    printEntry("11", "Late Check-Out Guidance",  "Use Front Desk to restore booking and mark room LCO");
+    printEntry("11", "Record Late Check-Out",    "Ready for Check-In -> LCO; Front Desk extends stay date");
     printEntry("12", "Room Status Board",        "Monitor every room at a glance");
     printEntryHighlight("13", "Report 1: Operational Summary",
         "Binary search + bubble sort | PDF");
@@ -266,7 +266,7 @@ public class HousekeepingTaskLogUI {
 
   /**
    * Shows EVERY room with its current status before recording a late
-   * check-out. Green = can record (will reset to Dirty), dim = already Dirty.
+   * check-out. Green = Ready for Check-In and can roll back to LCO.
    * Uses the text summary built by the controller.
    */
   public void displayLateCheckoutRooms(String summary) {
@@ -281,9 +281,9 @@ public class HousekeepingTaskLogUI {
       rowV(DM + msg + R, msg.length());
     } else {
       // Legend - explains the Action column
-      String legend = "  " + "\033[92m" + "-> Reset to Dirty" + R
-          + " = late check-out applies   " + DM + "Already Dirty" + R
-          + " = nothing to reset";
+      String legend = "  " + "\033[92m" + "Ready -> Mark LCO" + R
+          + " = guest extends stay   " + DM + "Not eligible" + R
+          + " = status must be Ready for Check-In";
       rowV(legend, visLen(legend));
       row();
 
@@ -293,11 +293,11 @@ public class HousekeepingTaskLogUI {
       rowV(IB + B + hdr + R, hdr.length());
       rowV("  " + rep('-', 66), 2 + 66);
 
-      // Data rows - green = eligible, dim = already dirty
+      // Data rows - green = eligible, dim = already unavailable
       for (String line : summary.split("\r?\n")) {
         if (line.trim().isEmpty()) continue;
         line = line.replace("\r", "");
-        if (line.contains("Already Dirty")) {
+        if (line.contains("Not eligible")) {
           rowV("  " + DM + line + R, 2 + line.length());
         } else {
           rowV("  " + "\033[92m" + line + R, 2 + line.length());

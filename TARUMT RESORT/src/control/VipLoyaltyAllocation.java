@@ -28,6 +28,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import utility.ConsoleUI;
+import utility.CsvUtils;
 import utility.DataFiles;
 import utility.MalaysiaTime;
 import utility.MessageUI;
@@ -558,8 +559,8 @@ public class VipLoyaltyAllocation {
     if (!Files.exists(WAITING_GUEST_FILE)) return;
     try {
       for (String line : Files.readAllLines(WAITING_GUEST_FILE, StandardCharsets.UTF_8)) {
-        if (line.trim().isEmpty() || line.startsWith("memberId\t")) continue;
-        String[] fields = line.split("\\t", -1);
+        if (line.trim().isEmpty() || line.startsWith("bookingId,")) continue;
+        String[] fields = CsvUtils.parse(line);
         if (fields.length != 4 && fields.length != 5 && fields.length != 6
           && fields.length != 7 && fields.length != 8 && fields.length != 9) continue;
         boolean hasBookingId = fields.length >= 8;
@@ -598,8 +599,8 @@ public class VipLoyaltyAllocation {
     if (!Files.exists(CHECKIN_HISTORY_FILE)) return;
     try {
       for (String line : Files.readAllLines(CHECKIN_HISTORY_FILE, StandardCharsets.UTF_8)) {
-        if (line.trim().isEmpty() || line.startsWith("bookingId\t")) continue;
-        String[] fields = line.split("\\t", -1);
+        if (line.trim().isEmpty() || line.startsWith("bookingId,")) continue;
+        String[] fields = CsvUtils.parse(line);
         if (fields.length != 11 && fields.length != 12) continue;
         boolean hasConfirmationNumber = fields.length == 12;
         int memberIdIndex = hasConfirmationNumber ? 2 : 1;
@@ -630,13 +631,14 @@ public class VipLoyaltyAllocation {
       Files.createDirectories(CHECKIN_HISTORY_FILE.getParent());
       if (!Files.exists(CHECKIN_HISTORY_FILE)) {
         Files.write(CHECKIN_HISTORY_FILE,
-          ("bookingId\tconfirmationNumber\tmemberId\tmemberName\troomType\tnights\tallocationSequence"
-            + "\trequestedCheckInDate\twaitingSince\troomNumber\tcheckInAt\texpectedCheckoutAt\n")
+          (CsvUtils.row("bookingId", "confirmationNumber", "memberId", "memberName", "roomType",
+              "nights", "allocationSequence", "requestedCheckInDate", "waitingSince", "roomNumber",
+              "checkInAt", "expectedCheckoutAt") + "\n")
             .getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
       }
-          String record = String.join("\t", clean(member.getBookingId()),
-            clean(member.getConfirmationNumber()), clean(member.getMemberId()),
-          clean(member.getGuestName()), clean(member.getRequestedRoomType()),
+          String record = CsvUtils.row(clean(member.getBookingId()),
+          clean(member.getConfirmationNumber()), clean(member.getMemberId()), clean(member.getGuestName()),
+          clean(member.getRequestedRoomType()),
           String.valueOf(member.getNumberOfNights()), String.valueOf(sequence),
           member.getRequestedCheckInDate().toString(), member.getWaitingSince().toString(),
           clean(room.getRoomNumber()), checkInAt.toString(), expectedCheckoutAt.toString()) + "\n";
@@ -653,12 +655,13 @@ public class VipLoyaltyAllocation {
       Files.createDirectories(PAYMENT_HISTORY_FILE.getParent());
       if (!Files.exists(PAYMENT_HISTORY_FILE)) {
         Files.write(PAYMENT_HISTORY_FILE,
-          ("paymentId\tbookingId\tconfirmationNumber\tmemberId\troomType\tcheckInDate\tcheckOutDate"
-            + "\tnights\tpricePerNight\ttotalAmount\tpaymentMethod\tpaidAt\n")
+          (CsvUtils.row("paymentId", "bookingId", "confirmationNumber", "memberId", "roomType",
+              "checkInDate", "checkOutDate", "nights", "pricePerNight", "totalAmount",
+              "paymentMethod", "paidAt") + "\n")
             .getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
       }
       String paymentId = createPaymentId();
-        String record = String.join("\t", paymentId, member.getBookingId(),
+        String record = CsvUtils.row(paymentId, member.getBookingId(),
           member.getConfirmationNumber(), member.getMemberId(),
           clean(member.getRequestedRoomType()), member.getRequestedCheckInDate().toString(),
           member.getRequestedCheckInDate().plusDays(member.getNumberOfNights()).toString(),
@@ -674,19 +677,16 @@ public class VipLoyaltyAllocation {
   private void saveWaitingGuests() {
     try {
       Files.createDirectories(WAITING_GUEST_FILE.getParent());
-        StringBuilder contents = new StringBuilder(
-          "bookingId\tconfirmationNumber\tmemberId\tmemberName\troomType\tnights\tarrivalSequence\trequestedCheckInDate\twaitingSince\n");
+        StringBuilder contents = new StringBuilder(CsvUtils.row("bookingId", "confirmationNumber",
+          "memberId", "memberName", "roomType", "nights", "arrivalSequence",
+          "requestedCheckInDate", "waitingSince")).append('\n');
       for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
         LoyaltyMember member = waitingGuests.getEntry(position);
-        contents.append(clean(member.getBookingId())).append('\t')
-          .append(clean(member.getConfirmationNumber())).append('\t')
-          .append(clean(member.getMemberId())).append('\t')
-            .append(clean(member.getGuestName())).append('\t')
-            .append(clean(member.getRequestedRoomType())).append('\t')
-            .append(member.getNumberOfNights()).append('\t')
-            .append(member.getArrivalSequence()).append('\t')
-            .append(member.getRequestedCheckInDate()).append('\t')
-            .append(member.getWaitingSince()).append('\n');
+        contents.append(CsvUtils.row(clean(member.getBookingId()), clean(member.getConfirmationNumber()),
+            clean(member.getMemberId()), clean(member.getGuestName()), clean(member.getRequestedRoomType()),
+            String.valueOf(member.getNumberOfNights()), String.valueOf(member.getArrivalSequence()),
+            String.valueOf(member.getRequestedCheckInDate()), String.valueOf(member.getWaitingSince())))
+            .append('\n');
       }
       Files.write(WAITING_GUEST_FILE, contents.toString().getBytes(StandardCharsets.UTF_8));
     } catch (IOException ex) {
@@ -867,7 +867,8 @@ public class VipLoyaltyAllocation {
     if (!Files.exists(file)) return false;
     try {
       for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-        if (line.contains("\t" + confirmationNumber + "\t")) return true;
+        String[] fields = CsvUtils.parse(line);
+        if (fields.length > 1 && confirmationNumber.equals(fields[1])) return true;
       }
     } catch (IOException ignored) {
       return false;

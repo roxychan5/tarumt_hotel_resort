@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import utility.CsvUtils;
 import utility.DataFiles;
 
 /**
@@ -53,21 +54,21 @@ public class HousekeepingDAO {
 
   /**
    * SAVE all rooms to rooms.txt.
-   * Writes one line per room: roomNumber, roomType, floor, status,
-   * separated by TAB characters.
+   * Writes one comma-separated CSV row per room.
    */
   public void saveRooms(ListInterface<Room> rooms) {
     try (BufferedWriter writer = openWriter(ROOM_FILE)) {
-      writer.write("roomNumber\troomType\tfloor\tstatus\tcheckInAt\texpectedCheckoutAt\tmemberId"); // header line
+      writer.write(CsvUtils.row("roomNumber", "roomType", "floor", "status", "checkInAt",
+          "expectedCheckoutAt", "memberId"));
       writer.newLine();
       // Write every room in the list, one per line:
       for (int i = 1; i <= rooms.getNumberOfEntries(); i++) {
         Room room = rooms.getEntry(i);
-        writer.write(room.getRoomNumber() + "\t" + clean(room.getRoomType()) + "\t"
-            + room.getFloor() + "\t" + room.getStatus().name() + "\t"
-            + formatOptionalDateTime(room.getCheckInAt()) + "\t"
-            + formatOptionalDateTime(room.getExpectedCheckoutAt()) + "\t"
-            + formatOptionalText(room.getOccupantMemberId()));
+        writer.write(CsvUtils.row(room.getRoomNumber(), clean(room.getRoomType()),
+            String.valueOf(room.getFloor()), room.getStatus().name(),
+            formatOptionalDateTime(room.getCheckInAt()),
+            formatOptionalDateTime(room.getExpectedCheckoutAt()),
+            formatOptionalText(room.getOccupantMemberId())));
         writer.newLine();
       }
     } catch (IOException ex) {
@@ -77,7 +78,7 @@ public class HousekeepingDAO {
 
   /**
    * LOAD all rooms back from rooms.txt.
-   * Reads each line and rebuilds a Room object from the 4 fields.
+   * Reads each CSV row and rebuilds a Room object from its fields.
    * If the file does not exist yet, returns an empty list.
    */
   public ListInterface<Room> retrieveRooms() {
@@ -87,7 +88,7 @@ public class HousekeepingDAO {
       reader.readLine(); // skip the header line
       String line;
       while ((line = reader.readLine()) != null) { // read every data line
-        String[] fields = line.split("\\t", -1);  // split on TAB
+        String[] fields = CsvUtils.parse(line);
         if (fields.length >= 4) {
           rooms.add(new Room(fields[0], fields[1], Integer.parseInt(fields[2]),
               RoomStatus.valueOf(fields[3]), parseOptionalDateTime(fields, 4),
@@ -111,13 +112,12 @@ public class HousekeepingDAO {
    */
   public void saveTasks(ListInterface<HousekeepingTask> tasks) {
     try (BufferedWriter writer = openWriter(TASK_FILE)) {
-      writer.write("taskId\troomNumber\tassignedStaff\ttaskType\tstatus\tloggedAt");
+      writer.write(CsvUtils.row("taskId", "roomNumber", "assignedStaff", "taskType", "status", "loggedAt"));
       writer.newLine();
       for (int i = 1; i <= tasks.getNumberOfEntries(); i++) {
         HousekeepingTask task = tasks.getEntry(i);
-        writer.write(task.getTaskId() + "\t" + task.getRoomNumber() + "\t" + task.getAssignedStaff()
-            + "\t" + task.getTaskType() + "\t" + task.getCurrentStatus().name() + "\t"
-            + DATE_FORMAT.format(task.getLoggedAt()));
+        writer.write(CsvUtils.row(task.getTaskId(), task.getRoomNumber(), task.getAssignedStaff(),
+            task.getTaskType(), task.getCurrentStatus().name(), DATE_FORMAT.format(task.getLoggedAt())));
         writer.newLine();
       }
     } catch (IOException ex) {
@@ -136,7 +136,7 @@ public class HousekeepingDAO {
       reader.readLine(); // skip header
       String line;
       while ((line = reader.readLine()) != null) {
-        String[] fields = line.split("\\t", -1);
+        String[] fields = CsvUtils.parse(line);
         if (fields.length == 6) {
           tasks.add(new HousekeepingTask(fields[0], fields[1], fields[2], fields[3],
               RoomStatus.valueOf(fields[4]), LocalDateTime.parse(fields[5], DATE_FORMAT)));
@@ -180,13 +180,13 @@ public class HousekeepingDAO {
     while (!restore.isEmpty()) history.push(restore.pop()); // restore the stack
 
     try (BufferedWriter writer = openWriter(file)) {
-      writer.write("roomNumber\tpreviousStatus\tnewStatus\treason\tchangedAt");
+      writer.write(CsvUtils.row("roomNumber", "previousStatus", "newStatus", "reason", "changedAt"));
       writer.newLine();
       for (int i = 1; i <= records.getNumberOfEntries(); i++) {
         StatusChangeRecord record = records.getEntry(i);
-        writer.write(record.getRoomNumber() + "\t" + record.getPreviousStatus().name() + "\t"
-            + record.getNewStatus().name() + "\t" + clean(record.getReason()) + "\t"
-            + DATE_FORMAT.format(record.getChangedAt()));
+        writer.write(CsvUtils.row(record.getRoomNumber(), record.getPreviousStatus().name(),
+            record.getNewStatus().name(), clean(record.getReason()),
+            DATE_FORMAT.format(record.getChangedAt())));
         writer.newLine();
       }
     } catch (IOException ex) {
@@ -216,7 +216,7 @@ public class HousekeepingDAO {
       reader.readLine(); // skip header
       String line;
       while ((line = reader.readLine()) != null) {
-        String[] fields = line.split("\\t", -1);
+        String[] fields = CsvUtils.parse(line);
         if (fields.length == 5) {
           records.add(new StatusChangeRecord(fields[0], RoomStatus.valueOf(fields[1]),
               RoomStatus.valueOf(fields[2]), fields[3], LocalDateTime.parse(fields[4], DATE_FORMAT)));
