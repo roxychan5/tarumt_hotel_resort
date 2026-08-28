@@ -52,7 +52,7 @@ public class HousekeepingTaskLogUI {
     ConsoleUI.clearScreen();
     printMenu();
     return ConsoleUI.readMenuChoice(
-        "  " + SB + B + "  Select option (0-14) > " + R + " ");
+        "  " + SB + B + "  Select option (0-13) > " + R + " ");
   }
 
   private void printMenu() {
@@ -71,18 +71,17 @@ public class HousekeepingTaskLogUI {
 
     printSectionLabel("STATUS CHANGE CONTROL");
     printEntry(" 6", "Undo Latest Change",       "Reverse the most recent update");
-    printEntry(" 7", "Undo Multiple Changes",    "Reverse several recent updates at once");
-    printEntry(" 8", "Undo Change for Room",     "Reverse a specific room's latest update");
-    printEntry(" 9", "View Change History",      "See undo stack from TOP to BOTTOM");
-    printEntry("10", "View Undo Summary",        "Count of available rollback changes");
+    printEntry(" 7", "Undo Change for Room",     "Reverse a specific room's latest update");
+    printEntry(" 8", "View Change History",      "See undo stack from TOP to BOTTOM");
+    printEntry(" 9", "View Undo Summary",        "Count of available rollback changes");
     printBorder();
 
     printSectionLabel("OPERATIONS  &  REPORTS");
-    printEntry("11", "Record Late Check-Out",    "Ready for Check-In -> LCO; Front Desk extends stay date");
-    printEntry("12", "Room Status Board",        "Monitor every room at a glance");
-    printEntryHighlight("13", "Report 1: Operational Summary",
+    printEntry("10", "Record Late Check-Out",    "Ready -> LCO; Front Desk sets new date");
+    printEntry("11", "Room Status Board",        "Monitor every room at a glance");
+    printEntryHighlight("12", "Report 1: Operational Summary",
         "Binary search + bubble sort | PDF");
-    printEntryHighlight("14", "Report 2: Staff Workload",
+    printEntryHighlight("13", "Report 2: Staff Workload",
         "Insertion sort ranking      | PDF");
     printBorder();
 
@@ -383,24 +382,6 @@ public class HousekeepingTaskLogUI {
     }
   }
 
-  /** Asks how many changes to undo at once (0 = cancel). */
-  public int inputRollbackCount(int availableChanges) {
-    while (true) {
-      System.out.println();
-      System.out.println("  " + SB + B + "How many changes do you want to undo?" + R);
-      System.out.print("  " + SB + "Enter number (1-" + availableChanges
-          + ") or 0 to cancel > " + R);
-      try {
-        int value = Integer.parseInt(ConsoleUI.readLine().trim());
-        if (value >= 0 && value <= availableChanges) return value;
-      } catch (NumberFormatException ignored) {
-        // re-prompt the user below
-      }
-      MessageUI.displayErrorMessage(
-          "Enter a number from 0 to " + availableChanges + ".");
-    }
-  }
-
   public RoomStatus inputTargetStatus() {
     System.out.println();
     System.out.println("  " + SB + B + "TARGET STATUS" + R);
@@ -456,10 +437,10 @@ public class HousekeepingTaskLogUI {
         2 + "ROOM STATUS BOARD".length());
     printBorder();
 
-    String hdr = String.format("  %-8s %-12s %-8s %-22s",
+    String hdr = String.format("  %-12s %-16s %-12s %-30s",
         "Room", "Type", "Floor", "Status");
     rowV(IB + B + hdr + R, hdr.length());
-    rowV("  " + rep('-', 55), 2 + 55);
+    rowV("  " + rep('-', 73), 2 + 73);
     if (output.isEmpty()) {
       String message = "  (No rooms registered)";
       rowV(DM + message + R, message.length());
@@ -725,26 +706,7 @@ public class HousekeepingTaskLogUI {
     closePanel();
   }
 
-  /** [7] Shows the available undo history (newest first) before asking for the count. */
-  public void displayUndoMultipleAvailable(List<StatusChangeRecord> history) {
-    openPanel("UNDO MULTIPLE CHANGES");
-    panelText("Available Changes:", "");
-    row();
-    printHistoryRows(history, false);
-    closePanel();
-  }
-
-  /** [7] Shows exactly which changes will be undone before confirmation. */
-  public void displayUndoMultipleConfirm(int count, List<StatusChangeRecord> changes) {
-    openPanel("CONFIRM UNDO");
-    String plural = (count == 1) ? "change" : "changes";
-    panelText("You are about to undo " + count + " " + plural + ":", "");
-    row();
-    printHistoryRows(changes, false);
-    closePanel();
-  }
-
-  /** [8] Shows the latest change for a specific room before confirmation. */
+  /** [7] Shows the latest change for a specific room before confirmation. */
   public void displayRoomUndo(String roomNumber, StatusChangeRecord record) {
     openPanel("UNDO ROOM CHANGE");
     rowKV("Room", roomNumber, true);

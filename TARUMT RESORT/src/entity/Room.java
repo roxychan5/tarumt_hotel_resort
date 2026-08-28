@@ -133,7 +133,7 @@ public class Room implements Serializable {
    */
   @Override
   public String toString() {
-    return String.format("%-8s %-12s %-8d %-22s",
+    return String.format("%-12s %-16s %-12d %-30s",
         roomNumber, roomType, floor, status.getLabel());
   }
 }

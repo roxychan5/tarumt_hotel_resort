@@ -117,38 +117,35 @@ public class HousekeepingTaskLog {
         case 5:
           deleteTaskById(); // remove a task after confirmation
           break;
-        // ── Status Change Control (6-10) ───────────────────────────────
+        // ── Status Change Control (6-9) ────────────────────────────────
         case 6:
           undoLastChange(); // reverse the latest status change
           break;
         case 7:
-          rollbackMultipleChanges(); // undo several changes at once
-          break;
-        case 8:
           rollbackSpecificRoom(); // undo one specific room's latest change
           break;
-        case 9:
+        case 8:
           displayStatusHistory(); // show the whole change history
           break;
-        case 10:
+        case 9:
           displayStackSummary(); // show how many undo/redo entries exist
           break;
-        // ── Operations & Reports (11-14) ───────────────────────────────
-        case 11:
+        // ── Operations & Reports (10-13) ───────────────────────────────
+        case 10:
           handleLateCheckout();
           break;
-        case 12:
+        case 11:
           housekeepingUI.listRoomStatuses(getAllRooms()); // room status board
           MessageUI.pressEnterToContinue();
           break;
-        case 13:
+        case 12:
           generateTasksByStatusReport(); // report 1 (console + PDF)
           break;
-        case 14:
+        case 13:
           generateStaffWorkloadReport(); // report 2 (console + PDF)
           break;
         default:
-          MessageUI.displayInvalidChoiceMessage(); // number outside 0-14
+          MessageUI.displayInvalidChoiceMessage(); // number outside 0-13
       }
     } while (choice != 0); // keep looping until the user says 0 (exit)
   }
@@ -549,61 +546,6 @@ public class HousekeepingTaskLog {
     housekeepingUI.displayRoomDetails(room);
     MessageUI.displaySuccessMessage(
         "Late check-out recorded. Room changed from Ready for Check-In to LCO.");
-    MessageUI.pressEnterToContinue();
-  }
-
-  /** Option 8 - Undo several changes at once, in LIFO (newest-first) order. */
-  private void rollbackMultipleChanges() {
-    if (undoStack.isEmpty()) {
-      MessageUI.displayErrorMessage("No status changes to roll back.");
-      MessageUI.pressEnterToContinue();
-      return;
-    }
-
-    // Step 1 - show the history we could undo (newest first).
-    List<StatusChangeRecord> history = copyUndoHistory();
-    housekeepingUI.displayUndoMultipleAvailable(history);
-
-    // Step 2 - ask HOW MANY to undo (0 = cancel).
-    int count = housekeepingUI.inputRollbackCount(undoStack.getSize());
-    if (count == 0) {
-      MessageUI.displayInfoMessage("Undo cancelled. No changes were made.");
-      MessageUI.pressEnterToContinue();
-      return;
-    }
-
-    // Step 3 - collect exactly the first `count` changes to preview.
-    List<StatusChangeRecord> changes = new java.util.ArrayList<>();
-    for (int i = 0; i < count; i++) {
-      if (i < history.size()) {
-        changes.add(history.get(i)); // those that will be undone
-      }
-    }
-    if (!canUndoRecords(changes)) {
-      MessageUI.pressEnterToContinue();
-      return;
-    }
-    housekeepingUI.displayUndoMultipleConfirm(count, changes); // show them
-
-    // Step 4 - final confirmation.
-    String plural = (count == 1) ? "change?" : "changes?";
-    if (!housekeepingUI.confirmAction(
-        "Are you sure you want to undo these " + plural)) {
-      MessageUI.displayInfoMessage("Undo cancelled. No changes were made.");
-      MessageUI.pressEnterToContinue();
-      return;
-    }
-
-    // Step 5 - pop `count` records off the TOP one by one, and reverse each.
-    for (int i = 0; i < count; i++) {
-      StatusChangeRecord record = undoStack.pop(); // newest first
-      Room room = findRoom(record.getRoomNumber());
-      room.setStatus(record.getPreviousStatus()); // validated before confirmation
-      syncTaskStatus(record.getRoomNumber(), record.getPreviousStatus());
-    }
-    saveData(); // save
-    MessageUI.displaySuccessMessage(
-        count + " latest status change(s) undone successfully in LIFO order.");
     MessageUI.pressEnterToContinue();
   }
 
@@ -1433,29 +1375,6 @@ public class HousekeepingTaskLog {
           + ": its status changed to " + room.getStatus().getLabel()
           + " after this record was created.");
       return false;
-    }
-    return true;
-  }
-
-  /** Validates every selected record before a bulk undo changes any room. */
-  private boolean canUndoRecords(List<StatusChangeRecord> records) {
-    Map<String, RoomStatus> simulatedStatuses = new LinkedHashMap<>();
-    for (StatusChangeRecord record : records) {
-      Room room = findRoom(record.getRoomNumber());
-      if (room == null) {
-        MessageUI.displayErrorMessage("Room " + record.getRoomNumber()
-            + " no longer exists. Bulk undo cancelled.");
-        return false;
-      }
-      RoomStatus currentStatus = simulatedStatuses.containsKey(record.getRoomNumber())
-          ? simulatedStatuses.get(record.getRoomNumber())
-          : room.getStatus();
-      if (currentStatus != record.getNewStatus()) {
-        MessageUI.displayErrorMessage("Cannot undo room " + record.getRoomNumber()
-            + ": its status changed after one of the selected records was created.");
-        return false;
-      }
-      simulatedStatuses.put(record.getRoomNumber(), record.getPreviousStatus());
     }
     return true;
   }
