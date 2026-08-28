@@ -319,7 +319,8 @@ public class HousekeepingTaskLog {
     if (found == null) {
       MessageUI.displayErrorMessage("No task found with ID: " + query);
     } else {
-      housekeepingUI.displayTaskDetails(found); // show it
+      housekeepingUI.displayTaskDetails(found, "SEARCH TASK RESULT",
+          "Task found using linear search.");
       MessageUI.displaySuccessMessage("Task found.");
     }
     MessageUI.pressEnterToContinue();
@@ -354,7 +355,8 @@ public class HousekeepingTaskLog {
     }
 
     // Show what would be deleted, then ask for a YES/NO confirmation.
-    housekeepingUI.displayTaskDetails(found);
+    housekeepingUI.displayTaskDetails(found, "TASK SELECTED FOR DELETION",
+        "Review the task details before confirming deletion.");
     if (!housekeepingUI.confirmDelete("task " + found.getTaskId())) {
       MessageUI.displayInfoMessage("Delete cancelled.");
       MessageUI.pressEnterToContinue();

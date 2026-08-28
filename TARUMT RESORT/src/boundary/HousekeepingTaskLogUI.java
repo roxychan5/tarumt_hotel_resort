@@ -325,8 +325,14 @@ public class HousekeepingTaskLogUI {
   /** Asks "are you sure?" before deleting something (only 'y' or 'yes' confirms). */
   public boolean confirmDelete(String target) {
     System.out.println();
-    System.out.print("  " + RD + B + "[!!] Confirm DELETE " + target
-        + "? This cannot be undone. (y/n) > " + R);
+    printBorder();
+    rowV("  " + RD + B + "DELETE TASK CONFIRMATION" + R,
+        2 + "DELETE TASK CONFIRMATION".length());
+    printBorder();
+    String warning = "  Delete " + target + "? This cannot be undone.";
+    rowV(RD + warning + R, warning.length());
+    printBorder();
+    System.out.print("  " + RD + B + "Confirm (y/n) > " + R);
     String ans = ConsoleUI.readLine().trim().toLowerCase();
     return ans.equals("y") || ans.equals("yes");
   }
@@ -419,48 +425,83 @@ public class HousekeepingTaskLogUI {
 
   /** Shows all cleaning tasks in the order they were created. */
   public void listTaskQueue(String output) {
-    sectionHeader("HOUSEKEEPING TASK QUEUE",
-        "Tasks listed in creation order (Linear List ADT).");
-    System.out.printf("  %-8s %-8s %-10s %-16s %-22s %s%n",
+    System.out.println();
+    printBorder(ACTIVE_ROOMS_BOX_W);
+    rowV("  " + C + B + "HOUSEKEEPING TASK QUEUE" + R,
+        2 + "HOUSEKEEPING TASK QUEUE".length(), ACTIVE_ROOMS_BOX_W);
+    printBorder(ACTIVE_ROOMS_BOX_W);
+
+    String hdr = String.format("  %-8s %-8s %-10s %-16s %-22s %s",
         "Task ID", "Room", "Staff", "Task Type", "Status", "Logged At");
-    System.out.println("  " + rep('-', 84));
+    rowV(IB + B + hdr + R, hdr.length(), ACTIVE_ROOMS_BOX_W);
+    rowV("  " + rep('-', 96), 2 + 96, ACTIVE_ROOMS_BOX_W);
     if (output.isEmpty()) {
-      System.out.println("  (No tasks in queue)");
+      String message = "  (No tasks in queue)";
+      rowV(DM + message + R, message.length(), ACTIVE_ROOMS_BOX_W);
     } else {
-      // Indent each data row so it lines up under the header columns.
       for (String aux : output.split("\n")) {
         if (aux.isEmpty()) continue;
-        System.out.println("  " + aux);
+        rowV("  " + WH + aux + R, 2 + aux.length(), ACTIVE_ROOMS_BOX_W);
       }
     }
+    printBorder(ACTIVE_ROOMS_BOX_W);
+    System.out.println();
   }
 
   /** Shows the current status of every room at a glance. */
   public void listRoomStatuses(String output) {
-    sectionHeader("ROOM STATUS BOARD",
-        "Coordinate the next valid cleaning action for each room.");
-    System.out.printf("  %-8s %-12s %-8s %-22s%n", "Room", "Type", "Floor", "Status");
-    System.out.println("  " + rep('-', 55));
+    System.out.println();
+    printBorder();
+    rowV("  " + C + B + "ROOM STATUS BOARD" + R,
+        2 + "ROOM STATUS BOARD".length());
+    printBorder();
+
+    String hdr = String.format("  %-8s %-12s %-8s %-22s",
+        "Room", "Type", "Floor", "Status");
+    rowV(IB + B + hdr + R, hdr.length());
+    rowV("  " + rep('-', 55), 2 + 55);
     if (output.isEmpty()) {
-      System.out.println("  (No rooms registered)");
+      String message = "  (No rooms registered)";
+      rowV(DM + message + R, message.length());
     } else {
-      // Indent each data row so it lines up under the header columns.
       for (String aux : output.split("\n")) {
         if (aux.isEmpty()) continue;
-        System.out.println("  " + aux);
+        rowV("  " + WH + aux + R, 2 + aux.length());
       }
     }
+    printBorder();
+    System.out.println();
   }
 
   /** Shows the full details of one cleaning task. */
   public void displayTaskDetails(HousekeepingTask task) {
-    sectionHeader("TASK CREATED", "Added to sequential log.");
-    System.out.println("  Task ID   : " + C + B + task.getTaskId() + R);
-    System.out.println("  Room      : " + task.getRoomNumber());
-    System.out.println("  Staff     : " + task.getAssignedStaff());
-    System.out.println("  Task Type : " + task.getTaskType());
-    System.out.println("  Status    : " + colorStatus(task.getCurrentStatus()));
-    System.out.println("  Logged At : " + DM + task.getLoggedAt().format(MalaysiaTime.FORMATTER) + R);
+    displayTaskDetails(task, "TASK CREATED", "Added to sequential log.");
+  }
+
+  /** Shows a task in a bordered card for create, search, and delete actions. */
+  public void displayTaskDetails(HousekeepingTask task, String title, String subtitle) {
+    System.out.println();
+    printBorder();
+    rowV("  " + C + B + title + R, 2 + title.length());
+    if (subtitle != null && !subtitle.isEmpty()) {
+      rowV("  " + DM + subtitle + R, 2 + subtitle.length());
+    }
+    printBorder();
+
+    String taskId = "  Task ID   : " + task.getTaskId();
+    String room = "  Room      : " + task.getRoomNumber();
+    String staff = "  Staff     : " + task.getAssignedStaff();
+    String taskType = "  Task Type : " + task.getTaskType();
+    String status = "  Status    : " + task.getCurrentStatus().getLabel();
+    String loggedAt = "  Logged At : " + task.getLoggedAt().format(MalaysiaTime.FORMATTER);
+    rowV("  Task ID   : " + C + B + task.getTaskId() + R, taskId.length());
+    rowV(room, room.length());
+    rowV(staff, staff.length());
+    rowV(taskType, taskType.length());
+    rowV("  Status    : " + colorStatus(task.getCurrentStatus()), status.length());
+    rowV("  Logged At : " + DM + task.getLoggedAt().format(MalaysiaTime.FORMATTER) + R,
+        loggedAt.length());
+    printBorder();
     System.out.println();
   }
 
