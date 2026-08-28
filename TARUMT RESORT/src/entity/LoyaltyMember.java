@@ -1,5 +1,7 @@
 package entity;
 
+import java.time.LocalDate;
+
 public class LoyaltyMember implements Comparable<LoyaltyMember> {
 
   /** The registered loyalty profile this priority-queue entry belongs to. */
@@ -7,13 +9,20 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
   private String requestedRoomType;
   private final int numberOfNights;
   private final int arrivalSequence;
+  private final LocalDate waitingSince;
 
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence) {
+    this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence, LocalDate.now());
+  }
+
+  public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
+      int numberOfNights, int arrivalSequence, LocalDate waitingSince) {
     this.loyaltyMember = loyaltyMember;
     this.requestedRoomType = requestedRoomType;
     this.numberOfNights = numberOfNights;
     this.arrivalSequence = arrivalSequence;
+    this.waitingSince = waitingSince;
   }
 
   public RewardsMember getLoyaltyMember() { 
@@ -46,6 +55,10 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
 
   public int getArrivalSequence() { 
     return arrivalSequence; 
+  }
+
+  public LocalDate getWaitingSince() {
+    return waitingSince;
   }
 
   @Override

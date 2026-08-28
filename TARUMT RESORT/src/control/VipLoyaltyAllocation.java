@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import utility.ConsoleUI;
@@ -105,7 +106,7 @@ public class VipLoyaltyAllocation {
       String roomType = vipUI.inputRequestedRoomType();
       int numberOfNights = vipUI.inputNumberOfNights();
       LoyaltyMember member = new LoyaltyMember(registeredMember, roomType, numberOfNights,
-          ++arrivalSequence);
+          ++arrivalSequence, MalaysiaTime.now().toLocalDate());
       waitingGuests.add(member);
       saveWaitingGuests();
       MessageUI.displaySuccessMessage("Priority guest " + registeredMember.getName()
@@ -465,15 +466,17 @@ public class VipLoyaltyAllocation {
       for (String line : Files.readAllLines(WAITING_GUEST_FILE, StandardCharsets.UTF_8)) {
         if (line.trim().isEmpty() || line.startsWith("memberId\t")) continue;
         String[] fields = line.split("\\t", -1);
-        if (fields.length != 4 && fields.length != 5) continue;
+        if (fields.length != 4 && fields.length != 5 && fields.length != 6) continue;
         RewardsMember registeredMember = loyaltyRewardsService.getMemberById(fields[0]);
         if (registeredMember == null) continue;
-        int dataOffset = fields.length == 5 ? 1 : 0;
+        int dataOffset = fields.length >= 5 ? 1 : 0;
         String roomType = fields[1 + dataOffset];
         int numberOfNights = Integer.parseInt(fields[2 + dataOffset]);
         int savedArrivalSequence = Integer.parseInt(fields[3 + dataOffset]);
+        LocalDate waitingSince = fields.length == 6
+          ? LocalDate.parse(fields[4 + dataOffset]) : MalaysiaTime.now().toLocalDate();
         waitingGuests.add(new LoyaltyMember(registeredMember, roomType, numberOfNights,
-            savedArrivalSequence));
+          savedArrivalSequence, waitingSince));
         arrivalSequence = Math.max(arrivalSequence, savedArrivalSequence);
       }
     } catch (IOException | IllegalArgumentException ex) {
@@ -484,14 +487,16 @@ public class VipLoyaltyAllocation {
   private void saveWaitingGuests() {
     try {
       Files.createDirectories(WAITING_GUEST_FILE.getParent());
-      StringBuilder contents = new StringBuilder("memberId\tmemberName\troomType\tnights\tarrivalSequence\n");
+        StringBuilder contents = new StringBuilder(
+          "memberId\tmemberName\troomType\tnights\tarrivalSequence\twaitingSince\n");
       for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
         LoyaltyMember member = waitingGuests.getEntry(position);
         contents.append(clean(member.getMemberId())).append('\t')
             .append(clean(member.getGuestName())).append('\t')
             .append(clean(member.getRequestedRoomType())).append('\t')
             .append(member.getNumberOfNights()).append('\t')
-            .append(member.getArrivalSequence()).append('\n');
+            .append(member.getArrivalSequence()).append('\t')
+            .append(member.getWaitingSince()).append('\n');
       }
       Files.write(WAITING_GUEST_FILE, contents.toString().getBytes(StandardCharsets.UTF_8));
     } catch (IOException ex) {
@@ -536,8 +541,10 @@ public class VipLoyaltyAllocation {
     }
     sortPriorityGuests(sortedGuests);
 
-    String output = String.format("%-5s %-12s %-20s %-12s %-15s %-8s%n", "Rank", "Member ID", "Guest", "Tier", "Requested Room", "Nights")
-      + "--------------------------------------------------------------------------------\n";
+    String output = String.format("%-5s %-12s %-20s %-12s %-15s %-8s %-13s %-12s%n",
+        "Rank", "Member ID", "Guest", "Tier", "Requested Room", "Nights", "Waiting Since",
+        "Waiting Time")
+      + "------------------------------------------------------------------------------------------------------\n";
     for (int position = 0; position < sortedGuests.length; position++) {
       output += formatMember(sortedGuests[position], position + 1) + "\n";
     }
@@ -609,9 +616,11 @@ public class VipLoyaltyAllocation {
   }
 
   private String formatMember(LoyaltyMember member, int rank) {
-    return String.format("%-5d %-12s %-20s %-12s %-15s %-8d", rank, member.getMemberId(),
+    long waitingDays = Math.max(0, ChronoUnit.DAYS.between(member.getWaitingSince(),
+        MalaysiaTime.now().toLocalDate()));
+    return String.format("%-5d %-12s %-20s %-12s %-15s %-8d %-13s %-12s", rank, member.getMemberId(),
       member.getGuestName(), member.getTier(), member.getRequestedRoomType(),
-      member.getNumberOfNights());
+      member.getNumberOfNights(), member.getWaitingSince(), waitingDays + " day(s)");
   }
 
   private void pause() { MessageUI.pressEnterToContinue(); }
