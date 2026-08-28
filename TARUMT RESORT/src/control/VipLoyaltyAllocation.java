@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -47,12 +48,15 @@ public class VipLoyaltyAllocation {
   private final HeapPriorityQueue<LoyaltyMember> waitingGuests = new HeapPriorityQueue<>();
   private final ArrayList<RoomAllocation> completedAllocations = new ArrayList<>();
   private static final Path WAITING_GUEST_FILE = DataFiles.resolve("vip_waiting_guests.txt");
+  private static final Path CHECKIN_HISTORY_FILE = DataFiles.resolve("vip_checkin_history.txt");
+  private static final Path PAYMENT_HISTORY_FILE = DataFiles.resolve("vip_payment_history.txt");
   private int arrivalSequence;
   private int allocationSequence;
 
   public VipLoyaltyAllocation(LoyaltyRewardsService loyaltyRewardsService) {
     this.loyaltyRewardsService = loyaltyRewardsService;
     loadWaitingGuests();
+    loadCheckInHistory();
   }
 
   public void runVipLoyaltyModule() {
@@ -119,6 +123,7 @@ public class VipLoyaltyAllocation {
         String paymentMethod = vipUI.inputPaymentMethod();
         vipUI.displayPaymentInformation(buildPaymentInformation(member, nightlyPrice,
           totalAmount, paymentMethod));
+          savePaymentInformation(member, nightlyPrice, totalAmount, paymentMethod);
       waitingGuests.add(member);
       saveWaitingGuests();
         MessageUI.displaySuccessMessage("Payment successful. VIP booking created for "
@@ -235,10 +240,13 @@ public class VipLoyaltyAllocation {
               + " room is ready for check-in. Complete housekeeping first.");
         } else {
           if (waitingGuests.removeEntry(member)) {
+            int savedAllocationSequence = ++allocationSequence;
             completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(),
-                ++allocationSequence, checkInDate, checkOutDate));
+              savedAllocationSequence, checkInDate, checkOutDate));
             recordCheckInStatusChange(room.getRoomNumber(), member.getMemberId(),
                 checkInAt, expectedCheckoutAt);
+            saveCheckInInformation(member, room, checkInAt, expectedCheckoutAt,
+              savedAllocationSequence);
             saveWaitingGuests();
             vipUI.displayCheckInInformation(buildCheckInInformation(member, room,
               checkInAt, expectedCheckoutAt));
@@ -569,6 +577,73 @@ public class VipLoyaltyAllocation {
     }
   }
 
+  private void loadCheckInHistory() {
+    if (!Files.exists(CHECKIN_HISTORY_FILE)) return;
+    try {
+      for (String line : Files.readAllLines(CHECKIN_HISTORY_FILE, StandardCharsets.UTF_8)) {
+        if (line.trim().isEmpty() || line.startsWith("bookingId\t")) continue;
+        String[] fields = line.split("\\t", -1);
+        if (fields.length != 11) continue;
+        RewardsMember registeredMember = loyaltyRewardsService.getMemberById(fields[1]);
+        if (registeredMember == null) continue;
+        int nights = Integer.parseInt(fields[4]);
+        int sequence = Integer.parseInt(fields[5]);
+        LoyaltyMember member = new LoyaltyMember(registeredMember, fields[3], nights, sequence,
+            fields[0], LocalDate.parse(fields[6]), LocalDate.parse(fields[7]));
+        completedAllocations.add(new RoomAllocation(member, fields[8], sequence,
+            LocalDateTime.parse(fields[9]).toLocalDate(), LocalDateTime.parse(fields[10]).toLocalDate()));
+        allocationSequence = Math.max(allocationSequence, sequence);
+      }
+    } catch (IOException | IllegalArgumentException ex) {
+      MessageUI.displayErrorMessage("Could not load VIP check-in history: " + ex.getMessage());
+    }
+  }
+
+  private void saveCheckInInformation(LoyaltyMember member, Room room,
+      LocalDateTime checkInAt, LocalDateTime expectedCheckoutAt, int sequence) {
+    try {
+      Files.createDirectories(CHECKIN_HISTORY_FILE.getParent());
+      if (!Files.exists(CHECKIN_HISTORY_FILE)) {
+        Files.write(CHECKIN_HISTORY_FILE,
+          ("bookingId\tmemberId\tmemberName\troomType\tnights\tallocationSequence"
+            + "\trequestedCheckInDate\twaitingSince\troomNumber\tcheckInAt\texpectedCheckoutAt\n")
+            .getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
+      }
+      String record = String.join("\t", clean(member.getBookingId()), clean(member.getMemberId()),
+          clean(member.getGuestName()), clean(member.getRequestedRoomType()),
+          String.valueOf(member.getNumberOfNights()), String.valueOf(sequence),
+          member.getRequestedCheckInDate().toString(), member.getWaitingSince().toString(),
+          clean(room.getRoomNumber()), checkInAt.toString(), expectedCheckoutAt.toString()) + "\n";
+      Files.write(CHECKIN_HISTORY_FILE, record.getBytes(StandardCharsets.UTF_8),
+          StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("Could not save VIP check-in history: " + ex.getMessage());
+    }
+  }
+
+  private void savePaymentInformation(LoyaltyMember member, double nightlyPrice,
+      double totalAmount, String paymentMethod) {
+    try {
+      Files.createDirectories(PAYMENT_HISTORY_FILE.getParent());
+      if (!Files.exists(PAYMENT_HISTORY_FILE)) {
+        Files.write(PAYMENT_HISTORY_FILE,
+          ("paymentId\tbookingId\tmemberId\troomType\tcheckInDate\tcheckOutDate"
+            + "\tnights\tpricePerNight\ttotalAmount\tpaymentMethod\tpaidAt\n")
+            .getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
+      }
+      String paymentId = createPaymentId();
+      String record = String.join("\t", paymentId, member.getBookingId(), member.getMemberId(),
+          clean(member.getRequestedRoomType()), member.getRequestedCheckInDate().toString(),
+          member.getRequestedCheckInDate().plusDays(member.getNumberOfNights()).toString(),
+          String.valueOf(member.getNumberOfNights()), String.format("%.2f", nightlyPrice),
+          String.format("%.2f", totalAmount), clean(paymentMethod), MalaysiaTime.now().toString()) + "\n";
+      Files.write(PAYMENT_HISTORY_FILE, record.getBytes(StandardCharsets.UTF_8),
+          StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("Could not save VIP payment history: " + ex.getMessage());
+    }
+  }
+
   private void saveWaitingGuests() {
     try {
       Files.createDirectories(WAITING_GUEST_FILE.getParent());
@@ -738,9 +813,13 @@ public class VipLoyaltyAllocation {
     }
   }
 
+  private String createPaymentId() {
+    return "PAY-" + MalaysiaTime.now().format(PAYMENT_TIME_FORMAT);
+  }
+
   private String buildPaymentInformation(LoyaltyMember member, double nightlyPrice,
       double totalAmount, String paymentMethod) {
-    String paymentId = "PAY-" + MalaysiaTime.now().format(PAYMENT_TIME_FORMAT);
+    String paymentId = createPaymentId();
     return String.format("%-24s : %s%n%-24s : %s%n%-24s : %s%n%-24s : %s%n"
             + "%-24s : %d night(s)%n%-24s : RM %.2f%n%-24s : RM %.2f%n"
             + "%-24s : %s%n%-24s : %s%n",

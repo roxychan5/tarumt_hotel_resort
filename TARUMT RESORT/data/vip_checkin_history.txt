@@ -1,0 +1,2 @@
+bookingId	memberId	memberName	roomType	nights	allocationSequence	requestedCheckInDate	waitingSince	roomNumber	checkInAt	expectedCheckoutAt
+VIP-0012	LM002	Rouxuan	Suite	1	1	2026-08-28	2026-08-28	R303	2026-08-29T00:21	2026-08-30T12:00

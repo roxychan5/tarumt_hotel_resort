@@ -1,3 +1,2 @@
 bookingId	memberId	memberName	roomType	nights	arrivalSequence	requestedCheckInDate	waitingSince
 VIP-0007	LM009	ycc	Family	3	7	2026-08-28	2026-08-28
-VIP-0012	LM002	Rouxuan	Suite	1	12	2026-08-28	2026-08-28
