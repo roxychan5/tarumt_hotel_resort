@@ -9,19 +9,29 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
   private String requestedRoomType;
   private final int numberOfNights;
   private final int arrivalSequence;
+  private final LocalDate requestedCheckInDate;
   private final LocalDate waitingSince;
 
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence) {
-    this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence, LocalDate.now());
+    this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence,
+      LocalDate.now(), LocalDate.now());
   }
 
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence, LocalDate waitingSince) {
+    this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence,
+      LocalDate.now(), waitingSince);
+    }
+
+    public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
+      int numberOfNights, int arrivalSequence, LocalDate requestedCheckInDate,
+      LocalDate waitingSince) {
     this.loyaltyMember = loyaltyMember;
     this.requestedRoomType = requestedRoomType;
     this.numberOfNights = numberOfNights;
     this.arrivalSequence = arrivalSequence;
+    this.requestedCheckInDate = requestedCheckInDate;
     this.waitingSince = waitingSince;
   }
 
@@ -59,6 +69,10 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
 
   public LocalDate getWaitingSince() {
     return waitingSince;
+  }
+
+  public LocalDate getRequestedCheckInDate() {
+    return requestedCheckInDate;
   }
 
   @Override

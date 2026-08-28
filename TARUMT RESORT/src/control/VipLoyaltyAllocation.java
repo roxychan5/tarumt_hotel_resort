@@ -104,9 +104,13 @@ public class VipLoyaltyAllocation {
       MessageUI.displayErrorMessage("This member is already in the priority queue.");
     } else {
       String roomType = vipUI.inputRequestedRoomType();
-      int numberOfNights = vipUI.inputNumberOfNights();
+      LocalDate requestedCheckInDate = vipUI.inputRequestedCheckInDate();
+        LocalDate requestedCheckOutDate = vipUI.inputRequestedCheckOutDate(requestedCheckInDate);
+        int numberOfNights = (int) ChronoUnit.DAYS.between(requestedCheckInDate,
+          requestedCheckOutDate);
       LoyaltyMember member = new LoyaltyMember(registeredMember, roomType, numberOfNights,
-          ++arrivalSequence, MalaysiaTime.now().toLocalDate());
+          ++arrivalSequence, requestedCheckInDate, MalaysiaTime.now().toLocalDate());
+      vipUI.displayBookingSummary(buildBookingSummary(member));
       waitingGuests.add(member);
       saveWaitingGuests();
       MessageUI.displaySuccessMessage("Priority guest " + registeredMember.getName()
@@ -466,17 +470,20 @@ public class VipLoyaltyAllocation {
       for (String line : Files.readAllLines(WAITING_GUEST_FILE, StandardCharsets.UTF_8)) {
         if (line.trim().isEmpty() || line.startsWith("memberId\t")) continue;
         String[] fields = line.split("\\t", -1);
-        if (fields.length != 4 && fields.length != 5 && fields.length != 6) continue;
+        if (fields.length != 4 && fields.length != 5 && fields.length != 6 && fields.length != 7) continue;
         RewardsMember registeredMember = loyaltyRewardsService.getMemberById(fields[0]);
         if (registeredMember == null) continue;
         int dataOffset = fields.length >= 5 ? 1 : 0;
         String roomType = fields[1 + dataOffset];
         int numberOfNights = Integer.parseInt(fields[2 + dataOffset]);
         int savedArrivalSequence = Integer.parseInt(fields[3 + dataOffset]);
-        LocalDate waitingSince = fields.length == 6
-          ? LocalDate.parse(fields[4 + dataOffset]) : MalaysiaTime.now().toLocalDate();
+        LocalDate requestedCheckInDate = fields.length == 7
+          ? LocalDate.parse(fields[5]) : MalaysiaTime.now().toLocalDate();
+        LocalDate waitingSince = fields.length == 7
+          ? LocalDate.parse(fields[6])
+          : fields.length == 6 ? LocalDate.parse(fields[5]) : MalaysiaTime.now().toLocalDate();
         waitingGuests.add(new LoyaltyMember(registeredMember, roomType, numberOfNights,
-          savedArrivalSequence, waitingSince));
+          savedArrivalSequence, requestedCheckInDate, waitingSince));
         arrivalSequence = Math.max(arrivalSequence, savedArrivalSequence);
       }
     } catch (IOException | IllegalArgumentException ex) {
@@ -488,7 +495,7 @@ public class VipLoyaltyAllocation {
     try {
       Files.createDirectories(WAITING_GUEST_FILE.getParent());
         StringBuilder contents = new StringBuilder(
-          "memberId\tmemberName\troomType\tnights\tarrivalSequence\twaitingSince\n");
+          "memberId\tmemberName\troomType\tnights\tarrivalSequence\trequestedCheckInDate\twaitingSince\n");
       for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
         LoyaltyMember member = waitingGuests.getEntry(position);
         contents.append(clean(member.getMemberId())).append('\t')
@@ -496,6 +503,7 @@ public class VipLoyaltyAllocation {
             .append(clean(member.getRequestedRoomType())).append('\t')
             .append(member.getNumberOfNights()).append('\t')
             .append(member.getArrivalSequence()).append('\t')
+            .append(member.getRequestedCheckInDate()).append('\t')
             .append(member.getWaitingSince()).append('\n');
       }
       Files.write(WAITING_GUEST_FILE, contents.toString().getBytes(StandardCharsets.UTF_8));
@@ -621,6 +629,20 @@ public class VipLoyaltyAllocation {
     return String.format("%-5d %-12s %-20s %-12s %-15s %-8d %-13s %-12s", rank, member.getMemberId(),
       member.getGuestName(), member.getTier(), member.getRequestedRoomType(),
       member.getNumberOfNights(), member.getWaitingSince(), waitingDays + " day(s)");
+  }
+
+  private String buildBookingSummary(LoyaltyMember member) {
+    LocalDate checkOutDate = member.getRequestedCheckInDate()
+        .plusDays(member.getNumberOfNights());
+    return String.format("%-24s : %s%n%-24s : %s%n%-24s : %s%n%-24s : %s%n"
+            + "%-24s : %s%n%-24s : %d night(s)%n%-24s : %s%n",
+        "Member", member.getGuestName() + " (" + member.getMemberId() + ")",
+        "Loyalty Tier", member.getTier(),
+        "Requested Room Type", member.getRequestedRoomType(),
+        "Requested Check-In Date", member.getRequestedCheckInDate(),
+        "Requested Check-Out Date", checkOutDate,
+        "Length of Stay", member.getNumberOfNights(),
+        "Booking Created", member.getWaitingSince());
   }
 
   private void pause() { MessageUI.pressEnterToContinue(); }

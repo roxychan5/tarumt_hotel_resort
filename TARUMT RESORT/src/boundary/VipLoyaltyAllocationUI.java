@@ -141,12 +141,42 @@ public class VipLoyaltyAllocationUI {
     return inputRoomType("REQUESTED ROOM TYPE", "Select requested room type (1-6): ", false);
   }
 
-  public int inputNumberOfNights() {
+  public LocalDate inputRequestedCheckOutDate(LocalDate checkInDate) {
     while (true) {
-      int nights = readInt("How many nights will the member stay: ");
-      if (nights > 0 && nights <= 365) return nights;
-      System.out.println("Please enter a stay between 1 and 365 nights.");
+      String dateText = readText("Enter requested check-out date (yyyy-MM-dd): ");
+      try {
+        LocalDate checkOutDate = LocalDate.parse(dateText);
+        if (!checkOutDate.isAfter(checkInDate)) {
+          System.out.println("Check-out date must be after check-in date (" + checkInDate + ").");
+        } else {
+          return checkOutDate;
+        }
+      } catch (DateTimeParseException ex) {
+        System.out.println("Please enter a valid date in yyyy-MM-dd format.");
+      }
     }
+  }
+
+  public LocalDate inputRequestedCheckInDate() {
+    LocalDate today = MalaysiaTime.now().toLocalDate();
+    while (true) {
+      String dateText = readText("Enter requested check-in date (yyyy-MM-dd): ");
+      try {
+        LocalDate checkInDate = LocalDate.parse(dateText);
+        if (checkInDate.isBefore(today)) {
+          System.out.println("Requested check-in date cannot be before today (" + today + ").");
+        } else {
+          return checkInDate;
+        }
+      } catch (DateTimeParseException ex) {
+        System.out.println("Please enter a valid date in yyyy-MM-dd format.");
+      }
+    }
+  }
+
+  public void displayBookingSummary(String output) {
+    ConsoleUI.displaySubHeader("VIP BOOKING SUMMARY");
+    System.out.println(output);
   }
 
   public LocalDateTime inputCheckInAt() {
