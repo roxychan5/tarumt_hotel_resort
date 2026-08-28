@@ -1,6 +1,9 @@
 package boundary;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import utility.ConsoleUI;
+import utility.MalaysiaTime;
 import utility.MessageUI;
 
 /**
@@ -35,6 +38,12 @@ public class LoyaltyRewardsUI {
     private static final String WH = ConsoleUI.WHITE;
     private static final String RD = ConsoleUI.RED;
 
+    /** Set -Dtarumt.animations=false when instant output is preferred. */
+    private static final boolean ANIMATIONS_ENABLED =
+            !"false".equalsIgnoreCase(
+                    System.getProperty("tarumt.animations", "true"));
+    private static final int DEFAULT_PROGRESS_WIDTH = 34;
+
     // ======================================================================
     // Main Menu
     // ======================================================================
@@ -43,7 +52,7 @@ public class LoyaltyRewardsUI {
         ConsoleUI.clearScreen();
         printMenu();
         return ConsoleUI.readMenuChoice(
-                "  " + SB + B + "  Select option (0-11) > " + R + " ");
+                "  " + SB + B + "  Select option (0-12) > " + R + " ");
     }
 
     private void printMenu() {
@@ -59,18 +68,19 @@ public class LoyaltyRewardsUI {
         printEntry(" 4", "Redeem Points",             "Submit a redemption request");
         printEntry(" 5", "Edit Member",               "Search ArrayList -> modify name or email");
         printEntry(" 6", "Delete Member",             "Search ArrayList -> remove from ADT");
+        printEntry(" 7", "Delete History",            "Restore deleted members within 30 days");
         printBorder();
 
         printSectionLabel("NOTIFICATIONS  &  SEARCH");
-        printEntry(" 7", "Expiring Points Alerts",   "Notifications due within 30 days");
-        printEntry(" 8", "View All Members",          "Display all registered loyalty members");
-        printEntry(" 9", "Search Member",             "Search member by ID or name");
+        printEntry(" 8", "Expiring Points Alerts",   "Notifications due within 30 days");
+        printEntry(" 9", "View All Members",          "Display all registered loyalty members");
+        printEntry("10", "Search Member",             "Search member by ID or name");
         printBorder();
 
         printSectionLabel("REPORTS");
-        printEntryHighlight("10", "Tier and Points Analysis",
+        printEntryHighlight("11", "Tier and Points Analysis",
                 "Bubble sort + filter by tier & points  | PDF");
-        printEntryHighlight("11", "Points Expiry and Risk Report",
+        printEntryHighlight("12", "Points Expiry and Risk Report",
                 "Expiry alerts + high-balance members   | PDF");
         printBorder();
 
@@ -269,6 +279,22 @@ public class LoyaltyRewardsUI {
         }
     }
 
+    /** Returns 1 to restore a deleted member, or 0 to return. */
+    public int inputDeleteHistoryChoice() {
+        System.out.println();
+        System.out.println("  " + SB + B + "DELETE HISTORY ACTION" + R);
+        System.out.println("  " + rep(HL, 40));
+        System.out.println("  " + SB + "[1]" + R + " Restore a deleted member");
+        System.out.println("  " + RD + B + "[0]" + R + " Return to loyalty menu");
+        System.out.println();
+        while (true) {
+            int choice = ConsoleUI.readMenuChoice("  Select action (0-1) > ");
+            if (choice == 0 || choice == 1) return choice;
+            MessageUI.displayErrorMessage(
+                    "Invalid delete-history action: enter 1 to restore or 0 to return.");
+        }
+    }
+
     /**
      * Displays the tier threshold table, then asks for a new points value.
      * Returns -1 if the user enters "0" to cancel.
@@ -340,6 +366,12 @@ public class LoyaltyRewardsUI {
      */
     public void displayEditResult(String memberId, String field,
             String oldValue, String newValue, String newTier) {
+        try {
+            animateNumberTransition("Updating reward balance",
+                    Integer.parseInt(oldValue), Integer.parseInt(newValue));
+        } catch (NumberFormatException ignored) {
+            // The final values are still displayed normally below.
+        }
         System.out.println();
         printBorder();
         rowV(centerPad(B + C + "MEMBER UPDATED" + R,
@@ -351,6 +383,12 @@ public class LoyaltyRewardsUI {
         rowKV("Before",    oldValue,         false);
         rowKV("After",     newValue,         false);
         rowKV("New Tier",  colorTier(newTier), false);
+        rowBlank();
+        try {
+            displayTierProgress(Integer.parseInt(newValue), newTier);
+        } catch (NumberFormatException ignored) {
+            // This overload is normally used for numeric point updates.
+        }
         rowBlank();
         printBorder();
         System.out.println();
@@ -373,8 +411,8 @@ public class LoyaltyRewardsUI {
         rowKV("Tier",      colorTier(tier),        false);
         rowKV("Points",    String.valueOf(points), false);
         rowBlank();
-        rowV("  " + RD + B + "[!!] This action cannot be undone." + R,
-                2 + "[!!] This action cannot be undone.".length());
+        rowV("  " + RD + B + "[!!] This member will move to Delete History for 30 days." + R,
+                2 + "[!!] This member will move to Delete History for 30 days.".length());
         rowBlank();
         printBorder();
         System.out.println();
@@ -382,6 +420,33 @@ public class LoyaltyRewardsUI {
                 + "? (y/n) > " + R);
         String answer = ConsoleUI.readLine().trim().toLowerCase();
         return answer.equals("y") || answer.equals("yes");
+    }
+
+    // ======================================================================
+    // Registration helper
+    // ======================================================================
+
+    /**
+     * Shows the system-generated member ID inside the bordered box before
+     * the user is asked to fill in the remaining registration details.
+     */
+    public void displayAutoGeneratedId(String memberId) {
+        System.out.println();
+        printBorder();
+        rowV(centerPad(B + C + "REGISTER NEW MEMBER" + R,
+                "REGISTER NEW MEMBER".length()), BOX_W);
+        printBorder();
+        rowBlank();
+        rowV("  " + DM + "Member ID is assigned automatically by the system." + R,
+                2 + "Member ID is assigned automatically by the system.".length());
+        rowBlank();
+        rowKV("Member ID", memberId, true);
+        rowBlank();
+        rowV("  " + IB + "Please fill in the following details to complete registration." + R,
+                2 + "Please fill in the following details to complete registration.".length());
+        rowBlank();
+        printBorder();
+        System.out.println();
     }
 
     // ======================================================================
@@ -397,12 +462,20 @@ public class LoyaltyRewardsUI {
         System.out.println("  " + DM + "(Enter 0 to cancel)" + R);
         while (true) {
             System.out.print("  " + SB + "Member ID" + R + " (e.g. LM001) > ");
-            String value = ConsoleUI.readLine().trim();
-            if (value.equals("0")) return null;
-            value = value.toUpperCase();
+            String raw = ConsoleUI.readLine().trim();
+            if (raw.equals("0")) return null;
+            String value = raw.toUpperCase();
             if (value.matches("LM[0-9]{3,6}")) return value;
-            MessageUI.displayErrorMessage(
-                    "Member ID must be LM followed by 3 to 6 digits.  Enter 0 to cancel.");
+            if (value.isEmpty()) {
+                MessageUI.displayErrorMessage(
+                        "Member ID cannot be empty.  Format: LM followed by 3-6 digits (e.g. LM001).");
+            } else if (!value.startsWith("LM")) {
+                MessageUI.displayErrorMessage(
+                        "\"" + raw + "\" is invalid — Member ID must start with LM (e.g. LM001).");
+            } else {
+                MessageUI.displayErrorMessage(
+                        "\"" + raw + "\" is invalid — digits after LM must be 3 to 6 characters (e.g. LM001).");
+            }
         }
     }
 
@@ -433,8 +506,15 @@ public class LoyaltyRewardsUI {
             String value = ConsoleUI.readLine().trim();
             if (value.equals("0")) return null;
             if (value.matches("[A-Za-z][A-Za-z .'-]{1,59}")) return value;
-            MessageUI.displayErrorMessage(
-                    "Enter a valid member name.  Enter 0 to cancel.");
+            if (value.isEmpty()) {
+                MessageUI.displayErrorMessage("Name cannot be empty.  Enter a valid full name.");
+            } else if (!value.matches("[A-Za-z].*")) {
+                MessageUI.displayErrorMessage(
+                        "\"" + value + "\" is invalid — name must start with a letter.");
+            } else {
+                MessageUI.displayErrorMessage(
+                        "\"" + value + "\" is invalid — only letters, spaces, dots, hyphens and apostrophes are allowed (2-60 chars).");
+            }
         }
     }
 
@@ -449,8 +529,18 @@ public class LoyaltyRewardsUI {
             String value = ConsoleUI.readLine().trim();
             if (value.equals("0")) return null;
             if (value.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) return value;
-            MessageUI.displayErrorMessage(
-                    "Enter a valid email address.  Enter 0 to cancel.");
+            if (value.isEmpty()) {
+                MessageUI.displayErrorMessage("Email cannot be empty.  Example: john@example.com");
+            } else if (!value.contains("@")) {
+                MessageUI.displayErrorMessage(
+                        "\"" + value + "\" is missing '@'.  Example: john@example.com");
+            } else if (!value.contains(".")) {
+                MessageUI.displayErrorMessage(
+                        "\"" + value + "\" is missing a domain (e.g. .com).  Example: john@example.com");
+            } else {
+                MessageUI.displayErrorMessage(
+                        "\"" + value + "\" is not a valid email address.  Example: john@example.com");
+            }
         }
     }
 
@@ -556,6 +646,7 @@ public class LoyaltyRewardsUI {
     public void displayMemberProfile(String memberId, String name,
             String email, String tier, int points, String expiry,
             String promotion) {
+        animateFadeIn("Loading loyalty member profile");
         System.out.println();
         printBorder();
         rowV(centerPad(B + C + "LOYALTY MEMBER PROFILE" + R,
@@ -570,6 +661,9 @@ public class LoyaltyRewardsUI {
         rowKV("Points Expire", expiry,                false);
         rowKV("Promotion",     promotion,             false);
         rowBlank();
+        displayTierProgress(points, tier);
+        displayValidityProgress(expiry);
+        rowBlank();
         printBorder();
         System.out.println();
     }
@@ -577,6 +671,9 @@ public class LoyaltyRewardsUI {
     /** Shows the result of an Add Points or Redeem Points operation. */
     public void displayPointsResult(String memberId, String operation,
             int delta, int newTotal, String newTier) {
+        int oldTotal = Math.max(0, newTotal - delta);
+        animateNumberTransition("Updating reward balance", oldTotal, newTotal);
+        animateFadeIn(operation);
         System.out.println();
         printBorder();
         rowV(centerPad(B + C + operation.toUpperCase() + R,
@@ -588,6 +685,8 @@ public class LoyaltyRewardsUI {
         rowKV("New Balance",   String.valueOf(newTotal),          true);
         rowKV("New Tier",      colorTier(newTier),                false);
         rowBlank();
+        displayTierProgress(newTotal, newTier);
+        rowBlank();
         printBorder();
         System.out.println();
     }
@@ -595,6 +694,146 @@ public class LoyaltyRewardsUI {
     // ======================================================================
     // Private utilities
     // ======================================================================
+
+    /** Displays progress within the member's current tier using real thresholds. */
+    private void displayTierProgress(int points, String tier) {
+        int floor = tierFloor(tier);
+        int target = nextTierThreshold(tier);
+        String nextTier = nextTierName(tier);
+        int percentage;
+        String milestone;
+
+        if (target < 0) {
+            percentage = 100;
+            milestone = "Maximum tier reached";
+        } else {
+            int range = Math.max(1, target - floor);
+            percentage = clampPercentage((int) Math.min(100L,
+                    ((long) points - floor) * 100L / range));
+            milestone = Math.max(0, target - points) + " points to " + nextTier;
+        }
+
+        rowSubLabel("TIER PROGRESS");
+        rowProgress(percentage);
+        rowKV("Next Milestone", milestone, false);
+    }
+
+    /** Displays the remaining portion of the standard one-year points validity. */
+    private void displayValidityProgress(String expiry) {
+        try {
+            LocalDate expiryDate = LocalDate.parse(expiry);
+            long days = ChronoUnit.DAYS.between(
+                    MalaysiaTime.now().toLocalDate(), expiryDate);
+            int percentage = clampPercentage((int) Math.floor(days * 100.0 / 365.0));
+            String label = days < 0
+                    ? "Expired " + Math.abs(days) + " day(s) ago"
+                    : days + " day(s) remaining";
+
+            rowBlank();
+            rowSubLabel("POINTS VALIDITY");
+            rowProgress(percentage);
+            rowKV("Validity", label, false);
+        } catch (RuntimeException ignored) {
+            // A legacy/unparseable date remains visible in the profile above.
+        }
+    }
+
+    private void rowProgress(int percentage) {
+        int width = responsiveProgressWidth();
+        int filled = (int) Math.round(width * clampPercentage(percentage) / 100.0);
+        String bar = "[" + C + rep('=', filled) + R
+                + DM + rep('-', width - filled) + R + "] "
+                + String.format("%3d%%", clampPercentage(percentage));
+        rowV("  " + bar, 2 + width + 7);
+    }
+
+    /** Keeps added visual elements usable in narrower terminals. */
+    private int responsiveProgressWidth() {
+        String columns = System.getenv("COLUMNS");
+        if (columns == null) return DEFAULT_PROGRESS_WIDTH;
+        try {
+            int terminalColumns = Integer.parseInt(columns.trim());
+            return Math.max(18, Math.min(DEFAULT_PROGRESS_WIDTH, terminalColumns - 46));
+        } catch (NumberFormatException ignored) {
+            return DEFAULT_PROGRESS_WIDTH;
+        }
+    }
+
+    private int clampPercentage(int percentage) {
+        return Math.max(0, Math.min(100, percentage));
+    }
+
+    private int tierFloor(String tier) {
+        if (tier == null) return 0;
+        switch (tier.toUpperCase()) {
+            case "GOLD": return 1000;
+            case "PLATINUM": return 3000;
+            case "DIAMOND": return 6000;
+            case "ELITE": return 10000;
+            default: return 0;
+        }
+    }
+
+    private int nextTierThreshold(String tier) {
+        if (tier == null) return 1000;
+        switch (tier.toUpperCase()) {
+            case "SILVER": return 1000;
+            case "GOLD": return 3000;
+            case "PLATINUM": return 6000;
+            case "DIAMOND": return 10000;
+            default: return -1;
+        }
+    }
+
+    private String nextTierName(String tier) {
+        if (tier == null) return "GOLD";
+        switch (tier.toUpperCase()) {
+            case "SILVER": return "GOLD";
+            case "GOLD": return "PLATINUM";
+            case "PLATINUM": return "DIAMOND";
+            case "DIAMOND": return "ELITE";
+            default: return "ELITE";
+        }
+    }
+
+    /** A short three-stage ANSI fade; it never affects the final layout. */
+    private void animateFadeIn(String text) {
+        if (!ANIMATIONS_ENABLED) return;
+        String[] shades = {DM, IB, C + B};
+        for (String shade : shades) {
+            System.out.print("\r  " + shade + text + R);
+            System.out.flush();
+            animationDelay(35);
+        }
+        clearAnimationLine();
+    }
+
+    /** Smoothly interpolates a point balance in a maximum of ten short frames. */
+    private void animateNumberTransition(String label, int from, int to) {
+        if (!ANIMATIONS_ENABLED || from == to) return;
+        final int frames = 10;
+        for (int frame = 0; frame <= frames; frame++) {
+            long value = from + Math.round((to - from) * (frame / (double) frames));
+            System.out.print("\r  " + IB + label + R + "  "
+                    + B + String.format("%,d", value) + R + " points");
+            System.out.flush();
+            animationDelay(25);
+        }
+        clearAnimationLine();
+    }
+
+    private void clearAnimationLine() {
+        System.out.print("\r\033[2K");
+        System.out.flush();
+    }
+
+    private void animationDelay(long milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
 
     /**
      * Prints one tier row inside the threshold table.

@@ -1,0 +1,1 @@
+memberId	name	email	tier	points	pointsExpiryDate	deletedDate
