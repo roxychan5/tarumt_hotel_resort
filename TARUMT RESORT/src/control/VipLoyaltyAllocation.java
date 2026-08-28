@@ -23,6 +23,7 @@ import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
@@ -807,12 +808,15 @@ public class VipLoyaltyAllocation {
   }
 
   private String formatMember(LoyaltyMember member, int rank) {
-    long waitingDays = Math.max(0, ChronoUnit.DAYS.between(member.getWaitingSince(),
-        MalaysiaTime.now().toLocalDate()));
+    Duration waitingDuration = Duration.between(member.getWaitingSince().atStartOfDay(),
+      MalaysiaTime.now());
+    long waitingHours = Math.max(0, waitingDuration.toHours());
+    long waitingDays = waitingHours / 24;
+    long remainingHours = waitingHours % 24;
     return String.format("%-10s %-10s %-5d %-12s %-18s %-11s %-13s %-8d %-13s %-13s %-12s",
       member.getBookingId(), member.getConfirmationNumber(), rank, member.getMemberId(), member.getGuestName(), member.getTier(),
       member.getRequestedRoomType(), member.getNumberOfNights(), member.getRequestedCheckInDate(),
-      member.getWaitingSince(), waitingDays + " day(s)");
+      member.getWaitingSince(), waitingDays + " day(s) " + remainingHours + " hour(s)");
   }
 
   private String buildBookingSummary(LoyaltyMember member) {
