@@ -23,7 +23,7 @@ public class VipLoyaltyAllocationUI {
 
   public int getMenuChoice() {
     displayMenu();
-    return ConsoleUI.readMenuChoice("  " + SKY_BLUE + BOLD + "Select option (0-7) > " + RESET);
+    return ConsoleUI.readMenuChoice("  " + SKY_BLUE + BOLD + "Select option (0-8) > " + RESET);
   }
 
   // Displays the VIP Allocation menu without requesting another menu selection. //
@@ -43,11 +43,12 @@ public class VipLoyaltyAllocationUI {
     printSection("ROOM ALLOCATION");
     printEntry("4", "Allocate Available Room", "Assign room to next priority guest");
     printEntry("5", "View Allocated Room Board", "View member allocated rooms details");
+    printEntry("6", "Cancel Waiting Booking", "Cancel a booking before room allocation");
     printBorder();
 
     printSection("REPORTS & ANALYTICS");
-    printHighlightEntry("6", "Priority Waiting List Report", "Filter guests by tier and room type");
-    printHighlightEntry("7", "Allocation Performance Report", "Review completed VIP allocations");
+    printHighlightEntry("7", "Priority Waiting List Report", "Filter guests by tier and room type");
+    printHighlightEntry("8", "Allocation Performance Report", "Review completed VIP allocations");
     printBorder();
 
     printBack();
@@ -141,6 +142,21 @@ public class VipLoyaltyAllocationUI {
     return inputRoomType("REQUESTED ROOM TYPE", "Select requested room type (1-6): ", false);
   }
 
+  public String inputPaymentMethod() {
+    System.out.println("PAYMENT METHOD:");
+    System.out.println("  1. Credit / Debit Card");
+    System.out.println("  2. Online Banking");
+    System.out.println("  3. E-Wallet");
+    while (true) {
+      switch (readInt("Select payment method (1-3): ")) {
+        case 1: return "Credit / Debit Card";
+        case 2: return "Online Banking";
+        case 3: return "E-Wallet";
+        default: System.out.println("Please select a payment method from 1 to 3.");
+      }
+    }
+  }
+
   public LocalDate inputRequestedCheckOutDate(LocalDate checkInDate) {
     while (true) {
       String dateText = readText("Enter requested check-out date (yyyy-MM-dd): ");
@@ -177,6 +193,18 @@ public class VipLoyaltyAllocationUI {
   public void displayBookingSummary(String output) {
     ConsoleUI.displaySubHeader("VIP BOOKING SUMMARY");
     System.out.println(output);
+  }
+
+  public void displayPaymentInformation(String output) {
+    ConsoleUI.displaySubHeader("PAYMENT INFORMATION");
+    System.out.println(output);
+  }
+
+  public boolean confirmBookingCancellation(String memberId) {
+    System.out.print("  " + RED + BOLD + "Confirm cancellation for booking " + memberId
+        + "? (y/n) > " + RESET);
+    String answer = ConsoleUI.readLine().trim().toLowerCase();
+    return answer.equals("y") || answer.equals("yes");
   }
 
   public LocalDateTime inputCheckInAt() {
@@ -219,12 +247,12 @@ public class VipLoyaltyAllocationUI {
 
   private String inputRoomType(String title, String prompt, boolean allowCancel) {
     System.out.println(title + ":");
-    System.out.println("  1. Standard");
-    System.out.println("  2. Deluxe");
-    System.out.println("  3. Suite");
-    System.out.println("  4. Family");
-    System.out.println("  5. Executive");
-    System.out.println("  6. Presidential");
+    System.out.println("  1. Standard      - RM 150.00 per night");
+    System.out.println("  2. Deluxe        - RM 250.00 per night");
+    System.out.println("  3. Suite         - RM 400.00 per night");
+    System.out.println("  4. Family        - RM 350.00 per night");
+    System.out.println("  5. Executive     - RM 550.00 per night");
+    System.out.println("  6. Presidential  - RM 1000.00 per night");
     if (allowCancel) System.out.println("  0. Cancel");
     while (true) {
       switch (readInt(prompt)) {

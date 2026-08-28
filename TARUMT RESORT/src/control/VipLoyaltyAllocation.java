@@ -38,6 +38,8 @@ public class VipLoyaltyAllocation {
 
   private static final DateTimeFormatter CHECKOUT_DEADLINE_FORMAT =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+  private static final DateTimeFormatter PAYMENT_TIME_FORMAT =
+      DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
   private final VipLoyaltyAllocationUI vipUI = new VipLoyaltyAllocationUI();
   private final LoyaltyRewardsService loyaltyRewardsService;
@@ -64,8 +66,9 @@ public class VipLoyaltyAllocation {
         case 3: vipUI.displayPriorityQueue(buildQueueDisplay()); pause(); break;
         case 4: allocateRoom(); break;
         case 5: viewAllocatedRoomBoard(); break;
-        case 6: generateWaitingListReport(); break;
-        case 7: generateAllocationPerformanceReport(); break;
+        case 6: cancelBooking(); break;
+        case 7: generateWaitingListReport(); break;
+        case 8: generateAllocationPerformanceReport(); break;
         default: MessageUI.displayInvalidChoiceMessage();
       }
     } while (choice != 0);
@@ -110,13 +113,17 @@ public class VipLoyaltyAllocation {
           requestedCheckOutDate);
       LoyaltyMember member = new LoyaltyMember(registeredMember, roomType, numberOfNights,
           ++arrivalSequence, requestedCheckInDate, MalaysiaTime.now().toLocalDate());
+        double nightlyPrice = getRoomPrice(roomType);
+        double totalAmount = nightlyPrice * numberOfNights;
       vipUI.displayBookingSummary(buildBookingSummary(member));
+        String paymentMethod = vipUI.inputPaymentMethod();
+        vipUI.displayPaymentInformation(buildPaymentInformation(member, nightlyPrice,
+          totalAmount, paymentMethod));
       waitingGuests.add(member);
       saveWaitingGuests();
-      MessageUI.displaySuccessMessage("Priority guest " + registeredMember.getName()
-          + " with member ID " + registeredMember.getMemberId() + " is a "
-          + registeredMember.getTier() + " member requesting a " + roomType
-          + " room for " + numberOfNights + " night(s). Queue reordered automatically.");
+        MessageUI.displaySuccessMessage("Payment successful. VIP booking created for "
+          + registeredMember.getName() + " (" + registeredMember.getMemberId()
+          + "). The booking has been added to the priority waiting list.");
         ConsoleUI.displayDetailPanel("PRIORITY GUEST ADDED",
           "Member name: " + registeredMember.getName(),
           "Member ID: " + registeredMember.getMemberId(),
@@ -133,6 +140,51 @@ public class VipLoyaltyAllocation {
     vipUI.displayNextGuest(member == null ? "  No priority guests are waiting."
         : formatMember(member, 1));
     pause();
+  }
+
+  private void cancelBooking() {
+    if (waitingGuests.isEmpty()) {
+      MessageUI.displayErrorMessage("No VIP booking is waiting for allocation.");
+      pause();
+      return;
+    }
+
+    vipUI.displayPriorityQueue(buildQueueDisplay());
+    String memberId = vipUI.inputMemberId();
+    if (memberId.isEmpty()) {
+      MessageUI.displayInfoMessage("Booking cancellation cancelled.");
+      pause();
+      return;
+    }
+
+    LoyaltyMember booking = findWaitingGuestByMemberId(memberId);
+    if (booking == null) {
+      MessageUI.displayErrorMessage("No waiting VIP booking was found for member ID " + memberId + ".");
+      pause();
+      return;
+    }
+
+    vipUI.displayBookingSummary(buildBookingSummary(booking));
+    if (!vipUI.confirmBookingCancellation(memberId)) {
+      MessageUI.displayInfoMessage("Booking was not cancelled.");
+      pause();
+      return;
+    }
+
+    if (waitingGuests.removeEntry(booking)) {
+      saveWaitingGuests();
+      MessageUI.displaySuccessMessage("VIP booking cancelled for " + booking.getGuestName()
+          + " (" + booking.getMemberId() + ").");
+    }
+    pause();
+  }
+
+  private LoyaltyMember findWaitingGuestByMemberId(String memberId) {
+    for (int position = 1; position <= waitingGuests.getNumberOfEntries(); position++) {
+      LoyaltyMember member = waitingGuests.getEntry(position);
+      if (member.getMemberId().equalsIgnoreCase(memberId)) return member;
+    }
+    return null;
   }
 
   private void allocateRoom() {
@@ -643,6 +695,35 @@ public class VipLoyaltyAllocation {
         "Requested Check-Out Date", checkOutDate,
         "Length of Stay", member.getNumberOfNights(),
         "Booking Created", member.getWaitingSince());
+  }
+
+  private double getRoomPrice(String roomType) {
+    switch (roomType.toLowerCase()) {
+      case "standard": return 150.00;
+      case "deluxe": return 250.00;
+      case "suite": return 400.00;
+      case "family": return 350.00;
+      case "executive": return 550.00;
+      case "presidential": return 1000.00;
+      default: return 0.00;
+    }
+  }
+
+  private String buildPaymentInformation(LoyaltyMember member, double nightlyPrice,
+      double totalAmount, String paymentMethod) {
+    String paymentId = "PAY-" + MalaysiaTime.now().format(PAYMENT_TIME_FORMAT);
+    return String.format("%-24s : %s%n%-24s : %s%n%-24s : %s%n%-24s : %s%n"
+            + "%-24s : %d night(s)%n%-24s : RM %.2f%n%-24s : RM %.2f%n"
+            + "%-24s : %s%n%-24s : %s%n",
+        "Member", member.getGuestName() + " (" + member.getMemberId() + ")",
+        "Room Type", member.getRequestedRoomType(),
+        "Check-In Date", member.getRequestedCheckInDate(),
+        "Check-Out Date", member.getRequestedCheckInDate().plusDays(member.getNumberOfNights()),
+        "Length of Stay", member.getNumberOfNights(),
+        "Price Per Night", nightlyPrice,
+        "Total Amount", totalAmount,
+        "Payment Method", paymentMethod,
+        "Payment Status", "PAID - " + paymentId);
   }
 
   private void pause() { MessageUI.pressEnterToContinue(); }

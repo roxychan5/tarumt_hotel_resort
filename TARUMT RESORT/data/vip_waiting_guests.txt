@@ -1,8 +1,4 @@
 memberId	memberName	roomType	nights	arrivalSequence	requestedCheckInDate	waitingSince
-LM007	Daniel Tan	Executive	3	9	2026-08-28	2026-08-28
-LM003	Amerie	Presidential	2	4	2026-08-28	2026-08-28
-LM006	Priya Nair	Presidential	3	10	2026-08-28	2026-08-28
+LM001	Huixuan	Family	2	11	2026-08-28	2026-08-28
 LM010	bppp	Presidential	4	8	2026-08-28	2026-08-28
 LM009	ycc	Family	3	7	2026-08-28	2026-08-28
-LM002	Rouxuan	Deluxe	2	3	2026-08-28	2026-08-28
-LM001	Huixuan	Standard	2	2	2026-08-28	2026-08-28
