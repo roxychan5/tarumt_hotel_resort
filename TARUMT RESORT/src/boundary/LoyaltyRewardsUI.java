@@ -49,7 +49,7 @@ public class LoyaltyRewardsUI {
     private void printMenu() {
         System.out.println();
         printBorder();
-        printTitle("LOYALTY  &  REWARDS  SERVICE", "Module : Kwan Hui Xuan");
+        printTitle("LOYALTY  &  REWARDS  SERVICE", "Module : Loyalty Member & Rewards Management");
         printBorder();
 
         printSectionLabel("MEMBER MANAGEMENT");

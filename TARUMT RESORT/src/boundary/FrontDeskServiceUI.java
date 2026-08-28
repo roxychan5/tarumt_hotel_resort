@@ -34,7 +34,7 @@ public class FrontDeskServiceUI {
   private void printMenu() {
     System.out.println();
     printBorder();
-    printTitle("FRONT-DESK  SERVICE", "Module : Amerie Lee");
+    printTitle("FRONT-DESK  SERVICE", "Module : Member Search & Room Status Management");
     printBorder();
 
     printSectionLabel("MEMBER SEARCH  &  ROOM STATUS");

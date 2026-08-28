@@ -55,7 +55,7 @@ public class HousekeepingTaskLogUI {
   private void printMenu() {
     System.out.println();
     printBorder();
-    printTitle("HOUSEKEEPING  &  TASK LOG", "Module : Chan Rou Xuan");
+    printTitle("HOUSEKEEPING  &  TASK LOG", "Module : Task Log & Room Workflow Management");
     printBorder();
 
     printSectionLabel("TASK MANAGEMENT");
