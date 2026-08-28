@@ -28,7 +28,7 @@ public class FrontDeskServiceUI {
     ConsoleUI.clearScreen();
     printMenu();
     return ConsoleUI.readMenuChoice(
-        "  " + SB + B + "  Select option (0-7) > " + R + " ");
+        "  " + SB + B + "  Select option (0-8) > " + R + " ");
   }
 
   private void printMenu() {
@@ -38,7 +38,7 @@ public class FrontDeskServiceUI {
     printBorder();
 
     printSectionLabel("MEMBER SEARCH  &  ROOM STATUS");
-    printEntry(" 1", "Search Member", "Find member by loyalty member ID");
+    printEntry(" 1", "Search Member", "Find member by name or loyalty member ID");
     printEntry(" 2", "Check Room Availability", "Review occupancy and housekeeping status");
     printEntry(" 3", "Check-Out Room", "Release occupied room to housekeeping");
     printBorder();
@@ -46,11 +46,12 @@ public class FrontDeskServiceUI {
     printSectionLabel("ACCOUNT  &  RECORDS");
     printEntry(" 4", "View Member Account", "Show tier, points, expiry and promotion");
     printEntry(" 5", "List All Member Records", "Display records in member ID order");
+    printEntry(" 6", "Check-Out History", "Review recent room check-out records");
     printBorder();
 
     printSectionLabel("MANAGEMENT  REPORTS");
-    printEntryHighlight(" 6", "Report 1: Member Accounts", "BST traversal | loyalty KPI | PDF");
-    printEntryHighlight(" 7", "Report 2: Room Availability", "Housekeeping room status | PDF");
+    printEntryHighlight(" 7", "Report 1: Member Accounts", "BST traversal | loyalty KPI | PDF");
+    printEntryHighlight(" 8", "Report 2: Room Availability", "Housekeeping room status | PDF");
     printBorder();
 
     printBack(" 0", "Back to Main Menu");
@@ -61,6 +62,12 @@ public class FrontDeskServiceUI {
   public String inputMemberId() {
     System.out.print("  " + SB + "Member ID" + R + " (LM001-LM999999, 0 to cancel) > ");
     return ConsoleUI.readLine().trim().toUpperCase();
+  }
+
+  public String inputMemberSearchKey() {
+    System.out.print("  " + SB + "Member name / ID" + R
+        + " (e.g. Andy or LM001, 0 to cancel) > ");
+    return ConsoleUI.readLine().trim();
   }
 
   public String inputRoomNumber() {
@@ -78,6 +85,11 @@ public class FrontDeskServiceUI {
   public void displayMemberDetails(RewardsMember memberRecord) {
     sectionHeader("COMPLETE MEMBER INFORMATION", "Linked loyalty member record.");
     System.out.println(toMemberDetailsString(memberRecord));
+  }
+
+  public void displayMemberSearchResults(String output) {
+    sectionHeader("MEMBER SEARCH RESULTS", "Matches by loyalty member ID or guest name.");
+    System.out.println(output);
   }
 
   public void displayMemberAccountDetails(RewardsMember memberRecord) {
@@ -104,6 +116,17 @@ public class FrontDeskServiceUI {
     for (String line : output.split("\r?\n")) {
       System.out.println(RD + line + R);
     }
+  }
+
+  public void displayCheckoutAvailability(String output) {
+    sectionHeader("ROOM AVAILABILITY FOR CHECK-OUT",
+        "Current room board from housekeeping records.");
+    System.out.println(output);
+  }
+
+  public void displayCheckoutHistory(String output) {
+    sectionHeader("CHECK-OUT HISTORY", "Newest matching room check-out records first.");
+    System.out.println(output);
   }
 
   public boolean confirmCheckout(String roomNumber) {

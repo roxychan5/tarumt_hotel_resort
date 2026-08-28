@@ -48,7 +48,7 @@ public class FrontDeskService {
           MessageUI.displayInfoMessage("Returning to main menu...");
           break;
         case 1:
-          searchMemberById();
+          searchMember();
           break;
         case 2:
           checkRoomAvailability();
@@ -64,9 +64,12 @@ public class FrontDeskService {
           MessageUI.pressEnterToContinue();
           break;
         case 6:
-          memberAccountReport();
+          viewCheckoutHistory();
           break;
         case 7:
+          memberAccountReport();
+          break;
+        case 8:
           guestsRoomAvailabilityReport();
           break;
         default:
@@ -75,11 +78,37 @@ public class FrontDeskService {
     } while (choice != 0);
   }
 
-  private void searchMemberById() {
-    RewardsMember memberRecord = promptForMemberRecord(false);
-    if (memberRecord == null) return;
-    frontDeskUI.displayMemberDetails(memberRecord);
-    MessageUI.pressEnterToContinue();
+  private void searchMember() {
+    while (true) {
+      String searchKey = frontDeskUI.inputMemberSearchKey();
+      if (searchKey.equalsIgnoreCase("0")) {
+        MessageUI.displayInfoMessage("Member search cancelled.");
+        return;
+      }
+
+      if (searchKey.trim().isEmpty()) {
+        frontDeskUI.displaySearchResult(
+            "  Enter a member name or loyalty member ID, or enter 0 to cancel.");
+        continue;
+      }
+
+      if (isValidMemberId(searchKey.toUpperCase())) {
+        RewardsMember memberRecord = memberSearchTree.search(searchKey.toUpperCase());
+        if (memberRecord == null) {
+          frontDeskUI.displaySearchResult(
+              "  No member record found for ID: " + searchKey.toUpperCase()
+              + "\n  Try again, or enter 0 to cancel.");
+          continue;
+        }
+        frontDeskUI.displayMemberDetails(memberRecord);
+      } else {
+        ListInterface<RewardsMember> matches = findMembersByName(searchKey);
+        frontDeskUI.displayMemberSearchResults(formatMemberSearchResults(matches));
+      }
+
+      MessageUI.pressEnterToContinue();
+      return;
+    }
   }
 
   private void checkRoomAvailability() {
@@ -114,6 +143,7 @@ public class FrontDeskService {
 
   private void checkOutRoom() {
     ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
+    frontDeskUI.displayCheckoutAvailability(formatRoomAvailabilityBoard(roomList));
     while (true) {
       String roomNumber = frontDeskUI.inputRoomNumber();
       if (roomNumber.equalsIgnoreCase("0")) {
@@ -158,6 +188,7 @@ public class FrontDeskService {
       recordCheckoutStatusChange(room.getRoomNumber(), previousStatus);
 
       frontDeskUI.displayCheckoutResult(formatRoomAvailability(room));
+      frontDeskUI.displayCheckoutAvailability(formatRoomAvailabilityBoard(roomList));
       MessageUI.displaySuccessMessage(
           "Room " + room.getRoomNumber() + " checked out and marked Dirty for housekeeping.");
       MessageUI.pressEnterToContinue();
@@ -169,6 +200,12 @@ public class FrontDeskService {
     RewardsMember memberRecord = promptForMemberRecord(true);
     if (memberRecord == null) return;
     frontDeskUI.displayMemberAccountDetails(memberRecord);
+    MessageUI.pressEnterToContinue();
+  }
+
+  private void viewCheckoutHistory() {
+    StackInterface<StatusChangeRecord> history = housekeepingDAO.retrieveHistory();
+    frontDeskUI.displayCheckoutHistory(formatCheckoutHistory(history));
     MessageUI.pressEnterToContinue();
   }
 
@@ -434,30 +471,52 @@ public class FrontDeskService {
 
   private RewardsMember promptForMemberRecord(boolean accountLookup) {
     while (true) {
-      String memberId = frontDeskUI.inputMemberId();
-      if (memberId.equalsIgnoreCase("0")) {
+      String searchKey = frontDeskUI.inputMemberSearchKey();
+      if (searchKey.equalsIgnoreCase("0")) {
         MessageUI.displayInfoMessage(accountLookup
             ? "Member account lookup cancelled."
             : "Member search cancelled.");
         return null;
       }
 
-      if (!isValidMemberId(memberId)) {
+      if (searchKey.trim().isEmpty()) {
         displayMemberIdInputMessage(accountLookup,
-            "  Member ID must be LM followed by 3 to 6 digits, for example LM001.\n"
-            + "  Enter a valid member ID, or enter 0 to cancel.");
+            "  Enter a member name or loyalty member ID, or enter 0 to cancel.");
         continue;
       }
 
-      RewardsMember memberRecord = memberSearchTree.search(memberId);
-      if (memberRecord == null) {
+      if (isValidMemberId(searchKey.toUpperCase())) {
+        RewardsMember memberRecord = memberSearchTree.search(searchKey.toUpperCase());
+        if (memberRecord == null) {
+          displayMemberIdInputMessage(accountLookup,
+              "  No member record found for ID: " + searchKey.toUpperCase()
+              + "\n  Try again, or enter 0 to cancel.");
+          continue;
+        }
+        return memberRecord;
+      }
+
+      if (searchKey.toUpperCase().startsWith("LM")) {
         displayMemberIdInputMessage(accountLookup,
-            "  No member record found for ID: " + memberId
-            + "\n  Try again, or enter 0 to cancel.");
+            "  Member ID must be LM followed by 3 digits, for example LM001.\n"
+            + "  Or enter a guest name to search by name.");
         continue;
       }
 
-      return memberRecord;
+      ListInterface<RewardsMember> matches = findMembersByName(searchKey);
+      if (matches.getNumberOfEntries() == 0) {
+        displayMemberIdInputMessage(accountLookup,
+            "  No member name matched: " + searchKey
+            + "\n  Try another name or member ID, or enter 0 to cancel.");
+        continue;
+      }
+
+      if (matches.getNumberOfEntries() == 1) {
+        return matches.getEntry(1);
+      }
+
+      frontDeskUI.displayMemberSearchResults(formatMemberSearchResults(matches)
+          + "\n  More than one member matched. Enter a member ID or a more specific name.");
     }
   }
 
@@ -478,6 +537,93 @@ public class FrontDeskService {
         + "\n  Result   : " + getRoomAvailabilityLabel(room);
   }
 
+  private String formatRoomAvailabilityBoard(ListInterface<Room> roomList) {
+    StringBuilder output = new StringBuilder();
+    output.append(String.format("  %-8s %-12s %-7s %-22s %-24s%n",
+        "Room", "Type", "Floor", "Housekeeping Status", "Availability"));
+    output.append("  -------------------------------------------------------------------------------\n");
+
+    int totalRooms = 0;
+    int occupiedRooms = 0;
+    int availableRooms = 0;
+    int unavailableRooms = 0;
+
+    for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
+      Room room = roomList.getEntry(index);
+      if (room.getStatus() == RoomStatus.OCCUPIED) {
+        occupiedRooms++;
+      } else if (room.getStatus() == RoomStatus.READY_FOR_CHECK_IN) {
+        availableRooms++;
+      } else {
+        unavailableRooms++;
+      }
+
+      output.append(String.format("  %-8s %-12s %-7d %-22s %-24s%n",
+          room.getRoomNumber(), room.getRoomType(), room.getFloor(),
+          room.getStatus().getLabel(), getRoomAvailabilityLabel(room)));
+      totalRooms++;
+    }
+
+    if (totalRooms == 0) {
+      output.append("  No room records found.\n");
+    }
+
+    output.append("\n");
+    output.append("  Total rooms                  : ").append(totalRooms).append("\n");
+    output.append("  Occupied / reserved rooms    : ").append(occupiedRooms).append("\n");
+    output.append("  Available for check-in rooms : ").append(availableRooms).append("\n");
+    output.append("  Not available rooms          : ").append(unavailableRooms);
+    return output.toString();
+  }
+
+  private String formatMemberSearchResults(ListInterface<RewardsMember> matches) {
+    StringBuilder output = new StringBuilder();
+    if (matches.getNumberOfEntries() == 0) {
+      return "  No matching member records found.";
+    }
+
+    output.append(String.format("  %-12s %-22s %-12s %-10s %-15s %s%n",
+        "Member ID", "Name", "Tier", "Points", "Expiry", "Email"));
+    output.append("  -------------------------------------------------------------------------------------------\n");
+    for (int index = 1; index <= matches.getNumberOfEntries(); index++) {
+      RewardsMember memberRecord = matches.getEntry(index);
+      output.append(String.format("  %-12s %-22s %-12s %-10d %-15s %s%n",
+          memberRecord.getMemberId(), memberRecord.getName(), memberRecord.getTier(),
+          memberRecord.getPoints(), memberRecord.getPointsExpiryDate(),
+          memberRecord.getEmail()));
+    }
+    output.append("\n  Matching records: ").append(matches.getNumberOfEntries());
+    return output.toString();
+  }
+
+  private String formatCheckoutHistory(StackInterface<StatusChangeRecord> history) {
+    StringBuilder output = new StringBuilder();
+    output.append(String.format("  %-8s %-22s %-22s %-24s %s%n",
+        "Room", "Previous Status", "New Status", "Changed At", "Reason"));
+    output.append("  ------------------------------------------------------------------------------------------------\n");
+
+    int checkoutCount = 0;
+    while (!history.isEmpty()) {
+      StatusChangeRecord record = history.pop();
+      if (!isCheckoutRecord(record)) {
+        continue;
+      }
+
+      output.append(String.format("  %-8s %-22s %-22s %-24s %s%n",
+          record.getRoomNumber(), record.getPreviousStatus().getLabel(),
+          record.getNewStatus().getLabel(), MalaysiaTime.format(record.getChangedAt()),
+          record.getReason()));
+      checkoutCount++;
+    }
+
+    if (checkoutCount == 0) {
+      output.append("  No check-out records found.\n");
+    }
+
+    output.append("\n  Check-out records shown: ").append(checkoutCount);
+    return output.toString();
+  }
+
   private String getRoomAvailabilityLabel(Room room) {
     if (room.getStatus() == RoomStatus.OCCUPIED) return "OCCUPIED / RESERVED";
     return room.getStatus() == RoomStatus.READY_FOR_CHECK_IN
@@ -486,9 +632,27 @@ public class FrontDeskService {
   }
 
   private boolean isValidMemberId(String memberId) {
-    // Keep this rule consistent with Loyalty & Rewards, which supports IDs
-    // from LM001 through IDs with up to six digits.
-    return memberId.matches("LM[0-9]{3,6}");
+    return memberId.matches("LM[0-9]{3}");
+  }
+
+  private ListInterface<RewardsMember> findMembersByName(String searchKey) {
+    ListInterface<RewardsMember> matches = new ArrayList<>();
+    String normalizedSearchKey = searchKey.trim().toLowerCase();
+    for (int index = 1; index <= memberRecords.getNumberOfEntries(); index++) {
+      RewardsMember memberRecord = memberRecords.getEntry(index);
+      if (memberRecord.getName().toLowerCase().contains(normalizedSearchKey)) {
+        matches.add(memberRecord);
+      }
+    }
+    return matches;
+  }
+
+  private boolean isCheckoutRecord(StatusChangeRecord record) {
+    String reason = record.getReason() == null ? "" : record.getReason().toLowerCase();
+    return reason.contains("check-out")
+        || reason.contains("checked out")
+        || (record.getPreviousStatus() == RoomStatus.OCCUPIED
+            && record.getNewStatus() == RoomStatus.DIRTY);
   }
 
   private boolean isValidRoomNumber(String roomNumber) {
