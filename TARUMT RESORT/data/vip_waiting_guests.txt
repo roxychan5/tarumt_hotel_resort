@@ -2,3 +2,4 @@ memberId	memberName	roomType	nights	arrivalSequence	requestedCheckInDate	waiting
 LM001	Huixuan	Family	2	11	2026-08-28	2026-08-28
 LM010	bppp	Presidential	4	8	2026-08-28	2026-08-28
 LM009	ycc	Family	3	7	2026-08-28	2026-08-28
+LM002	Rouxuan	Suite	1	12	2026-08-28	2026-08-28

@@ -208,19 +208,26 @@ public class VipLoyaltyAllocationUI {
   }
 
   public LocalDateTime inputCheckInAt() {
+    return inputCheckInAt(MalaysiaTime.now().toLocalDate());
+  }
+
+  public LocalDateTime inputCheckInAt(LocalDate earliestCheckInDate) {
     LocalDate today = MalaysiaTime.now().toLocalDate();
+    LocalDate earliestAllowedDate = earliestCheckInDate.isAfter(today)
+        ? earliestCheckInDate : today;
     while (true) {
-      String dateText = readText("Enter check-in date (yyyy-MM-dd, Enter for today): ");
+      String dateText = readText("Enter check-in date (yyyy-MM-dd, Enter for "
+          + earliestAllowedDate + "): ");
       LocalDate checkInDate;
       try {
-        checkInDate = dateText.isEmpty() ? today : LocalDate.parse(dateText);
+        checkInDate = dateText.isEmpty() ? earliestAllowedDate : LocalDate.parse(dateText);
       } catch (DateTimeParseException ex) {
         System.out.println("Please enter a valid date in yyyy-MM-dd format.");
         continue;
       }
 
-      if (checkInDate.isBefore(today)) {
-        System.out.println("Check-in date cannot be before today (" + today + ").");
+      if (checkInDate.isBefore(earliestAllowedDate)) {
+        System.out.println("Check-in date cannot be before " + earliestAllowedDate + ".");
         continue;
       }
 

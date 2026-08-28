@@ -210,7 +210,7 @@ public class VipLoyaltyAllocation {
           pause();
           return;
         }
-        LocalDateTime checkInAt = vipUI.inputCheckInAt();
+        LocalDateTime checkInAt = vipUI.inputCheckInAt(member.getRequestedCheckInDate());
         LocalDate checkInDate = checkInAt.toLocalDate();
         LocalDate checkOutDate = checkInDate.plusDays(member.getNumberOfNights());
         LocalDateTime expectedCheckoutAt = LocalDateTime.of(checkOutDate, LocalTime.NOON);
