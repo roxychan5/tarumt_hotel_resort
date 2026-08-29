@@ -34,9 +34,9 @@ public class VipLoyaltyAllocationUI {
     printTitle("VIP & LOYALTY TIER ALLOCATION", "Module : Priority Queue Management");
     printBorder();
 
-    printSection("VIP GUEST QUEUE");
-    printEntry("1", "Add Priority Guest", "Verify member ID and add guest to queue");
-    printEntry("2", "View Next Priority Guest", "Show highest-tier waiting guest");
+    printSection("VIP MEMBER QUEUE");
+    printEntry("1", "Add Priority Member", "Verify member ID and add member to queue");
+    printEntry("2", "View Next Priority Member", "Show highest-tier waiting member");
     printEntry("3", "View Full Priority Queue", "Review current allocation order");
     printBorder();
 
@@ -47,7 +47,7 @@ public class VipLoyaltyAllocationUI {
     printBorder();
 
     printSection("REPORTS & ANALYTICS");
-    printHighlightEntry("7", "Priority Waiting List Report", "Filter guests by tier and room type");
+    printHighlightEntry("7", "Priority Waiting List Report", "Filter members by tier and room type");
     printHighlightEntry("8", "Allocation Performance Report", "Review completed VIP allocations");
     printHighlightEntry("9", "Cancelled Waiting Bookings Report", "Track bookings cancelled before allocation");
     printBorder();
@@ -342,12 +342,12 @@ public class VipLoyaltyAllocationUI {
     System.out.println(output);
   }
 
-  public void displayNextGuest(String details) {
-    ConsoleUI.displaySubHeader("NEXT PRIORITY GUEST");
+  public void displayNextMember(String details) {
+    ConsoleUI.displaySubHeader("NEXT PRIORITY MEMBER");
     System.out.println(details);
   }
 
-  /** Shows every completed VIP room allocation with the guest stay dates. */
+  /** Shows every completed VIP room allocation with the member stay dates. */
   public void displayAllocatedRoomBoard(String output) {
     ConsoleUI.displaySubHeader("VIP ALLOCATED ROOM BOARD");
     System.out.println(output);

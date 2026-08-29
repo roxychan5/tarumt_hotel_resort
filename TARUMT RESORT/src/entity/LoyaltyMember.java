@@ -86,7 +86,7 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
     return confirmationNumber;
   }
 
-  public String getGuestName() { 
+  public String getMemberName() { 
     return loyaltyMember.getName(); 
   }
 

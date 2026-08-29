@@ -4,10 +4,10 @@ package entity;
  * The different stages (lifecycle) a room goes through during cleaning.
  *
  * Imagine a room's "life story":
- *   1. DIRTY     -> the guest checked out, room needs cleaning
+ *   1. DIRTY     -> the member checked out, room needs cleaning
  *   2. CLEANING  -> the housekeeper is currently cleaning it
  *   3. INSPECTED -> a supervisor has checked the cleaning is OK
- *   4. READY     -> the room is ready for the next guest
+ *   4. READY     -> the room is ready for the next member
  *
  * Stored in the Room's "status" field, so the system always knows
  * what stage each room is at. This is an enum (a fixed list of choices),
