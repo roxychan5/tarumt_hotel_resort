@@ -82,6 +82,8 @@ public class TestPdfReports {
     pdf.addBarChart("Tasks by Status", sLabels, sValues, "Number of Tasks");
 
     // Donut — room type
+    // Start a fresh page so the section heading and donut chart stay together.
+    pdf.beginContentPage();
     pdf.addSectionHeading("Room Type Distribution");
     pdf.addDonutChart("Tasks by Room Type",
         new String[]{"Standard","Deluxe","Suite"},

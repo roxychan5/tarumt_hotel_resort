@@ -1146,11 +1146,14 @@ public class HousekeepingTaskLog {
         String[] rtLabels = roomTypeCount.keySet().toArray(new String[0]);
         double[] rtValues = roomTypeCount.values().stream()
             .mapToDouble(Integer::doubleValue).toArray();
+        // The donut chart needs its own page. Starting the page before the
+        // heading prevents a heading from being stranded below page 1.
+        pdf.beginContentPage();
         pdf.addSectionHeading("Room Type Distribution");
         pdf.addDonutChart("Tasks by Room Type", rtLabels, rtValues);
       }
 
-      // Page 2 - the detailed table of matching tasks.
+      // Next page - the detailed table of matching tasks.
       pdf.beginContentPage();
       pdf.addSectionHeading("Detailed Task List (Sorted by Status Priority)");
       pdf.addBodyText(
