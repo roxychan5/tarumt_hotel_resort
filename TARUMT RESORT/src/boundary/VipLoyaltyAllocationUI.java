@@ -41,15 +41,15 @@ public class VipLoyaltyAllocationUI {
     printBorder();
 
     printSection("ROOM ALLOCATION");
-    printEntry("4", "Check In Booking", "Enter booking ID and allocate a ready room");
+    printEntry("4", "Check In Booking", "Check in a member and allocate a room");
     printEntry("5", "View Allocated Room Board", "View member allocated rooms details");
     printEntry("6", "Cancel Waiting Booking", "Cancel a booking before room allocation");
     printBorder();
 
     printSection("REPORTS & ANALYTICS");
-    printHighlightEntry("7", "Priority Waiting List Report", "Filter members by tier and room type");
+    printHighlightEntry("7", "Priority Waiting List Report", "Review Waiting list");
     printHighlightEntry("8", "Allocation Performance Report", "Review completed VIP allocations");
-    printHighlightEntry("9", "Cancelled Waiting Bookings Report", "Track bookings cancelled before allocation");
+    printHighlightEntry("9", "Cancelled Bookings Report", "Review cancelled bookings");
     printBorder();
 
     printBack();
