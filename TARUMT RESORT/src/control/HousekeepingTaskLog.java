@@ -26,12 +26,13 @@ import utility.PdfReportEngine;
 /**
  * The BRAIN of the Housekeeping & Task Log module.
  *
- * This class controls three collections:
+ * This class controls four collections:
  *   1. The room list       - a Linear List ADT (ArrayList), rooms keep
  *                            their registered order.
  *   2. The task log        - a Linear List ADT (ArrayList), tasks keep
  *                            the order they were created in.
- *   3. Undo / Redo history - TWO Stack ADTs (LinkedStack).
+ *   3. Deleted-task history - a Linear List ADT (ArrayList) retained for 30 days.
+ *   4. Undo history       - a Stack ADT (LinkedStack).
  *
  * Easy way to think about each ADT:
  *   - ArrayList (List)  : like a queue of papers in the order you added them.
@@ -1667,9 +1668,8 @@ public class HousekeepingTaskLog {
   }
 
   /**
-   * Pushes a status change onto the undo STACK.
-   * IMPORTANT: we also CLEAR the redo stack, because after a brand-new
-   * change, the old "redo" actions no longer make sense (standard undo/redo).
+   * Pushes a status change onto the undo stack so the latest room update can
+   * be reversed first.
    */
   private void recordStatusChange(String roomNumber, RoomStatus previous,
       RoomStatus current, String reason) {
@@ -1680,7 +1680,7 @@ public class HousekeepingTaskLog {
   }
 
   /**
-   * Ensures an undo/redo record still applies to the room's present state.
+   * Ensures an undo record still applies to the room's present state.
    * A room may have been changed by Front Desk or VIP allocation after the
    * record was created, in which case applying an older record would corrupt
    * the shared room status.
@@ -1808,7 +1808,7 @@ public class HousekeepingTaskLog {
    *   - room list        <- rooms.txt
    *   - task log        <- housekeeping_tasks.txt
    *   - undo stack      <- status_history.txt
-   *   - redo stack      <- redo_history.txt
+   *   - deleted tasks   <- deleted_housekeeping_tasks.txt
    *
    * IMPORTANT BUG FIX: while loading tasks, we remember the HIGHEST task
    * ID number, so new tasks keep counting up (T1004, T1005...) instead of

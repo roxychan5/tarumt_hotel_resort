@@ -3,7 +3,7 @@ package adt;
 import java.io.Serializable;
 
 /**
- * Linked implementation of the Linear Stack ADT. Housekeeping pushes each room-status change and pops the latest record for single or bulk rollback.
+ * Linked implementation of the Linear Stack ADT. Housekeeping pushes each room-status change and pops the latest record for rollback.
  * Adapted from Data Structures and Algorithms in Java.
  *
  * @author Chan Rou Xuan
@@ -66,13 +66,6 @@ public class LinkedStack<T> implements StackInterface<T>, Serializable {
   @Override
   public int getSize() {
     return size;
-  }
-
-  @Override
-  public void popMultiple(int count) {
-    for (int i = 0; i < count && !isEmpty(); i++) {
-      pop();
-    }
   }
 
   private class Node implements Serializable {

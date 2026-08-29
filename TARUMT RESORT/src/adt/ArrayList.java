@@ -11,7 +11,9 @@ import java.io.Serializable;
 
 public class ArrayList<T> implements ListInterface<T>, Serializable {
 
-  private T[] array;
+  private static final long serialVersionUID = 1L;
+
+  private Object[] array;
   private int numberOfEntries;
   private static final int DEFAULT_CAPACITY = 5;
 
@@ -19,10 +21,9 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
     this(DEFAULT_CAPACITY);
   }
 
-  @SuppressWarnings("unchecked")
   public ArrayList(int initialCapacity) {
     numberOfEntries = 0;
-    array = (T[]) new Object[initialCapacity];
+    array = new Object[Math.max(1, initialCapacity)];
   }
 
   @Override
@@ -60,13 +61,14 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
     T result = null;
 
     if ((givenPosition >= 1) && (givenPosition <= numberOfEntries)) {
-      result = array[givenPosition - 1];
+      result = getEntry(givenPosition);
 
       if (givenPosition < numberOfEntries) {
         removeGap(givenPosition);
       }
 
       numberOfEntries--;
+      array[numberOfEntries] = null; // allow the removed object to be garbage-collected
     }
 
     return result;
@@ -74,6 +76,9 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
 
   @Override
   public void clear() {
+    for (int index = 0; index < numberOfEntries; index++) {
+      array[index] = null; // release references held by the backing array
+    }
     numberOfEntries = 0;
   }
 
@@ -95,7 +100,9 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
     T result = null;
 
     if ((givenPosition >= 1) && (givenPosition <= numberOfEntries)) {
-      result = array[givenPosition - 1];
+      @SuppressWarnings("unchecked")
+      T entry = (T) array[givenPosition - 1];
+      result = entry;
     }
 
     return result;
@@ -105,7 +112,7 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
   public boolean contains(T anEntry) {
     boolean found = false;
     for (int index = 0; !found && (index < numberOfEntries); index++) {
-      if (anEntry.equals(array[index])) {
+      if (anEntry == null ? array[index] == null : anEntry.equals(array[index])) {
         found = true;
       }
     }
@@ -127,13 +134,10 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
     return false;
   }
 
-  @SuppressWarnings("unchecked")
   private void doubleArray() {
-    T[] oldArray = array;
-    array = (T[]) new Object[oldArray.length * 2];
-    for (int i = 0; i < oldArray.length; i++) {
-      array[i] = oldArray[i];
-    }
+    Object[] oldArray = array;
+    array = new Object[oldArray.length * 2];
+    System.arraycopy(oldArray, 0, array, 0, oldArray.length);
   }
 
   private boolean isArrayFull() {
@@ -142,12 +146,11 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
 
   @Override
   public String toString() {
-    String outputStr = "";
+    StringBuilder output = new StringBuilder();
     for (int index = 0; index < numberOfEntries; ++index) {
-      outputStr += array[index] + "\n";
+      output.append(array[index]).append('\n');
     }
-
-    return outputStr;
+    return output.toString();
   }
 
   /**
@@ -159,11 +162,7 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
     int newIndex = newPosition - 1;
     int lastIndex = numberOfEntries - 1;
 
-    // move each entry to next higher index, starting at end of
-    // array and continuing until the entry at newIndex is moved
-    for (int index = lastIndex; index >= newIndex; index--) {
-      array[index + 1] = array[index];
-    }
+    System.arraycopy(array, newIndex, array, newIndex + 1, lastIndex - newIndex + 1);
   }
 
   /**
@@ -172,13 +171,9 @@ public class ArrayList<T> implements ListInterface<T>, Serializable {
    * numberOfEntries; numberOfEntries is array's numberOfEntries before removal.
    */
   private void removeGap(int givenPosition) {
-    // move each entry to next lower position starting at entry after the
-    // one removed and continuing until end of array
     int removedIndex = givenPosition - 1;
     int lastIndex = numberOfEntries - 1;
-
-    for (int index = removedIndex; index < lastIndex; index++) {
-      array[index] = array[index + 1];
-    }
+    System.arraycopy(array, removedIndex + 1, array, removedIndex,
+        lastIndex - removedIndex);
   }
 }
