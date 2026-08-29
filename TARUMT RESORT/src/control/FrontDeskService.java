@@ -13,6 +13,8 @@ import entity.RewardsMember;
 import entity.Room;
 import entity.RoomStatus;
 import entity.StatusChangeRecord;
+import entity.VipCheckInRecord;
+import entity.VipPaymentRecord;
 import utility.MalaysiaTime;
 import utility.MessageUI;
 import utility.PdfReportEngine;
@@ -23,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
 
 /**
  * Control class stub for Front-Desk Service module (team member integration point).
@@ -72,20 +75,23 @@ public class FrontDeskService {
           viewMemberAccountDetails();
           break;
         case 6:
+          viewBillingDetails();
+          break;
+        case 7:
           frontDeskUI.displayMemberList(getAllMemberRecords());
           MessageUI.pressEnterToContinue();
           break;
-        case 7:
+        case 8:
           viewCheckoutHistory();
           break;
-        case 8:
+        case 9:
           viewLateCheckoutHistory();
           break;
-        case 9:
+        case 10:
           memberAccountReport();
           break;
-        case 10:
-          guestsRoomAvailabilityReport();
+        case 11:
+          bookingBillingReport();
           break;
         default:
           MessageUI.displayInvalidChoiceMessage();
@@ -235,7 +241,7 @@ public class FrontDeskService {
           previousExpectedCheckoutAt, null));
 
       LocalDateTime newExpectedCheckoutAt = promptForNewExpectedCheckoutAt(
-          previousExpectedCheckoutAt);
+          previousExpectedCheckoutAt, room.getCheckInAt());
       if (newExpectedCheckoutAt == null) return;
 
       frontDeskUI.displayLateCheckoutResult(formatLateCheckoutDetails(memberRecord, room,
@@ -268,6 +274,42 @@ public class FrontDeskService {
     if (memberRecord == null) return;
     frontDeskUI.displayMemberAccountDetails(memberRecord);
     MessageUI.pressEnterToContinue();
+  }
+
+  private void viewBillingDetails() {
+    while (true) {
+      String searchKey = frontDeskUI.inputBillingSearchKey();
+      if (searchKey.equalsIgnoreCase("0")) {
+        MessageUI.displayInfoMessage("Billing lookup cancelled.");
+        return;
+      }
+
+      if (searchKey.trim().isEmpty()) {
+        frontDeskUI.displayBillingDetails(
+            "  Enter a confirmation number, booking ID or loyalty member ID.");
+        continue;
+      }
+
+      if (!isValidBillingSearchKey(searchKey)) {
+        frontDeskUI.displayBillingDetails(
+            "  Enter an 8-digit confirmation number, booking ID such as VIP-0001,\n"
+            + "  or member ID such as LM001.");
+        continue;
+      }
+
+      ListInterface<VipPaymentRecord> matches = findBillingRecords(searchKey);
+      if (matches.getNumberOfEntries() == 0) {
+        frontDeskUI.displayBillingDetails(
+            "  No VIP billing record found for: " + searchKey
+            + "\n  Try another confirmation number, booking ID or member ID.");
+        continue;
+      }
+
+      frontDeskUI.displayBillingDetails(formatBillingDetails(searchKey, matches,
+          frontDeskDAO.retrieveVipCheckInRecords()));
+      MessageUI.pressEnterToContinue();
+      return;
+    }
   }
 
   private void viewCheckoutHistory() {
@@ -333,81 +375,58 @@ public class FrontDeskService {
     MessageUI.pressEnterToContinue();
   }
 
-  private void guestsRoomAvailabilityReport() {
-    ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
+  private void bookingBillingReport() {
+    ListInterface<VipPaymentRecord> paymentRecords = frontDeskDAO.retrieveVipPaymentRecords();
+    ListInterface<VipCheckInRecord> checkInRecords = frontDeskDAO.retrieveVipCheckInRecords();
     StringBuilder report = new StringBuilder();
-    report.append(String.format("%-8s %-12s %-7s %-20s %-18s %-18s %-24s%n",
-        "Room", "Type", "Floor", "Status", "Check-In", "Expected Out", "Availability"));
+
+    report.append(String.format("%-12s %-10s %-12s %-18s %-8s %-12s %-7s %-12s %-18s%n",
+        "Confirm No.", "Booking", "Member ID", "Guest", "Room", "Type", "Nights",
+        "Total", "Payment Method"));
     report.append("-------------------------------------------------------------------------------------------------------------\n");
 
-    int totalRooms = 0;
-    int occupiedRooms = 0;
-    int lateCheckoutRooms = 0;
-    int availableRooms = 0;
-    int unavailableRooms = 0;
-    int expectedCheckoutToday = 0;
-    int overdueCheckouts = 0;
-    LocalDate today = MalaysiaTime.now().toLocalDate();
-    LocalDateTime now = MalaysiaTime.now();
+    int bookingCount = 0;
+    int checkedInCount = 0;
+    double totalRevenue = 0.0;
+    LinkedHashMap<String, Integer> methodCounts = new LinkedHashMap<>();
+    LinkedHashMap<String, Double> roomTypeRevenue = new LinkedHashMap<>();
 
-    for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
-      Room room = roomList.getEntry(index);
-      String availability = getRoomAvailabilityLabel(room);
+    for (int index = paymentRecords.getNumberOfEntries(); index >= 1; index--) {
+      VipPaymentRecord payment = paymentRecords.getEntry(index);
+      VipCheckInRecord checkInRecord = findCheckInRecord(payment, checkInRecords);
+      RewardsMember memberRecord = memberSearchTree.search(payment.getMemberId().toUpperCase());
+      String guestName = memberRecord == null ? "Unknown member" : memberRecord.getName();
+      String roomNumber = checkInRecord == null ? "-" : checkInRecord.getRoomNumber();
 
-      if (isActiveGuestRoom(room.getStatus())) {
-        occupiedRooms++;
-        if (room.getStatus() == RoomStatus.LCO) {
-          lateCheckoutRooms++;
-        }
-        if (room.getExpectedCheckoutAt() != null
-            && room.getExpectedCheckoutAt().toLocalDate().equals(today)) {
-          expectedCheckoutToday++;
-        }
-        if (room.getExpectedCheckoutAt() != null && room.getExpectedCheckoutAt().isBefore(now)) {
-          overdueCheckouts++;
-        }
-      } else if (room.getStatus() == RoomStatus.READY_FOR_CHECK_IN) {
-        availableRooms++;
-      } else {
-        unavailableRooms++;
-      }
+      report.append(String.format("%-12s %-10s %-12s %-18s %-8s %-12s %-7d %-12s %-18s%n",
+          payment.getConfirmationNumber(), payment.getBookingId(), payment.getMemberId(),
+          guestName, roomNumber, payment.getRoomType(), payment.getNights(),
+          formatMoney(payment.getTotalAmount()), payment.getPaymentMethod()));
 
-      report.append(String.format("%-8s %-12s %-7d %-20s %-18s %-18s %-24s%n",
-          room.getRoomNumber(), room.getRoomType(), room.getFloor(),
-          room.getStatus().getLabel(), formatBoardDateTime(room.getCheckInAt()),
-          formatBoardDateTime(room.getExpectedCheckoutAt()), availability));
-      totalRooms++;
+      bookingCount++;
+      if (checkInRecord != null) checkedInCount++;
+      totalRevenue += payment.getTotalAmount();
+      methodCounts.merge(payment.getPaymentMethod(), 1, Integer::sum);
+      roomTypeRevenue.merge(payment.getRoomType(), payment.getTotalAmount(), Double::sum);
     }
 
-    int checkoutToday = countCheckoutRecordsOnDate(housekeepingDAO.retrieveHistory(), today);
-    String duplicateWarnings = formatDuplicateActiveStayWarnings(roomList);
-
-    if (totalRooms == 0) {
-      report.append("No room records found.\n");
-    }
-    report.append("\nTotal rooms                  : ").append(totalRooms).append("\n");
-    report.append("Occupied / reserved rooms    : ").append(occupiedRooms).append("\n");
-    report.append("Late check-out rooms         : ").append(lateCheckoutRooms).append("\n");
-    report.append("Available for check-in rooms : ").append(availableRooms).append("\n");
-    report.append("Not available rooms          : ").append(unavailableRooms).append("\n");
-    report.append("Expected check-outs today    : ").append(expectedCheckoutToday).append("\n");
-    report.append("Actual check-outs today      : ").append(checkoutToday).append("\n");
-    report.append("Overdue active check-outs    : ").append(overdueCheckouts).append("\n");
-    report.append("\nCurrent late check-out rooms:\n")
-        .append(formatActiveStayList(roomList, "LCO", today, now));
-    report.append("\nExpected check-outs today:\n")
-        .append(formatActiveStayList(roomList, "EXPECTED_TODAY", today, now));
-    report.append("\nOverdue active check-outs:\n")
-        .append(formatActiveStayList(roomList, "OVERDUE", today, now));
-    if (!duplicateWarnings.isEmpty()) {
-      report.append("\nDuplicate active stay warnings:\n").append(duplicateWarnings);
+    if (bookingCount == 0) {
+      report.append("No VIP billing records found.\n");
     }
 
-    frontDeskUI.displayReport("REPORT 2: GUESTS ROOM AVAILABILITY", report.toString());
+    report.append("\nTotal paid bookings          : ").append(bookingCount).append("\n");
+    report.append("Checked-in paid bookings     : ").append(checkedInCount).append("\n");
+    report.append("Paid but not checked in      : ").append(bookingCount - checkedInCount).append("\n");
+    report.append("Total paid revenue           : ").append(formatMoney(totalRevenue)).append("\n");
+    report.append("\nPayment method summary:\n")
+        .append(formatCountSummary(methodCounts));
+    report.append("\nRevenue by room type:\n")
+        .append(formatRevenueSummary(roomTypeRevenue));
+
+    frontDeskUI.displayReport("REPORT 2: BOOKING BILLING SUMMARY", report.toString());
     if (frontDeskUI.confirmPdfExport()) {
-      exportGuestsRoomAvailabilityReportToPdf(roomList, totalRooms, occupiedRooms,
-          lateCheckoutRooms, availableRooms, unavailableRooms, expectedCheckoutToday,
-          checkoutToday, overdueCheckouts);
+      exportBookingBillingReportToPdf(paymentRecords, checkInRecords, bookingCount,
+          checkedInCount, totalRevenue, methodCounts, roomTypeRevenue);
     }
     MessageUI.pressEnterToContinue();
   }
@@ -486,89 +505,75 @@ public class FrontDeskService {
     }
   }
 
-  private void exportGuestsRoomAvailabilityReportToPdf(ListInterface<Room> roomList,
-      int totalRooms, int occupiedRooms, int lateCheckoutRooms, int availableRooms,
-      int unavailableRooms, int expectedCheckoutToday, int checkoutToday,
-      int overdueCheckouts) {
+  private void exportBookingBillingReportToPdf(ListInterface<VipPaymentRecord> paymentRecords,
+      ListInterface<VipCheckInRecord> checkInRecords, int bookingCount, int checkedInCount,
+      double totalRevenue, LinkedHashMap<String, Integer> methodCounts,
+      LinkedHashMap<String, Double> roomTypeRevenue) {
     PdfReportEngine pdf = null;
     try {
       String outDir = "output" + File.separator + "pdf";
       new File(outDir).mkdirs();
       String timestamp = MalaysiaTime.now().format(MalaysiaTime.FILE_FORMATTER);
-      String outPath = outDir + File.separator + "frontdesk_room_availability_"
+      String outPath = outDir + File.separator + "frontdesk_booking_billing_"
           + timestamp + ".pdf";
 
       pdf = new PdfReportEngine();
       pdf.addCoverPage(
-          "Front-Desk Room Availability Report",
-          "Housekeeping Status | Occupancy | Check-In Readiness",
-          "Current room records", "Front Desk Officer");
+          "Front-Desk Booking Billing Report",
+          "VIP Payments | Confirmation Numbers | Revenue",
+          "Current VIP payment history", "Front Desk Officer");
 
       pdf.beginContentPage();
       pdf.addSectionHeading("Report Overview");
-      pdf.addKpiRow("Report Type", "Room Availability Report", null);
-      pdf.addKpiRow("Rooms Analysed", String.valueOf(totalRooms),
-          totalRooms == 0 ? PdfReportEngine.WARNING : PdfReportEngine.ACCENT_BLUE);
-      pdf.addKpiRow("Occupied / Reserved", String.valueOf(occupiedRooms),
-          occupiedRooms > 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
-      pdf.addKpiRow("Late Check-Out Rooms", String.valueOf(lateCheckoutRooms),
-          lateCheckoutRooms > 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
-      pdf.addKpiRow("Available for Check-In", String.valueOf(availableRooms),
-          availableRooms > 0 ? PdfReportEngine.SUCCESS : PdfReportEngine.WARNING);
-      pdf.addKpiRow("Not Available", String.valueOf(unavailableRooms),
-          unavailableRooms > 0 ? PdfReportEngine.DANGER : PdfReportEngine.SUCCESS);
-      pdf.addKpiRow("Expected Check-Outs Today", String.valueOf(expectedCheckoutToday), null);
-      pdf.addKpiRow("Actual Check-Outs Today", String.valueOf(checkoutToday), null);
-      pdf.addKpiRow("Overdue Active Check-Outs", String.valueOf(overdueCheckouts),
-          overdueCheckouts > 0 ? PdfReportEngine.DANGER : PdfReportEngine.SUCCESS);
+      pdf.addKpiRow("Report Type", "Booking Billing Summary", null);
+      pdf.addKpiRow("Paid Bookings", String.valueOf(bookingCount),
+          bookingCount == 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
+      pdf.addKpiRow("Checked-In Paid Bookings", String.valueOf(checkedInCount), null);
+      pdf.addKpiRow("Paid Not Checked In", String.valueOf(bookingCount - checkedInCount),
+          bookingCount - checkedInCount > 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
+      pdf.addKpiRow("Total Paid Revenue", formatMoney(totalRevenue), PdfReportEngine.SUCCESS);
       pdf.addDivider();
 
-      pdf.addSectionHeading("Availability Indicators");
+      pdf.addSectionHeading("Billing Indicators");
       pdf.addKpiCards(
-          new String[]{"Total Rooms", "Occupied", "LCO", "Available"},
-          new String[]{String.valueOf(totalRooms), String.valueOf(occupiedRooms),
-              String.valueOf(lateCheckoutRooms), String.valueOf(availableRooms)},
-          new java.awt.Color[]{PdfReportEngine.ACCENT_BLUE, PdfReportEngine.WARNING,
-              PdfReportEngine.WARNING, PdfReportEngine.SUCCESS});
+          new String[]{"Paid Bookings", "Checked In", "Pending Stay", "Revenue"},
+          new String[]{String.valueOf(bookingCount), String.valueOf(checkedInCount),
+              String.valueOf(bookingCount - checkedInCount), formatMoney(totalRevenue)},
+          new java.awt.Color[]{PdfReportEngine.ACCENT_BLUE, PdfReportEngine.SUCCESS,
+              PdfReportEngine.WARNING, PdfReportEngine.BRAND_TEAL});
       pdf.addSpace(10);
-      pdf.addDonutChart("Room Availability Distribution",
-          new String[]{"Occupied", "LCO", "Available", "Not Available"},
-          new double[]{occupiedRooms - lateCheckoutRooms, lateCheckoutRooms,
-              availableRooms, unavailableRooms});
-      pdf.addSectionHeading("Front Desk Alerts");
-      String duplicateWarnings = formatDuplicateActiveStayWarnings(roomList);
-      pdf.addBodyText("Current LCO rooms: " + lateCheckoutRooms
-          + " | Expected check-outs today: " + expectedCheckoutToday
-          + " | Actual check-outs today: " + checkoutToday
-          + " | Overdue active check-outs: " + overdueCheckouts, 10);
-      if (!duplicateWarnings.isEmpty()) {
-        pdf.addBodyText("Duplicate active stay warnings: "
-            + duplicateWarnings.replace("\n", " ").trim(), 9);
+      if (!methodCounts.isEmpty()) {
+        pdf.addDonutChart("Payment Method Distribution",
+            methodCounts.keySet().toArray(new String[0]), countsToValues(methodCounts));
       }
+      pdf.addSectionHeading("Revenue by Room Type");
+      pdf.addBodyText(formatRevenueSummary(roomTypeRevenue).replace("\n", " ").trim(), 10);
 
       pdf.beginContentPage();
-      pdf.addSectionHeading("Detailed Room Availability Records");
+      pdf.addSectionHeading("Detailed Booking Billing Records");
       pdf.addBodyText(
-          "Room availability is checked directly from the shared housekeeping room records.",
+          "Records are read from VIP payment history and matched with VIP check-in history.",
           9);
       pdf.addSpace(6);
 
-      String[] headers = {"Room", "Type", "Floor", "Status", "Check-In", "Expected",
-          "Availability"};
-      float[] colW = {45, 60, 40, 105, 80, 80, 90};
+      String[] headers = {"Confirm", "Booking", "Member", "Guest", "Room", "Type",
+          "Nights", "Total", "Method"};
+      float[] colW = {55, 55, 55, 75, 50, 55, 35, 55, 65};
       java.util.List<String[]> rows = new java.util.ArrayList<>();
-      for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
-        Room room = roomList.getEntry(index);
+      for (int index = paymentRecords.getNumberOfEntries(); index >= 1; index--) {
+        VipPaymentRecord payment = paymentRecords.getEntry(index);
+        VipCheckInRecord checkInRecord = findCheckInRecord(payment, checkInRecords);
+        RewardsMember memberRecord = memberSearchTree.search(payment.getMemberId().toUpperCase());
         rows.add(new String[]{
-            room.getRoomNumber(), room.getRoomType(), String.valueOf(room.getFloor()),
-            room.getStatus().getLabel(),
-            formatBoardDateTime(room.getCheckInAt()),
-            formatBoardDateTime(room.getExpectedCheckoutAt()),
-            getRoomAvailabilityLabel(room)
+            payment.getConfirmationNumber(), payment.getBookingId(), payment.getMemberId(),
+            memberRecord == null ? "Unknown" : memberRecord.getName(),
+            checkInRecord == null ? "-" : checkInRecord.getRoomNumber(),
+            payment.getRoomType(), String.valueOf(payment.getNights()),
+            formatMoney(payment.getTotalAmount()), payment.getPaymentMethod()
         });
       }
       if (rows.isEmpty()) {
-        pdf.addBodyText("No room records found.", 10);
+        pdf.addBodyText("No VIP billing records found.", 10);
       } else {
         pdf.addTable(headers, rows, colW);
       }
@@ -601,6 +606,35 @@ public class FrontDeskService {
       values[index] = counts[index];
     }
     return values;
+  }
+
+  private double[] countsToValues(LinkedHashMap<String, Integer> counts) {
+    double[] values = new double[counts.size()];
+    int index = 0;
+    for (Integer count : counts.values()) {
+      values[index++] = count;
+    }
+    return values;
+  }
+
+  private String formatCountSummary(LinkedHashMap<String, Integer> counts) {
+    if (counts.isEmpty()) return "  - None\n";
+    StringBuilder output = new StringBuilder();
+    for (String label : counts.keySet()) {
+      output.append("  - ").append(label).append(": ")
+          .append(counts.get(label)).append(" booking(s)\n");
+    }
+    return output.toString();
+  }
+
+  private String formatRevenueSummary(LinkedHashMap<String, Double> revenue) {
+    if (revenue.isEmpty()) return "  - None\n";
+    StringBuilder output = new StringBuilder();
+    for (String roomType : revenue.keySet()) {
+      output.append("  - ").append(roomType).append(": ")
+          .append(formatMoney(revenue.get(roomType))).append("\n");
+    }
+    return output.toString();
   }
 
   private RewardsMember promptForMemberRecord(boolean accountLookup) {
@@ -714,6 +748,46 @@ public class FrontDeskService {
         + "\nActual check-out: " + formatRecordedDateTime(actualCheckoutAt)
         + "\nCheck-out type: " + (lateCheckout ? "Late check-out" : "On-time check-out")
         + "\nNext room status: Dirty";
+  }
+
+  private String formatBillingDetails(String searchKey, ListInterface<VipPaymentRecord> records,
+      ListInterface<VipCheckInRecord> checkInRecords) {
+    StringBuilder output = new StringBuilder();
+    output.append("  Search key          : ").append(searchKey).append("\n");
+    output.append("  Billing records     : ").append(records.getNumberOfEntries()).append("\n");
+
+    for (int index = 1; index <= records.getNumberOfEntries(); index++) {
+      VipPaymentRecord payment = records.getEntry(index);
+      VipCheckInRecord checkInRecord = findCheckInRecord(payment, checkInRecords);
+      RewardsMember memberRecord = memberSearchTree.search(payment.getMemberId().toUpperCase());
+
+      output.append("\n  --- BILLING RECORD ").append(index).append(" ---\n");
+      appendBillingLine(output, "Payment ID", payment.getPaymentId());
+      appendBillingLine(output, "Payment Status", "PAID");
+      appendBillingLine(output, "Booking ID", payment.getBookingId());
+      appendBillingLine(output, "Confirmation No.", payment.getConfirmationNumber());
+      appendBillingLine(output, "Member", formatBillingMember(payment.getMemberId(), memberRecord));
+      appendBillingLine(output, "Email", memberRecord == null ? "Not recorded"
+          : memberRecord.getEmail());
+      appendBillingLine(output, "Tier", memberRecord == null ? "Not recorded"
+          : memberRecord.getTier().toString());
+      appendBillingLine(output, "Room Type", payment.getRoomType());
+      appendBillingLine(output, "Room Number", checkInRecord == null ? "Not checked in yet"
+          : checkInRecord.getRoomNumber());
+      appendBillingLine(output, "Booked Check-In", String.valueOf(payment.getCheckInDate()));
+      appendBillingLine(output, "Booked Check-Out", String.valueOf(payment.getCheckOutDate()));
+      appendBillingLine(output, "Actual Check-In", checkInRecord == null ? "Not checked in yet"
+          : formatRecordedDateTime(checkInRecord.getCheckInAt()));
+      appendBillingLine(output, "Expected Check-Out", checkInRecord == null ? "Not checked in yet"
+          : formatRecordedDateTime(checkInRecord.getExpectedCheckoutAt()));
+      appendBillingLine(output, "Length of Stay", payment.getNights() + " night(s)");
+      appendBillingLine(output, "Price Per Night", formatMoney(payment.getPricePerNight()));
+      appendBillingLine(output, "Total Amount", formatMoney(payment.getTotalAmount()));
+      appendBillingLine(output, "Payment Method", payment.getPaymentMethod());
+      appendBillingLine(output, "Paid At", formatRecordedDateTime(payment.getPaidAt()));
+    }
+
+    return output.toString();
   }
 
   private String formatRoomAvailabilityBoard(ListInterface<Room> roomList) {
@@ -890,7 +964,8 @@ public class FrontDeskService {
     }
   }
 
-  private LocalDateTime promptForNewExpectedCheckoutAt(LocalDateTime previousExpectedCheckoutAt) {
+  private LocalDateTime promptForNewExpectedCheckoutAt(LocalDateTime previousExpectedCheckoutAt,
+      LocalDateTime checkInAt) {
     LocalDate today = MalaysiaTime.now().toLocalDate();
     LocalTime defaultTime = previousExpectedCheckoutAt == null
         ? LocalTime.NOON
@@ -931,6 +1006,12 @@ public class FrontDeskService {
         try {
           LocalTime newTime = timeInput.isEmpty() ? defaultTime : LocalTime.parse(timeInput);
           LocalDateTime newExpectedCheckoutAt = LocalDateTime.of(newDate, newTime);
+          if (checkInAt != null && !newExpectedCheckoutAt.isAfter(checkInAt)) {
+            MessageUI.displayErrorMessage(
+                "New expected check-out must be later than the check-in time ("
+                + formatRecordedDateTime(checkInAt) + ").");
+            continue datePrompt;
+          }
           if (previousExpectedCheckoutAt != null
               && !newExpectedCheckoutAt.isAfter(previousExpectedCheckoutAt)) {
             MessageUI.displayErrorMessage(
@@ -951,6 +1032,63 @@ public class FrontDeskService {
     return room.getStatus() == RoomStatus.READY_FOR_CHECK_IN
         ? "AVAILABLE FOR CHECK-IN"
         : "NOT AVAILABLE";
+  }
+
+  private ListInterface<VipPaymentRecord> findBillingRecords(String searchKey) {
+    ListInterface<VipPaymentRecord> allPayments = frontDeskDAO.retrieveVipPaymentRecords();
+    ListInterface<VipPaymentRecord> matches = new ArrayList<>();
+    for (int index = allPayments.getNumberOfEntries(); index >= 1; index--) {
+      VipPaymentRecord payment = allPayments.getEntry(index);
+      if (matchesBillingSearchKey(payment, searchKey)) {
+        matches.add(payment);
+      }
+    }
+    return matches;
+  }
+
+  private boolean matchesBillingSearchKey(VipPaymentRecord payment, String searchKey) {
+    return payment.getConfirmationNumber().equalsIgnoreCase(searchKey)
+        || payment.getBookingId().equalsIgnoreCase(searchKey)
+        || payment.getMemberId().equalsIgnoreCase(searchKey);
+  }
+
+  private boolean isValidBillingSearchKey(String searchKey) {
+    return isValidConfirmationNumber(searchKey)
+        || isValidBookingId(searchKey)
+        || isValidMemberId(searchKey);
+  }
+
+  private boolean isValidConfirmationNumber(String confirmationNumber) {
+    return confirmationNumber.matches("[0-9]{8}");
+  }
+
+  private boolean isValidBookingId(String bookingId) {
+    return bookingId.matches("VIP-[0-9]{4,}");
+  }
+
+  private VipCheckInRecord findCheckInRecord(VipPaymentRecord payment,
+      ListInterface<VipCheckInRecord> checkInRecords) {
+    for (int index = checkInRecords.getNumberOfEntries(); index >= 1; index--) {
+      VipCheckInRecord record = checkInRecords.getEntry(index);
+      if (record.getConfirmationNumber().equalsIgnoreCase(payment.getConfirmationNumber())
+          || record.getBookingId().equalsIgnoreCase(payment.getBookingId())) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  private String formatBillingMember(String memberId, RewardsMember memberRecord) {
+    String memberName = memberRecord == null ? "Unknown member" : memberRecord.getName();
+    return memberName + " (" + memberId + ")";
+  }
+
+  private void appendBillingLine(StringBuilder output, String label, String value) {
+    output.append(String.format("  %-18s : %s%n", label, formatOptionalText(value)));
+  }
+
+  private String formatMoney(double amount) {
+    return String.format("RM %.2f", amount);
   }
 
   private boolean isActiveGuestRoom(RoomStatus status) {

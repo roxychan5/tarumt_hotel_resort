@@ -126,9 +126,10 @@ public class VipLoyaltyAllocation {
         double totalAmount = nightlyPrice * numberOfNights;
       vipUI.displayBookingSummary(buildBookingSummary(member));
         String paymentMethod = vipUI.inputPaymentMethod();
+        String paymentId = createPaymentId();
         vipUI.displayPaymentInformation(buildPaymentInformation(member, nightlyPrice,
-          totalAmount, paymentMethod));
-          savePaymentInformation(member, nightlyPrice, totalAmount, paymentMethod);
+          totalAmount, paymentMethod, paymentId));
+          savePaymentInformation(member, nightlyPrice, totalAmount, paymentMethod, paymentId);
       waitingGuests.add(member);
       saveWaitingGuests();
         MessageUI.displaySuccessMessage("Payment successful. VIP booking created for "
@@ -651,7 +652,7 @@ public class VipLoyaltyAllocation {
   }
 
   private void savePaymentInformation(LoyaltyMember member, double nightlyPrice,
-      double totalAmount, String paymentMethod) {
+      double totalAmount, String paymentMethod, String paymentId) {
     try {
       Files.createDirectories(PAYMENT_HISTORY_FILE.getParent());
       if (!Files.exists(PAYMENT_HISTORY_FILE)) {
@@ -661,7 +662,6 @@ public class VipLoyaltyAllocation {
               "paymentMethod", "paidAt") + "\n")
             .getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
       }
-      String paymentId = createPaymentId();
         String record = CsvUtils.row(paymentId, member.getBookingId(),
           member.getConfirmationNumber(), member.getMemberId(),
           clean(member.getRequestedRoomType()), member.getRequestedCheckInDate().toString(),
@@ -881,8 +881,7 @@ public class VipLoyaltyAllocation {
   }
 
   private String buildPaymentInformation(LoyaltyMember member, double nightlyPrice,
-      double totalAmount, String paymentMethod) {
-    String paymentId = createPaymentId();
+      double totalAmount, String paymentMethod, String paymentId) {
         return String.format("%-24s : %s%n%-24s : %s%n%-24s : %s%n%-24s : %s%n"
           + "%-24s : %s%n%-24s : %d night(s)%n%-24s : RM %.2f%n"
           + "%-24s : RM %.2f%n%-24s : %s%n%-24s : %s%n",
