@@ -636,6 +636,27 @@ public class VipLoyaltyAllocation {
           matchingCancelledBookings.isEmpty() ? PdfReportEngine.SUCCESS : PdfReportEngine.WARNING);
       pdf.addDivider();
 
+      LinkedHashMap<String, Integer> tierCounts = new LinkedHashMap<>();
+      LinkedHashMap<String, Integer> roomCounts = new LinkedHashMap<>();
+      for (LoyaltyMember member : matchingCancelledBookings) {
+        tierCounts.merge(member.getTier().toString(), 1, Integer::sum);
+        roomCounts.merge(member.getRequestedRoomType(), 1, Integer::sum);
+      }
+      pdf.addSectionHeading("Cancellation Distribution");
+      pdf.addKpiCards(new String[]{"Matching Cancellations", "Tier Groups", "Room Types"},
+          new String[]{String.valueOf(matchingCancelledBookings.size()), String.valueOf(tierCounts.size()),
+              String.valueOf(roomCounts.size())},
+          new java.awt.Color[]{PdfReportEngine.ACCENT_BLUE, PdfReportEngine.BRAND_GOLD,
+              PdfReportEngine.BRAND_TEAL});
+      pdf.addSpace(10);
+      pdf.addBarChart("Cancelled Bookings by Tier", tierCounts.keySet().toArray(new String[0]),
+          countsToValues(tierCounts), "Cancellations");
+      if (!roomCounts.isEmpty()) {
+        pdf.addSectionHeading("Requested Room Types");
+        pdf.addDonutChart("Cancelled Bookings by Room Type", roomCounts.keySet().toArray(new String[0]),
+            countsToValues(roomCounts));
+      }
+
       pdf.beginContentPage();
       pdf.addSectionHeading("Cancelled Waiting Bookings");
       String[] cancelHeaders = {"Member", "Tier", "Member ID", "Requested Room", "Nights", "Wait Started", "Waiting Time"};
