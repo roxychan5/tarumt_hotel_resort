@@ -141,7 +141,7 @@ public class FrontDeskService {
   private void checkOutRoom() {
     ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
     frontDeskUI.displayCheckoutAvailability(formatCheckoutRoomBoard(roomList));
-    if (countActiveGuestRooms(roomList) == 0) {
+    if (countActiveMemberRooms(roomList) == 0) {
       MessageUI.pressEnterToContinue();
       return;
     }
@@ -167,7 +167,7 @@ public class FrontDeskService {
         continue;
       }
 
-      if (!isActiveGuestRoom(room.getStatus())) {
+      if (!isActiveMemberRoom(room.getStatus())) {
         frontDeskUI.displayCheckoutResult(
             "  Room " + room.getRoomNumber() + " cannot be checked out.\n"
             + "  Current status: " + room.getStatus().getLabel()
@@ -192,9 +192,9 @@ public class FrontDeskService {
       RoomStatus previousStatus = room.getStatus();
       String occupantMemberId = room.getOccupantMemberId();
       room.setStatus(RoomStatus.DIRTY);
-      // Keep the most recent stay details until a new guest is allocated.
+      // Keep the most recent stay details until a new member is allocated.
       // Housekeeping may need to roll a READY room back to LCO, after which
-      // Front Desk uses these details to identify the guest and extend the date.
+      // Front Desk uses these details to identify the member and extend the date.
       housekeepingDAO.saveRooms(roomList);
       recordCheckoutStatusChange(room.getRoomNumber(), previousStatus, timeline,
           occupantMemberId, lateCheckout, actualCheckoutAt);
@@ -211,8 +211,8 @@ public class FrontDeskService {
 
   private void handleLateCheckout() {
     ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
-    frontDeskUI.displayLateCheckoutResult(formatLateCheckoutGuestList(roomList));
-    if (countActiveGuestRooms(roomList) == 0) {
+    frontDeskUI.displayLateCheckoutResult(formatLateCheckoutMemberList(roomList));
+    if (countActiveMemberRooms(roomList) == 0) {
       MessageUI.pressEnterToContinue();
       return;
     }
@@ -391,7 +391,7 @@ public class FrontDeskService {
     StringBuilder report = new StringBuilder();
 
     report.append(String.format("%-12s %-10s %-12s %-18s %-8s %-12s %-7s %-12s %-18s%n",
-        "Confirm No.", "Booking", "Member ID", "Guest", "Room", "Type", "Nights",
+        "Confirm No.", "Booking", "Member ID", "Member", "Room", "Type", "Nights",
         "Total", "Payment Method"));
     report.append("-------------------------------------------------------------------------------------------------------------\n");
 
@@ -405,12 +405,12 @@ public class FrontDeskService {
       VipPaymentRecord payment = paymentRecords.getEntry(index);
       VipCheckInRecord checkInRecord = findCheckInRecord(payment, checkInRecords);
       RewardsMember memberRecord = memberSearchTree.search(payment.getMemberId().toUpperCase());
-      String guestName = memberRecord == null ? "Unknown member" : memberRecord.getName();
+      String memberName = memberRecord == null ? "Unknown member" : memberRecord.getName();
       String roomNumber = checkInRecord == null ? "-" : checkInRecord.getRoomNumber();
 
       report.append(String.format("%-12s %-10s %-12s %-18s %-8s %-12s %-7d %-12s %-18s%n",
           payment.getConfirmationNumber(), payment.getBookingId(), payment.getMemberId(),
-          guestName, roomNumber, payment.getRoomType(), payment.getNights(),
+          memberName, roomNumber, payment.getRoomType(), payment.getNights(),
           formatMoney(payment.getTotalAmount()), payment.getPaymentMethod()));
 
       bookingCount++;
@@ -566,7 +566,7 @@ public class FrontDeskService {
           9);
       pdf.addSpace(6);
 
-      String[] headers = {"Confirm", "Booking", "Member", "Guest", "Room", "Type",
+      String[] headers = {"Confirm", "Booking", "Member ID", "Member", "Room", "Type",
           "Nights", "Total", "Method"};
       float[] colW = {55, 55, 55, 75, 50, 55, 35, 55, 65};
       java.util.List<String[]> rows = new java.util.ArrayList<>();
@@ -677,7 +677,7 @@ public class FrontDeskService {
       if (searchKey.toUpperCase().startsWith("LM")) {
         displayMemberIdInputMessage(accountLookup,
             "  Member ID must be LM followed by 3 digits, for example LM001.\n"
-            + "  Or enter a guest name to search by name.");
+            + "  Or enter a member name to search by name.");
         continue;
       }
 
@@ -736,7 +736,7 @@ public class FrontDeskService {
 
     return "  Room No.              : " + room.getRoomNumber()
         + "\n  Member ID             : " + formatOptionalText(room.getOccupantMemberId())
-        + "\n  Guest                 : " + getGuestNameForRoom(room)
+        + "\n  Member                : " + getMemberNameForRoom(room)
         + "\n  Type                  : " + room.getRoomType()
         + "\n  Floor                 : " + room.getFloor()
         + "\n  Current Status        : " + room.getStatus().getLabel()
@@ -749,7 +749,7 @@ public class FrontDeskService {
 
   private String formatCheckoutConfirmationSummary(Room room, RoomStayTimeline timeline,
       LocalDateTime actualCheckoutAt, boolean lateCheckout) {
-    return "Member: " + getGuestNameForRoom(room) + " ("
+    return "Member: " + getMemberNameForRoom(room) + " ("
         + formatOptionalText(room.getOccupantMemberId()) + ")"
         + "\nRoom: " + room.getRoomNumber() + " - " + room.getRoomType()
         + "\nCurrent status: " + room.getStatus().getLabel()
@@ -813,7 +813,7 @@ public class FrontDeskService {
 
     for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
       Room room = roomList.getEntry(index);
-      if (isActiveGuestRoom(room.getStatus())) {
+      if (isActiveMemberRoom(room.getStatus())) {
         occupiedRooms++;
         if (room.getStatus() == RoomStatus.LCO) lateCheckoutRooms++;
       } else if (room.getStatus() == RoomStatus.READY_FOR_CHECK_IN) {
@@ -846,14 +846,14 @@ public class FrontDeskService {
   private String formatCheckoutRoomBoard(ListInterface<Room> roomList) {
     StringBuilder output = new StringBuilder();
     output.append(String.format("  %-8s %-12s %-20s %-12s %-22s %-18s%n",
-        "Room", "Type", "Status", "Member ID", "Guest", "Expected Check-Out"));
+        "Room", "Type", "Status", "Member ID", "Member", "Expected Check-Out"));
     output.append("  ------------------------------------------------------------------------------------------------\n");
 
     int activeRooms = 0;
     int lateCheckoutRooms = 0;
     for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
       Room room = roomList.getEntry(index);
-      if (!isActiveGuestRoom(room.getStatus())) {
+      if (!isActiveMemberRoom(room.getStatus())) {
         continue;
       }
 
@@ -863,7 +863,7 @@ public class FrontDeskService {
       activeRooms++;
       output.append(String.format("  %-8s %-12s %-20s %-12s %-22s %-18s%n",
           room.getRoomNumber(), room.getRoomType(), room.getStatus().getLabel(),
-          formatBoardText(room.getOccupantMemberId()), getGuestNameForRoom(room),
+          formatBoardText(room.getOccupantMemberId()), getMemberNameForRoom(room),
           formatBoardDateTime(room.getExpectedCheckoutAt())));
     }
 
@@ -877,32 +877,32 @@ public class FrontDeskService {
     return output.toString();
   }
 
-  private String formatLateCheckoutGuestList(ListInterface<Room> roomList) {
+  private String formatLateCheckoutMemberList(ListInterface<Room> roomList) {
     StringBuilder output = new StringBuilder();
     output.append(String.format("  %-12s %-22s %-8s %-12s %-20s %-18s%n",
-        "Member ID", "Guest", "Room", "Type", "Status", "Expected Check-Out"));
+        "Member ID", "Member", "Room", "Type", "Status", "Expected Check-Out"));
     output.append("  ------------------------------------------------------------------------------------------------\n");
 
     int activeRooms = 0;
     for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
       Room room = roomList.getEntry(index);
-      if (!isActiveGuestRoom(room.getStatus())) {
+      if (!isActiveMemberRoom(room.getStatus())) {
         continue;
       }
 
       activeRooms++;
       output.append(String.format("  %-12s %-22s %-8s %-12s %-20s %-18s%n",
-          formatBoardText(room.getOccupantMemberId()), getGuestNameForRoom(room),
+          formatBoardText(room.getOccupantMemberId()), getMemberNameForRoom(room),
           room.getRoomNumber(), room.getRoomType(), room.getStatus().getLabel(),
           formatBoardDateTime(room.getExpectedCheckoutAt())));
     }
 
     if (activeRooms == 0) {
-      output.append("  No occupied or late check-out rooms are currently linked to guests.\n");
+      output.append("  No occupied or late check-out rooms are currently linked to members.\n");
     }
 
     output.append("\n");
-    output.append("  Active guest rooms shown: ").append(activeRooms).append("\n");
+    output.append("  Active member rooms shown: ").append(activeRooms).append("\n");
     output.append("  Enter the Member ID from this list to extend late check-out.");
     return output.toString();
   }
@@ -935,11 +935,9 @@ public class FrontDeskService {
         .append(" to ")
         .append(toDate == null ? "All dates" : toDate)
         .append("\n\n");
-    output.append(String.format("  %-8s %-22s %-22s %-24s %s%n",
-        "Room", "Previous Status", "New Status", "Changed At", "Reason"));
-    output.append("  ------------------------------------------------------------------------------------------------\n");
+    output.append("  Showing newest matching records first.\n\n");
 
-    int checkoutCount = 0;
+    ListInterface<StatusChangeRecord> matchingRecords = new ArrayList<>();
     while (!history.isEmpty()) {
       StatusChangeRecord record = history.pop();
       if (!isCheckoutRecord(record)) {
@@ -953,11 +951,24 @@ public class FrontDeskService {
         continue;
       }
 
-      output.append(String.format("  %-8s %-22s %-22s %-24s %s%n",
-          record.getRoomNumber(), record.getPreviousStatus().getLabel(),
-          record.getNewStatus().getLabel(), MalaysiaTime.format(record.getChangedAt()),
-          record.getReason()));
-      checkoutCount++;
+      matchingRecords.add(record);
+    }
+
+    int checkoutCount = matchingRecords.getNumberOfEntries();
+    for (int index = 1; index <= checkoutCount; index++) {
+      StatusChangeRecord record = matchingRecords.getEntry(index);
+      LinkedHashMap<String, String> details = extractHistoryDetails(record.getReason());
+      LinkedHashMap<String, String> rows = new LinkedHashMap<>();
+      rows.put("Type", extractHistoryAction(record.getReason()));
+      rows.put("Room", record.getRoomNumber());
+      rows.put("Status", record.getPreviousStatus().getLabel() + " -> "
+          + record.getNewStatus().getLabel());
+      rows.put("Room Status Changed at", MalaysiaTime.format(record.getChangedAt()));
+      rows.put("Member", getHistoryDetail(details, "Member"));
+      rows.put("Check-in", getHistoryDetail(details, "Check-in"));
+      rows.put("Expected check-out", getHistoryDetail(details, "Expected check-out"));
+      rows.put("Actual check-out", getHistoryDetail(details, "Actual check-out"));
+      appendHistorySummaryBox(output, "CHECK-OUT RECORD " + (checkoutCount - index + 1), rows);
     }
 
     if (checkoutCount == 0) {
@@ -976,11 +987,9 @@ public class FrontDeskService {
         .append(" to ")
         .append(toDate == null ? "All dates" : toDate)
         .append("\n\n");
-    output.append(String.format("  %-8s %-18s %-18s %-24s %s%n",
-        "Room", "Previous", "New", "Changed At", "Reason"));
-    output.append("  ------------------------------------------------------------------------------------------------\n");
+    output.append("  Showing newest matching records first.\n\n");
 
-    int lateCheckoutCount = 0;
+    ListInterface<StatusChangeRecord> matchingRecords = new ArrayList<>();
     while (!history.isEmpty()) {
       StatusChangeRecord record = history.pop();
       if (!isLateCheckoutExtensionRecord(record)) {
@@ -994,11 +1003,23 @@ public class FrontDeskService {
         continue;
       }
 
-      output.append(String.format("  %-8s %-18s %-18s %-24s %s%n",
-          record.getRoomNumber(), record.getPreviousStatus().getLabel(),
-          record.getNewStatus().getLabel(), MalaysiaTime.format(record.getChangedAt()),
-          record.getReason()));
-      lateCheckoutCount++;
+      matchingRecords.add(record);
+    }
+
+    int lateCheckoutCount = matchingRecords.getNumberOfEntries();
+    for (int index = 1; index <= lateCheckoutCount; index++) {
+      StatusChangeRecord record = matchingRecords.getEntry(index);
+      LinkedHashMap<String, String> details = extractHistoryDetails(record.getReason());
+      LinkedHashMap<String, String> rows = new LinkedHashMap<>();
+      rows.put("Type", extractHistoryAction(record.getReason()));
+      rows.put("Room", record.getRoomNumber());
+      rows.put("Status", record.getPreviousStatus().getLabel() + " -> "
+          + record.getNewStatus().getLabel());
+      rows.put("Room Status Changed at", MalaysiaTime.format(record.getChangedAt()));
+      rows.put("Member", getHistoryDetail(details, "Member"));
+      rows.put("Previous expected", getHistoryDetail(details, "Previous expected check-out"));
+      rows.put("New expected", getHistoryDetail(details, "New expected check-out"));
+      appendHistorySummaryBox(output, "LATE CHECK-OUT RECORD " + (lateCheckoutCount - index + 1), rows);
     }
 
     if (lateCheckoutCount == 0) {
@@ -1007,6 +1028,51 @@ public class FrontDeskService {
 
     output.append("\n  Late check-out records shown: ").append(lateCheckoutCount);
     return output.toString();
+  }
+
+  private LinkedHashMap<String, String> extractHistoryDetails(String reason) {
+    LinkedHashMap<String, String> details = new LinkedHashMap<>();
+    if (reason == null || reason.trim().isEmpty()) {
+      return details;
+    }
+
+    String[] parts = reason.split("\\|");
+    for (int index = 1; index < parts.length; index++) {
+      String part = parts[index].trim();
+      int separator = part.indexOf(':');
+      if (separator <= 0) {
+        continue;
+      }
+
+      String key = part.substring(0, separator).trim();
+      String value = part.substring(separator + 1).trim();
+      details.put(key, value.isEmpty() ? "Not recorded" : value);
+    }
+    return details;
+  }
+
+  private String extractHistoryAction(String reason) {
+    if (reason == null || reason.trim().isEmpty()) {
+      return "Not recorded";
+    }
+
+    int separator = reason.indexOf('|');
+    String action = separator < 0 ? reason : reason.substring(0, separator);
+    return action.trim().isEmpty() ? "Not recorded" : action.trim();
+  }
+
+  private String getHistoryDetail(LinkedHashMap<String, String> details, String key) {
+    String value = details.get(key);
+    return value == null || value.trim().isEmpty() ? "Not recorded" : value;
+  }
+
+  private void appendHistorySummaryBox(StringBuilder output, String title,
+      LinkedHashMap<String, String> rows) {
+    output.append("  --- ").append(title).append(" ---\n");
+    for (String key : rows.keySet()) {
+      output.append(String.format("  %-22s : %s%n", key, rows.get(key)));
+    }
+    output.append("  ").append("-".repeat(title.length() + 8)).append("\n\n");
   }
 
   private LocalDate[] promptForCheckoutHistoryDateRange() {
@@ -1164,11 +1230,11 @@ public class FrontDeskService {
     return String.format("RM %.2f", amount);
   }
 
-  private boolean isActiveGuestRoom(RoomStatus status) {
+  private boolean isActiveMemberRoom(RoomStatus status) {
     return status == RoomStatus.OCCUPIED || status == RoomStatus.LCO;
   }
 
-  private String getGuestNameForRoom(Room room) {
+  private String getMemberNameForRoom(Room room) {
     String memberId = room.getOccupantMemberId();
     if (memberId == null || memberId.trim().isEmpty()) return "-";
     RewardsMember memberRecord = memberSearchTree.search(memberId.trim().toUpperCase());
@@ -1180,7 +1246,7 @@ public class FrontDeskService {
     for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
       Room room = roomList.getEntry(index);
       String memberId = room.getOccupantMemberId();
-      if (!isActiveGuestRoom(room.getStatus()) || memberId == null
+      if (!isActiveMemberRoom(room.getStatus()) || memberId == null
           || memberId.trim().isEmpty()) {
         continue;
       }
@@ -1190,7 +1256,7 @@ public class FrontDeskService {
       for (int checkIndex = 1; checkIndex <= roomList.getNumberOfEntries(); checkIndex++) {
         Room checkRoom = roomList.getEntry(checkIndex);
         String checkMemberId = checkRoom.getOccupantMemberId();
-        if (isActiveGuestRoom(checkRoom.getStatus()) && checkMemberId != null
+        if (isActiveMemberRoom(checkRoom.getStatus()) && checkMemberId != null
             && checkMemberId.equalsIgnoreCase(memberId)) {
           activeStayCount++;
           if (roomNumbers.length() > 0) roomNumbers.append(", ");
@@ -1213,7 +1279,7 @@ public class FrontDeskService {
     int count = 0;
     for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
       Room room = roomList.getEntry(index);
-      if (!isActiveGuestRoom(room.getStatus()) || !matchesActiveStayFilter(room, filter,
+      if (!isActiveMemberRoom(room.getStatus()) || !matchesActiveStayFilter(room, filter,
           today, now)) {
         continue;
       }
@@ -1244,10 +1310,10 @@ public class FrontDeskService {
     return false;
   }
 
-  private int countActiveGuestRooms(ListInterface<Room> roomList) {
+  private int countActiveMemberRooms(ListInterface<Room> roomList) {
     int count = 0;
     for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
-      if (isActiveGuestRoom(roomList.getEntry(index).getStatus())) {
+      if (isActiveMemberRoom(roomList.getEntry(index).getStatus())) {
         count++;
       }
     }
@@ -1286,16 +1352,15 @@ public class FrontDeskService {
     String reason = record.getReason() == null ? "" : record.getReason().toLowerCase();
     return record.getNewStatus() == RoomStatus.DIRTY
         && (record.getPreviousStatus() == RoomStatus.OCCUPIED
-            || record.getPreviousStatus() == RoomStatus.LCO
-            || reason.startsWith("late check-out")
-            || reason.startsWith("on-time check-out")
-            || reason.contains("checked out"));
+            || record.getPreviousStatus() == RoomStatus.LCO)
+        && (reason.startsWith("late check-out at front desk")
+            || reason.startsWith("on-time check-out at front desk"));
   }
 
   private boolean isLateCheckoutExtensionRecord(StatusChangeRecord record) {
     String reason = record.getReason() == null ? "" : record.getReason().toLowerCase();
     return record.getNewStatus() == RoomStatus.LCO
-        || reason.startsWith("late check-out extension");
+        && reason.startsWith("late check-out extension at front desk");
   }
 
   private RoomStayTimeline findLatestRoomStayTimeline(String roomNumber) {
@@ -1370,7 +1435,7 @@ public class FrontDeskService {
     for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
       Room room = roomList.getEntry(index);
       String occupantMemberId = room.getOccupantMemberId();
-      if (isActiveGuestRoom(room.getStatus())
+      if (isActiveMemberRoom(room.getStatus())
           && occupantMemberId != null
           && occupantMemberId.equalsIgnoreCase(memberId)) {
         return room;

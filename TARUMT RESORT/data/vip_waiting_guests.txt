@@ -1,3 +1,0 @@
-"bookingId","confirmationNumber","memberId","memberName","roomType","nights","arrivalSequence","requestedCheckInDate","waitingSince","waitingStartedAt"
-"VIP-0010","77253678","LM020","emily","Suite","3","10","2026-08-30","2026-08-29","2026-08-29T00:00"
-"VIP-0007","00000007","LM009","ycc","Family","3","7","2026-08-28","2026-08-28","2026-08-28T00:00"

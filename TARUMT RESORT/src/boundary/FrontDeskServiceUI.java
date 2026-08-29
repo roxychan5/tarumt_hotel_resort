@@ -115,7 +115,7 @@ public class FrontDeskServiceUI {
   }
 
   public void displayMemberSearchResults(String output) {
-    sectionHeader("MEMBER SEARCH RESULTS", "Matches by loyalty member ID or guest name.");
+    sectionHeader("MEMBER SEARCH RESULTS", "Matches by loyalty member ID or member name.");
     System.out.println(output);
   }
 
@@ -144,7 +144,7 @@ public class FrontDeskServiceUI {
   }
 
   public void displayLateCheckoutResult(String output) {
-    sectionHeader("HANDLE LATE CHECKOUT", "Extend an occupied guest stay by member ID.");
+    sectionHeader("HANDLE LATE CHECKOUT", "Extend an occupied member stay by member ID.");
     for (String line : output.split("\r?\n")) {
       System.out.println(line + R);
     }

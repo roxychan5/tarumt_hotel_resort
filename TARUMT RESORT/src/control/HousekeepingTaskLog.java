@@ -495,9 +495,9 @@ public class HousekeepingTaskLog {
   }
 
   /**
-   * Option 10 - shows the late check-out updates made by Front Desk.
-   * Front Desk owns the Occupied -> LCO update and the new expected
-   * check-out date/time; Housekeeping reads the shared audit history.
+   * Option 10 - roll a completed housekeeping schedule back when the member
+   * requests a late check-out. Only READY_FOR_CHECK_IN rooms are restored
+   * to OCCUPIED; Front Desk then records the new checkout date and marks LCO.
    */
   private void handleLateCheckout() {
     viewFrontDeskLateCheckoutHistory();
@@ -939,7 +939,7 @@ public class HousekeepingTaskLog {
     consoleReport.append("  " + repeatChar('-', 40) + "\n");
     consoleReport.append(String.format("  Rooms requiring immediate attention : %d (Dirty + Cleaning)%n",
         dirty + cleaning));
-    consoleReport.append(String.format("  Rooms ready for guests              : %d (Ready for Check-In)%n",
+    consoleReport.append(String.format("  Rooms ready for members             : %d (Ready for Check-In)%n",
         ready));
     consoleReport.append(String.format("  Rooms under inspection             : %d%n", inspected));
     consoleReport.append("\n");
@@ -1383,7 +1383,7 @@ public class HousekeepingTaskLog {
     report.append("  Total Rooms     : ").append(totalRooms).append("\n");
     report.append("  Cleaning Backlog: ").append(cleaningBacklog)
         .append(" (Dirty + Cleaning + Inspected)\n");
-    report.append("  Guest Rooms     : ").append(occupied + lateCheckout)
+    report.append("  Member Rooms    : ").append(occupied + lateCheckout)
         .append(" (Occupied + Late Check-Out)\n\n");
 
     report.append("  STATUS DISTRIBUTION\n");

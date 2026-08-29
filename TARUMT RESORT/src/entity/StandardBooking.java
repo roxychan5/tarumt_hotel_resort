@@ -1,7 +1,7 @@
 package entity;
 
 /**
- * Represents a standard booking made by a guest.
+ * Represents a standard booking made by a member.
  *
  * @author Your Name
  */
@@ -9,19 +9,19 @@ public class StandardBooking {
 
     // Attributes
     private String bookingId;
-    private String guestName;
+    private String memberName;
     private String contactNumber;
     private String roomType;
     private int numberOfNights;
     private String status;
 
     // Constructor
-    public StandardBooking(String bookingId, String guestName,
+    public StandardBooking(String bookingId, String memberName,
             String contactNumber, String roomType,
             int numberOfNights, String status) {
 
         this.bookingId = bookingId;
-        this.guestName = guestName;
+        this.memberName = memberName;
         this.contactNumber = contactNumber;
         this.roomType = roomType;
         this.numberOfNights = numberOfNights;
@@ -38,12 +38,12 @@ public class StandardBooking {
         this.bookingId = bookingId;
     }
 
-    public String getGuestName() {
-        return guestName;
+    public String getMemberName() {
+        return memberName;
     }
 
-    public void setGuestName(String guestName) {
-        this.guestName = guestName;
+    public void setMemberName(String memberName) {
+        this.memberName = memberName;
     }
 
     public String getContactNumber() {
@@ -83,7 +83,7 @@ public class StandardBooking {
     @Override
     public String toString() {
         return "Booking ID: " + bookingId
-                + " | Guest: " + guestName
+                + " | Member: " + memberName
                 + " | Contact: " + contactNumber
                 + " | Room Type: " + roomType
                 + " | Nights: " + numberOfNights
