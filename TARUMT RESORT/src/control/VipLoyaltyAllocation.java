@@ -915,26 +915,39 @@ public class VipLoyaltyAllocation {
       return "  No loyalty members are registered. Enter 0 to cancel, then register a member in Loyalty & Rewards.";
     }
 
-    for (int index = 1; index < members.length; index++) {
-      RewardsMember current = members[index];
+    java.util.ArrayList<RewardsMember> availableMembers = new java.util.ArrayList<>();
+    for (RewardsMember member : members) {
+      if (isMemberWaiting(member.getMemberId())) continue;
+      if (findOccupiedRoomByMemberId(member.getMemberId()) != null) continue;
+      availableMembers.add(member);
+    }
+
+    if (availableMembers.isEmpty()) {
+      return "  No available loyalty members are eligible for the VIP priority queue. "
+          + "All registered members are either waiting, already allocated, or already checked in.";
+    }
+
+    RewardsMember[] eligibleMembers = availableMembers.toArray(new RewardsMember[0]);
+    for (int index = 1; index < eligibleMembers.length; index++) {
+      RewardsMember current = eligibleMembers[index];
       int previous = index - 1;
       while (previous >= 0
-          && members[previous].getMemberId().compareToIgnoreCase(current.getMemberId()) > 0) {
-        members[previous + 1] = members[previous];
+          && eligibleMembers[previous].getMemberId().compareToIgnoreCase(current.getMemberId()) > 0) {
+        eligibleMembers[previous + 1] = eligibleMembers[previous];
         previous--;
       }
-      members[previous + 1] = current;
+      eligibleMembers[previous + 1] = current;
     }
 
     StringBuilder list = new StringBuilder();
     list.append(String.format("%-12s %-24s %-12s %-8s%n",
         "Member ID", "Name", "Tier", "Points"));
     list.append("--------------------------------------------------------------\n");
-    for (RewardsMember member : members) {
+    for (RewardsMember member : eligibleMembers) {
       list.append(String.format("%-12s %-24s %-12s %-8d%n",
           member.getMemberId(), member.getName(), member.getTier(), member.getPoints()));
     }
-    list.append("\nTotal registered members: ").append(members.length)
+    list.append("\nAvailable members for VIP queue: ").append(eligibleMembers.length)
         .append("\nEnter a Member ID below, or 0 to cancel.");
     return list.toString();
   }
