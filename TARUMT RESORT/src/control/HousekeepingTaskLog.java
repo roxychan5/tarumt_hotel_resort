@@ -135,7 +135,7 @@ public class HousekeepingTaskLog {
           handleLateCheckout();
           break;
         case 11:
-          housekeepingUI.listRoomStatuses(getAllRooms()); // room status board
+          housekeepingUI.listRoomStatuses(getRoomStatusBoard()); // room status board
           MessageUI.pressEnterToContinue();
           break;
         case 12:
@@ -454,22 +454,6 @@ public class HousekeepingTaskLog {
     return sb.toString();
   }
 
-  /** Shows which rooms are eligible for the Ready-for-Check-In rollback. */
-  private String getLateCheckoutRoomSummary() {
-    StringBuilder sb = new StringBuilder();
-    for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
-      Room r = roomList.getEntry(i);
-      RoomStatus s = r.getStatus();
-      String action = (s == RoomStatus.READY_FOR_CHECK_IN)
-          ? "-> Restore Occupied" : "Not eligible";
-      // Same column layout as the Room Status Board + an Action column:
-      sb.append(String.format("%-8s %-12s %-6d %-22s %s\n",
-          r.getRoomNumber(), r.getRoomType(), r.getFloor(),
-          s.getLabel(), action));
-    }
-    return sb.toString();
-  }
-
   /** Option 6 - Undo the latest change, after showing the user what it is. */
   private void undoLastChange() {
     // Nothing to undo? Nothing to do.
@@ -511,46 +495,53 @@ public class HousekeepingTaskLog {
   }
 
   /**
-   * Option 10 - roll a completed housekeeping schedule back when the guest
-   * requests a late check-out. Only READY_FOR_CHECK_IN rooms are restored
-   * to OCCUPIED; Front Desk then records the new checkout date and marks LCO.
+   * Option 10 - shows the late check-out updates made by Front Desk.
+   * Front Desk owns the Occupied -> LCO update and the new expected
+   * check-out date/time; Housekeeping reads the shared audit history.
    */
   private void handleLateCheckout() {
-    // ── Show ALL rooms first so the supervisor picks the right one ─────────
-    housekeepingUI.displayLateCheckoutRooms(getLateCheckoutRoomSummary());
+    viewFrontDeskLateCheckoutHistory();
+  }
 
-    String roomNumber = housekeepingUI.inputRoomNumber(); // e.g. R101
-    if (roomNumber == null) {
-      MessageUI.displayInfoMessage("Late check-out handling cancelled.");
-      MessageUI.pressEnterToContinue();
-      return;
+  /**
+   * Reads the shared status history. Front Desk writes an LCO record whenever
+   * it accepts an extension, so Housekeeping can see the same audit trail
+   * without changing any room or booking data.
+   */
+  private void viewFrontDeskLateCheckoutHistory() {
+    StringBuilder output = new StringBuilder();
+    output.append("  Date range: All dates to All dates\n\n");
+    output.append(String.format("  %-8s %-18s %-18s %-24s %s%n",
+        "Room", "Previous", "New", "Changed At", "Reason"));
+    output.append("  ------------------------------------------------------------------------------------------------\n");
+
+    int lateCheckoutCount = 0;
+    for (StatusChangeRecord record : copyUndoHistory()) {
+      if (!isFrontDeskLateCheckoutRecord(record)) {
+        continue;
+      }
+      output.append(String.format("  %-8s %-18s %-18s %-24s %s%n",
+          record.getRoomNumber(), record.getPreviousStatus().getLabel(),
+          record.getNewStatus().getLabel(), MalaysiaTime.format(record.getChangedAt()),
+          record.getReason()));
+      lateCheckoutCount++;
     }
-    Room room = findRoom(roomNumber);
-    if (room == null) {
-      MessageUI.displayErrorMessage("Room not found.");
-      return; // stop - no such room
+
+    if (lateCheckoutCount == 0) {
+      output.append("  No Front Desk late check-out extension records found.\n");
     }
+    output.append("\n  Late check-out records shown: ").append(lateCheckoutCount);
 
-    RoomStatus previousStatus = room.getStatus();
-    if (previousStatus != RoomStatus.READY_FOR_CHECK_IN) {
-      MessageUI.displayErrorMessage(
-          "Only a room with status Ready for Check-In can be restored to Occupied. "
-          + "Current status: " + previousStatus.getLabel() + ".");
-      MessageUI.pressEnterToContinue();
-      return;
-    }
-
-    // Save the rollback so the supervisor can undo it if the request was incorrect.
-    recordStatusChange(roomNumber, previousStatus, RoomStatus.OCCUPIED,
-        "Late check-out requested - schedule rolled back");
-    room.setStatus(RoomStatus.OCCUPIED);
-    syncTaskStatus(roomNumber, RoomStatus.OCCUPIED);
-    saveData();
-
-    housekeepingUI.displayRoomDetails(room);
-    MessageUI.displaySuccessMessage(
-        "Schedule rolled back. Room restored to Occupied; continue in Front Desk to set LCO.");
+    housekeepingUI.displayFrontDeskLateCheckoutHistory(output.toString());
     MessageUI.pressEnterToContinue();
+  }
+
+  /** Identifies extension records created by Front Desk, not a cleaning rollback. */
+  private boolean isFrontDeskLateCheckoutRecord(StatusChangeRecord record) {
+    if (record == null) return false;
+    String reason = record.getReason() == null ? "" : record.getReason().toLowerCase();
+    return record.getNewStatus() == RoomStatus.LCO
+        && reason.startsWith("late check-out extension at front desk");
   }
 
   /** Option 8 - Show the whole change history, newest to oldest. */
@@ -1639,6 +1630,32 @@ public class HousekeepingTaskLog {
     StringBuilder output = new StringBuilder();
     for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
       output.append(roomList.getEntry(i)).append("\n");
+    }
+    return output.toString();
+  }
+
+  /**
+   * Builds the Room Status Board with the latest recorded status-change time
+   * for every room. The history is ordered newest first, so the first record
+   * found for a room is its most recent update.
+   */
+  private String getRoomStatusBoard() {
+    Map<String, StatusChangeRecord> latestChangeByRoom = new LinkedHashMap<>();
+    for (StatusChangeRecord record : copyUndoHistory()) {
+      if (!latestChangeByRoom.containsKey(record.getRoomNumber())) {
+        latestChangeByRoom.put(record.getRoomNumber(), record);
+      }
+    }
+
+    StringBuilder output = new StringBuilder();
+    for (int i = 1; i <= roomList.getNumberOfEntries(); i++) {
+      Room room = roomList.getEntry(i);
+      StatusChangeRecord latestChange = latestChangeByRoom.get(room.getRoomNumber());
+      String lastUpdated = latestChange == null ? "Not recorded"
+          : MalaysiaTime.format(latestChange.getChangedAt());
+      output.append(String.format("%-12s %-16s %-12d %-30s %-24s%n",
+          room.getRoomNumber(), room.getRoomType(), room.getFloor(),
+          room.getStatus().getLabel(), lastUpdated));
     }
     return output.toString();
   }

@@ -30,6 +30,8 @@ public class HousekeepingTaskLogUI {
 
   private static final int  BOX_W  = 86;   // total visible chars inside | |
   private static final int  ACTIVE_ROOMS_BOX_W = 100;
+  // The five status-board columns total exactly 100 visible characters.
+  private static final int  ROOM_STATUS_BOARD_BOX_W = 100;
   private static final int  LABEL_W = 30;   // visible width of label column
   private static final char HL    = '-';
   private static final char VL    = '|';
@@ -77,7 +79,7 @@ public class HousekeepingTaskLogUI {
     printBorder();
 
     printSectionLabel("OPERATIONS  &  REPORTS");
-    printEntry("10", "Record Late Check-Out",    "Ready -> Occupied; Front Desk sets new date");
+    printEntry("10", "Late Check-Out History", "Front Desk updates: Occupied -> LCO");
     printEntry("11", "Room Status Board",        "Monitor every room at a glance");
     printEntryHighlight("12", "Report 1: Operational Summary",
         "Binary search + bubble sort | PDF");
@@ -265,47 +267,16 @@ public class HousekeepingTaskLogUI {
   }
 
 
-  /**
-   * Shows EVERY room with its current status before recording a late
-   * check-out. Green = Ready for Check-In and can roll back to Occupied.
-   * Uses the text summary built by the controller.
-   */
-  public void displayLateCheckoutRooms(String summary) {
+  /** Shows late check-out extensions recorded by Front Desk in the shared history. */
+  public void displayFrontDeskLateCheckoutHistory(String output) {
     System.out.println();
     printBorder();
-    rowV("  " + C + B + "ALL ROOMS - RECORD LATE CHECK-OUT" + R,
-        2 + "ALL ROOMS - RECORD LATE CHECK-OUT".length());
+    rowV("  " + C + B + "LATE CHECK-OUT HISTORY" + R,
+        2 + "LATE CHECK-OUT HISTORY".length());
+    rowV("  " + DM + "Newest Front Desk extension records first." + R,
+        2 + "Newest Front Desk extension records first.".length());
     printBorder();
-
-    if (summary == null || summary.isEmpty()) {
-      String msg = "  No rooms registered.";
-      rowV(DM + msg + R, msg.length());
-    } else {
-      // Legend - explains the Action column
-      String legend = "  " + "\033[92m" + "Ready -> Occupied" + R
-          + " = roll back schedule   " + DM + "Not eligible" + R;
-      rowV(legend, visLen(legend));
-      row();
-
-      // Header - must match control format: Room(8) Type(12) Floor(6) Status(22) Action
-      String hdr = String.format("  %-8s %-12s %-6s %-22s %s",
-          "Room", "Type", "Floor", "Current Status", "Late Check-Out");
-      rowV(IB + B + hdr + R, hdr.length());
-      rowV("  " + rep('-', 66), 2 + 66);
-
-      // Data rows - green = eligible, dim = already unavailable
-      for (String line : summary.split("\r?\n")) {
-        if (line.trim().isEmpty()) continue;
-        line = line.replace("\r", "");
-        if (line.contains("Not eligible")) {
-          rowV("  " + DM + line + R, 2 + line.length());
-        } else {
-          rowV("  " + "\033[92m" + line + R, 2 + line.length());
-        }
-      }
-    }
-    printBorder();
-    System.out.println();
+    System.out.println(output);
   }
 
   /** Asks for a Task ID (e.g. T1001), or returns null when 0 cancels. */
@@ -433,25 +404,29 @@ public class HousekeepingTaskLogUI {
   /** Shows the current status of every room at a glance. */
   public void listRoomStatuses(String output) {
     System.out.println();
-    printBorder();
+    printBorder(ROOM_STATUS_BOARD_BOX_W);
     rowV("  " + C + B + "ROOM STATUS BOARD" + R,
-        2 + "ROOM STATUS BOARD".length());
-    printBorder();
+        2 + "ROOM STATUS BOARD".length(), ROOM_STATUS_BOARD_BOX_W);
+    rowV("  " + DM + "Last Updated is the latest saved room status change." + R,
+        2 + "Last Updated is the latest saved room status change.".length(),
+        ROOM_STATUS_BOARD_BOX_W);
+    printBorder(ROOM_STATUS_BOARD_BOX_W);
 
-    String hdr = String.format("  %-12s %-16s %-12s %-30s",
-        "Room", "Type", "Floor", "Status");
-    rowV(IB + B + hdr + R, hdr.length());
-    rowV("  " + rep('-', 73), 2 + 73);
+    String hdr = String.format("  %-12s %-16s %-12s %-30s %-24s",
+        "Room", "Type", "Floor", "Status", "Last Updated");
+    rowV(IB + B + hdr + R, hdr.length(), ROOM_STATUS_BOARD_BOX_W);
+    rowV("  " + rep('-', 98), 2 + 98, ROOM_STATUS_BOARD_BOX_W);
     if (output.isEmpty()) {
       String message = "  (No rooms registered)";
-      rowV(DM + message + R, message.length());
+      rowV(DM + message + R, message.length(), ROOM_STATUS_BOARD_BOX_W);
     } else {
-      for (String aux : output.split("\n")) {
+      for (String aux : output.split("\r?\n")) {
         if (aux.isEmpty()) continue;
-        rowV("  " + WH + aux + R, 2 + aux.length());
+        aux = aux.replace("\r", ""); // keep Windows line endings out of the border width
+        rowV("  " + WH + aux + R, 2 + aux.length(), ROOM_STATUS_BOARD_BOX_W);
       }
     }
-    printBorder();
+    printBorder(ROOM_STATUS_BOARD_BOX_W);
     System.out.println();
   }
 
