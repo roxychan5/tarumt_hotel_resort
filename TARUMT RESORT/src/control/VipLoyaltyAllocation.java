@@ -55,6 +55,8 @@ public class VipLoyaltyAllocation {
   private static final Path WAITING_MEMBER_FILE = DataFiles.resolve("vip_waiting_members.txt");
   private static final Path CHECKIN_HISTORY_FILE = DataFiles.resolve("vip_checkin_history.txt");
   private static final Path PAYMENT_HISTORY_FILE = DataFiles.resolve("vip_payment_history.txt");
+  private static final Path CANCELLED_WAITING_BOOKINGS_FILE =
+      DataFiles.resolve("vip_cancelled_waiting_bookings.txt");
   private int arrivalSequence;
   private int allocationSequence;
 
@@ -191,6 +193,7 @@ public class VipLoyaltyAllocation {
     if (waitingMembers.removeEntry(booking)) {
       cancelledWaitingBookings.add(booking);
       saveWaitingMembers();
+      saveCancelledWaitingBookings();
       MessageUI.displaySuccessMessage("VIP booking cancelled for " + booking.getMemberName()
           + " (" + booking.getMemberId() + "). It has been recorded for the allocation report.");
     }
@@ -811,6 +814,27 @@ public class VipLoyaltyAllocation {
       Files.write(WAITING_MEMBER_FILE, contents.toString().getBytes(StandardCharsets.UTF_8));
     } catch (IOException ex) {
       MessageUI.displayErrorMessage("Could not save VIP waiting members: " + ex.getMessage());
+    }
+  }
+
+  private void saveCancelledWaitingBookings() {
+    try {
+      Files.createDirectories(CANCELLED_WAITING_BOOKINGS_FILE.getParent());
+      StringBuilder contents = new StringBuilder(CsvUtils.row("bookingId", "confirmationNumber",
+          "memberId", "memberName", "roomType", "nights", "arrivalSequence",
+          "requestedCheckInDate", "waitingSince", "waitingStartedAt", "cancelledAt")).append('\n');
+      for (int position = 1; position <= cancelledWaitingBookings.getNumberOfEntries(); position++) {
+        LoyaltyMember member = cancelledWaitingBookings.getEntry(position);
+        contents.append(CsvUtils.row(clean(member.getBookingId()), clean(member.getConfirmationNumber()),
+            clean(member.getMemberId()), clean(member.getMemberName()), clean(member.getRequestedRoomType()),
+            String.valueOf(member.getNumberOfNights()), String.valueOf(member.getArrivalSequence()),
+            String.valueOf(member.getRequestedCheckInDate()), String.valueOf(member.getWaitingSince()),
+            String.valueOf(member.getWaitingStartedAt()), MalaysiaTime.now().toString()))
+            .append('\n');
+      }
+      Files.write(CANCELLED_WAITING_BOOKINGS_FILE, contents.toString().getBytes(StandardCharsets.UTF_8));
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("Could not save cancelled VIP waiting bookings: " + ex.getMessage());
     }
   }
 
