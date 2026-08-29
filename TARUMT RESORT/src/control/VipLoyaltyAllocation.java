@@ -130,7 +130,7 @@ public class VipLoyaltyAllocation {
             waitingStartedAt);
         double nightlyPrice = getRoomPrice(roomType);
         double totalAmount = nightlyPrice * numberOfNights;
-      vipUI.displayBookingSummary(buildBookingSummary(member));
+      vipUI.displayBookingSummary(buildBookingSummary(member, totalAmount));
         String paymentMethod = vipUI.inputPaymentMethod();
         String paymentId = createPaymentId();
         vipUI.displayPaymentInformation(buildPaymentInformation(member, nightlyPrice,
@@ -183,7 +183,8 @@ public class VipLoyaltyAllocation {
       return;
     }
 
-    vipUI.displayBookingSummary(buildBookingSummary(booking));
+    double totalAmount = getRoomPrice(booking.getRequestedRoomType()) * booking.getNumberOfNights();
+    vipUI.displayBookingSummary(buildBookingSummary(booking, totalAmount));
     if (!vipUI.confirmBookingCancellation(confirmationNumber)) {
       MessageUI.displayInfoMessage("Booking was not cancelled.");
       pause();
@@ -991,12 +992,12 @@ public class VipLoyaltyAllocation {
     return waitingDays + " day(s) " + remainingHours + " hour(s)";
   }
 
-  private String buildBookingSummary(LoyaltyMember member) {
+  private String buildBookingSummary(LoyaltyMember member, double totalAmount) {
     LocalDate checkOutDate = member.getRequestedCheckInDate()
         .plusDays(member.getNumberOfNights());
         return String.format("%-24s : %s%n%-24s : %s%n%-24s : %s%n%-24s : %s%n"
           + "%-24s : %s%n%-24s : %s%n%-24s : %s%n%-24s : %d night(s)%n"
-          + "%-24s : %s%n",
+          + "%-24s : RM %.2f%n%-24s : %s%n",
         "Booking ID", member.getBookingId(),
         "Confirmation No.", member.getConfirmationNumber(),
         "Member", member.getMemberName() + " (" + member.getMemberId() + ")",
@@ -1005,6 +1006,7 @@ public class VipLoyaltyAllocation {
         "Requested Check-In Date", member.getRequestedCheckInDate(),
         "Requested Check-Out Date", checkOutDate,
         "Length of Stay", member.getNumberOfNights(),
+        "Total Amount", totalAmount,
         "Booking Created", member.getWaitingSince());
   }
 
