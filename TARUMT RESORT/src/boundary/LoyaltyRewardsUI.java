@@ -66,8 +66,8 @@ public class LoyaltyRewardsUI {
         printEntry(" 2", "View Member Profile",       "Points, tier and promotion details");
         printEntry(" 3", "Add Reward Points",         "Accumulate points and assess tier upgrade");
         printEntry(" 4", "Redeem Points",             "Submit a redemption request");
-        printEntry(" 5", "Edit Member",               "Search ArrayList -> modify name or email");
-        printEntry(" 6", "Delete Member",             "Search ArrayList -> remove from ADT");
+        printEntry(" 5", "Edit Member",               "Modify member details");
+        printEntry(" 6", "Delete Member",             "Remove member");
         printEntry(" 7", "Delete History",            "Restore deleted members within 30 days");
         printBorder();
 

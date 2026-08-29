@@ -1,4 +1,5 @@
 "roomNumber","previousStatus","newStatus","reason","changedAt"
+<<<<<<< HEAD
 "R503","OCCUPIED","LCO","Late check-out extension at Front Desk | Member: LM008 yiching | Previous expected check-out: 2026-08-30 12:00:00 pm | New expected check-out: 2026-09-01 12:00:00 pm","2026-08-29T16:57:27.9760035"
 "R401","DIRTY","CLEANING_IN_PROGRESS","Cleaning task T1009 assigned","2026-08-29T16:55:50.1732453"
 "R204","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-29T16:55:22.7043066"
@@ -6,6 +7,14 @@
 "R101","DIRTY","CLEANING_IN_PROGRESS","Status advanced by supervisor","2026-08-29T16:54:48.2283001"
 "R401","DIRTY","CLEANING_IN_PROGRESS","Cleaning task T1008 assigned","2026-08-29T16:09:19.319956"
 "R402","DIRTY","CLEANING_IN_PROGRESS","Cleaning task T1007 assigned","2026-08-29T16:09:08.4466575"
+=======
+"R401","READY_FOR_CHECK_IN","OCCUPIED","Member checked in by VIP Allocation | Member: LM025 | Expected check-out: 2026-08-31 12:00","2026-08-29T17:05:00"
+"R401","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-29T17:05:00.9175543"
+"R401","CLEANING_IN_PROGRESS","INSPECTED","Status advanced by supervisor","2026-08-29T17:04:57.0964095"
+"R401","DIRTY","CLEANING_IN_PROGRESS","Status advanced by supervisor","2026-08-29T17:04:52.7415942"
+"R602","READY_FOR_CHECK_IN","OCCUPIED","Member checked in by VIP Allocation | Member: LM022 | Expected check-out: 2026-09-01 12:00","2026-08-29T17:00:00"
+"R602","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-29T17:00:00.0650407"
+>>>>>>> 4dc3143d97cb815872a5cd7fb941f8735acf947e
 "R501","DIRTY","CLEANING_IN_PROGRESS","Cleaning task T1006 assigned","2026-08-29T15:54:47.5121921"
 "R503","READY_FOR_CHECK_IN","OCCUPIED","Member checked in by VIP Allocation | Member: LM008 | Expected check-out: 2026-08-30 12:00","2026-08-29T01:21:00"
 "R304","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-29T01:14:37.7502517"

@@ -224,62 +224,67 @@ public class VipLoyaltyAllocation {
   private void allocateRoom() {
     if (waitingMembers.isEmpty()) {
       MessageUI.displayErrorMessage("No priority member is waiting for allocation.");
-    } else {
-      vipUI.displayPriorityQueue(buildQueueDisplay());
-      String confirmationNumber = vipUI.inputConfirmationNumber();
-      if (confirmationNumber.isEmpty()) {
-        MessageUI.displayInfoMessage("Check-in cancelled.");
-        return;
-      }
-      LoyaltyMember member = findWaitingMemberByConfirmationNumber(confirmationNumber);
-      if (member == null) {
-        MessageUI.displayErrorMessage("No waiting VIP booking was found for " + confirmationNumber + ".");
-      } else {
-        LocalDate today = MalaysiaTime.now().toLocalDate();
-        if (member.getRequestedCheckInDate().isAfter(today)) {
-          MessageUI.displayErrorMessage("Booking " + confirmationNumber + " cannot be checked in before "
-              + member.getRequestedCheckInDate() + ".");
-          pause();
-          return;
-        }
-        Room currentRoom = findOccupiedRoomByMemberId(member.getMemberId());
-        if (currentRoom != null) {
-          MessageUI.displayErrorMessage(member.getMemberName() + " (" + member.getMemberId()
-              + ") is already checked in to room " + currentRoom.getRoomNumber()
-              + ". Check out the current room before allocating another room.");
-          pause();
-          return;
-        }
-        LocalDateTime checkInAt = vipUI.inputCheckInAt(member.getRequestedCheckInDate());
-        LocalDate checkInDate = checkInAt.toLocalDate();
-        LocalDate checkOutDate = checkInDate.plusDays(member.getNumberOfNights());
-        LocalDateTime expectedCheckoutAt = LocalDateTime.of(checkOutDate, LocalTime.NOON);
-        Room room = reserveAvailableRoom(member.getRequestedRoomType(), member.getMemberId(), checkInAt,
-            expectedCheckoutAt);
-        if (room == null) {
-          MessageUI.displayErrorMessage("No " + member.getRequestedRoomType()
-              + " room is ready for check-in. Complete housekeeping first.");
-        } else {
-          if (waitingMembers.removeEntry(member)) {
-            int savedAllocationSequence = ++allocationSequence;
-            completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(),
-              savedAllocationSequence, checkInDate, checkOutDate));
-            recordCheckInStatusChange(room.getRoomNumber(), member.getMemberId(),
-                checkInAt, expectedCheckoutAt);
-            saveCheckInInformation(member, room, checkInAt, expectedCheckoutAt,
-              savedAllocationSequence);
-            saveWaitingMembers();
-            vipUI.displayCheckInInformation(buildCheckInInformation(member, room,
-              checkInAt, expectedCheckoutAt));
-            MessageUI.displaySuccessMessage("Room " + room.getRoomNumber() + " ("
-              + member.getRequestedRoomType()
-                + ") allocated automatically to " + member.getMemberName() + " ("
-              + member.getTier() + ") for " + member.getNumberOfNights() + " night(s).\n"
-              + "Check-in time: " + MalaysiaTime.format(checkInAt)
-              + " | Expected check-out: " + MalaysiaTime.format(expectedCheckoutAt));
-          }
-        }
-      }
+      pause();
+      return;
+    }
+
+    String roomType = vipUI.inputRoomTypeToAllocate();
+    if (roomType == null || roomType.isEmpty()) {
+      MessageUI.displayInfoMessage("Room allocation cancelled.");
+      pause();
+      return;
+    }
+
+    vipUI.displayPriorityQueue(buildQueueDisplay());
+    LocalDate today = MalaysiaTime.now().toLocalDate();
+    LoyaltyMember member = findHighestEligibleMemberForRoomType(roomType, today);
+    if (member == null) {
+      MessageUI.displayInfoMessage("No eligible priority guest is ready for a " + roomType
+          + " room today. Check the queue or wait for the next eligible check-in date.");
+      pause();
+      return;
+    }
+
+    Room currentRoom = findOccupiedRoomByMemberId(member.getMemberId());
+    if (currentRoom != null) {
+      MessageUI.displayErrorMessage(member.getMemberName() + " (" + member.getMemberId()
+          + ") is already checked in to room " + currentRoom.getRoomNumber()
+          + ". Check out the current room before allocating another room.");
+      pause();
+      return;
+    }
+
+    LocalDateTime checkInAt = vipUI.inputCheckInAt(member.getRequestedCheckInDate());
+    LocalDate checkInDate = checkInAt.toLocalDate();
+    LocalDate checkOutDate = checkInDate.plusDays(member.getNumberOfNights());
+    LocalDateTime expectedCheckoutAt = LocalDateTime.of(checkOutDate, LocalTime.NOON);
+    Room room = reserveAvailableRoom(roomType, member.getMemberId(), checkInAt,
+        expectedCheckoutAt);
+    if (room == null) {
+      MessageUI.displayErrorMessage("No " + roomType
+          + " room is ready for check-in. Complete housekeeping first.");
+      pause();
+      return;
+    }
+
+    if (waitingMembers.removeEntry(member)) {
+      int savedAllocationSequence = ++allocationSequence;
+      completedAllocations.add(new RoomAllocation(member, room.getRoomNumber(),
+        savedAllocationSequence, checkInDate, checkOutDate));
+      recordCheckInStatusChange(room.getRoomNumber(), member.getMemberId(),
+          checkInAt, expectedCheckoutAt);
+      saveCheckInInformation(member, room, checkInAt, expectedCheckoutAt,
+        savedAllocationSequence);
+      saveWaitingMembers();
+      vipUI.displayCheckInInformation(buildCheckInInformation(member, room,
+        checkInAt, expectedCheckoutAt));
+      MessageUI.displaySuccessMessage("Room " + room.getRoomNumber() + " ("
+        + roomType
+          + ") allocated automatically to " + member.getMemberName() + " ("
+        + member.getTier() + ") for " + member.getNumberOfNights() + " night(s).\n"
+        + "Selected by priority order for the requested room type.\n"
+        + "Check-in time: " + MalaysiaTime.format(checkInAt)
+        + " | Expected check-out: " + MalaysiaTime.format(expectedCheckoutAt));
     }
     pause();
   }
@@ -302,6 +307,19 @@ public class VipLoyaltyAllocation {
       }
     }
     return highestPriorityPosition;
+  }
+
+  private LoyaltyMember findHighestEligibleMemberForRoomType(String roomType, LocalDate today) {
+    LoyaltyMember selected = null;
+    for (int position = 1; position <= waitingMembers.getNumberOfEntries(); position++) {
+      LoyaltyMember member = waitingMembers.getEntry(position);
+      if (!member.getRequestedRoomType().equalsIgnoreCase(roomType)) continue;
+      if (member.getRequestedCheckInDate().isAfter(today)) continue;
+      if (selected == null || member.compareTo(selected) > 0) {
+        selected = member;
+      }
+    }
+    return selected;
   }
 
   // Finds the first cleaned room of the selected type and marks it occupied. //
