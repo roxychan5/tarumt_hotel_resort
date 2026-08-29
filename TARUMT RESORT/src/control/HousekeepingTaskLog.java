@@ -568,8 +568,15 @@ public class HousekeepingTaskLog {
     MessageUI.pressEnterToContinue();
   }
 
-  /** Option 9 - Undo only the NEWEST change for ONE given room. */
+  /** Option 7 - Undo only the NEWEST change for ONE given room. */
   private void rollbackSpecificRoom() {
+    if (undoStack.isEmpty()) {
+      MessageUI.displayErrorMessage("No room status changes are available to undo.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    housekeepingUI.displayUndoableRooms(getUndoableRoomSummary());
     String roomNumber = housekeepingUI.inputRoomNumber();
     if (roomNumber == null) {
       MessageUI.displayInfoMessage("Room-specific undo cancelled.");
@@ -630,6 +637,23 @@ public class HousekeepingTaskLog {
         "Latest status change for " + roomNumber + " was rolled back.");
     housekeepingUI.displayRoomDetails(room);
     MessageUI.pressEnterToContinue();
+  }
+
+  /** Builds one row per room that has a saved status change available to undo. */
+  private String getUndoableRoomSummary() {
+    StringBuilder summary = new StringBuilder();
+    ListInterface<String> shownRooms = new ArrayList<>();
+    for (StatusChangeRecord record : copyUndoHistory()) {
+      String roomNumber = record.getRoomNumber();
+      if (shownRooms.contains(roomNumber)) continue;
+      shownRooms.add(roomNumber);
+      Room room = findRoom(roomNumber);
+      String currentStatus = room == null ? "Room removed" : room.getStatus().getLabel();
+      String latestChange = record.getPreviousStatus().getLabel() + " -> "
+          + record.getNewStatus().getLabel();
+      summary.append(String.format("%-10s %-24s %s%n", roomNumber, currentStatus, latestChange));
+    }
+    return summary.toString();
   }
 
   /**
@@ -1013,7 +1037,8 @@ public class HousekeepingTaskLog {
       pdf.addSpace(6);
 
       String[] headers = {"Task ID","Room","Staff","Task Type","Status","Logged At"};
-      float[] colW = {60, 50, 60, 90, 110, 120};
+      // Give Task Type enough space for values such as CHECKOUT_CLEAN.
+      float[] colW = {60, 50, 60, 110, 100, 115};
       java.util.List<String[]> rows = new java.util.ArrayList<>();
       // Turn each task into a String[] row for the PDF table (24-hour + AM/PM).
       for (HousekeepingTask t : filtered) {

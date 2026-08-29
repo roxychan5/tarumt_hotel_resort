@@ -1,34 +1,34 @@
-roomNumber,previousStatus,newStatus,reason,changedAt
-R303,READY_FOR_CHECK_IN,LCO,Late check-out requested - Ready for Check-In rolled back to LCO,2026-08-29T01:49:26.6270978
-R503,READY_FOR_CHECK_IN,OCCUPIED,Guest checked in by VIP Allocation | Member: LM008 | Expected check-out: 2026-08-30 12:00,2026-08-29T01:21:00
-R303,INSPECTED,READY_FOR_CHECK_IN,Status advanced by supervisor,2026-08-29T01:15:01.7535129
-R303,CLEANING_IN_PROGRESS,INSPECTED,Status advanced by supervisor,2026-08-29T01:14:57.9592887
-R303,DIRTY,CLEANING_IN_PROGRESS,Status advanced by supervisor,2026-08-29T01:14:52.4196883
-R304,INSPECTED,READY_FOR_CHECK_IN,Status advanced by supervisor,2026-08-29T01:14:37.7502517
-R304,CLEANING_IN_PROGRESS,INSPECTED,Status advanced by supervisor,2026-08-29T01:14:33.143303
-R303,OCCUPIED,DIRTY,On-time check-out at Front Desk | Member: LM002 | Check-in: 2026-08-29 00:21:00 AM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 01:05:47 AM,2026-08-29T01:05:47.8406279
-R303,READY_FOR_CHECK_IN,OCCUPIED,Guest checked in by VIP Allocation | Member: LM002 | Expected check-out: 2026-08-30 12:00,2026-08-29T00:21:00
-R501,OCCUPIED,DIRTY,On-time check-out at Front Desk | Member: LM002 | Check-in: 2026-08-28 15:00:00 PM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 00:21:17 AM,2026-08-29T00:21:17.1980944
-R601,READY_FOR_CHECK_IN,OCCUPIED,Guest checked in by VIP Allocation | Member: LM010 | Expected check-out: 2026-09-02 12:00,2026-08-29T00:09:00
-R403,READY_FOR_CHECK_IN,OCCUPIED,Guest checked in by VIP Allocation | Member: LM001 | Expected check-out: 2026-08-31 12:00,2026-08-29T00:03:00
-R402,OCCUPIED,DIRTY,On-time check-out at Front Desk | Member: LM001 | Check-in: 2026-08-28 14:10:00 PM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 00:03:12 AM,2026-08-29T00:03:12.8953825
-R401,OCCUPIED,DIRTY,On-time check-out at Front Desk | Member: LM008 | Check-in: 2026-08-28 13:20:00 PM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 00:02:52 AM,2026-08-29T00:02:52.2107441
-R202,OCCUPIED,DIRTY,On-time check-out at Front Desk | Member: LM004 | Check-in: 2026-08-28 09:15:00 AM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 00:02:30 AM,2026-08-29T00:02:30.0121496
-R101,CLEANING_IN_PROGRESS,DIRTY,Late check-out requested,2026-08-28T18:04:10.1898825
-R101,DIRTY,CLEANING_IN_PROGRESS,Cleaning task T1006 assigned,2026-08-28T14:30:56.8765683
-R103,CLEANING_IN_PROGRESS,INSPECTED,Status advanced by supervisor,2026-08-28T13:08:44.1929224
-R104,OCCUPIED,DIRTY,Guest checked out at Front Desk,2026-08-28T13:08:08.6790568
-R302,DIRTY,CLEANING_IN_PROGRESS,Cleaning task T1005 assigned,2026-08-28T13:06:14.5184146
-R301,INSPECTED,READY_FOR_CHECK_IN,Status advanced by supervisor,2026-08-24T16:17:26.440025
-R301,CLEANING_IN_PROGRESS,INSPECTED,Status advanced by supervisor,2026-08-24T16:17:12.5348216
-R304,INSPECTED,READY_FOR_CHECK_IN,Status advanced by supervisor,2026-08-24T16:17:00.0369722
-R402,INSPECTED,READY_FOR_CHECK_IN,Status advanced by supervisor,2026-08-24T16:16:49.8947778
-R103,READY_FOR_CHECK_IN,DIRTY,Late check-out requested,2026-08-23T23:20:19.164057
-R204,DIRTY,CLEANING_IN_PROGRESS,Cleaning task T1004 assigned,2026-08-23T13:53:05.5257748
-R502,INSPECTED,READY_FOR_CHECK_IN,Status advanced by supervisor,2026-08-23T13:19:04.3721922
-R301,DIRTY,CLEANING_IN_PROGRESS,Cleaning task T1001 assigned,2026-08-18T21:47:16.128
-R102,READY_FOR_CHECK_IN,DIRTY,Late check-out requested,2026-08-18T18:32:01.054
-R304,CLEANING_IN_PROGRESS,INSPECTED,Status advanced by supervisor,2026-08-18T18:31:13.752
-R301,READY_FOR_CHECK_IN,DIRTY,Late check-out requested,2026-08-18T01:09:34.6273861
-R502,CLEANING_IN_PROGRESS,INSPECTED,Status advanced by supervisor,2026-08-18T01:09:20.5573837
-R602,INSPECTED,READY_FOR_CHECK_IN,Status advanced by supervisor,2026-08-18T00:56:06.8704982
+"roomNumber","previousStatus","newStatus","reason","changedAt"
+"R101","DIRTY","CLEANING_IN_PROGRESS","Cleaning task T1007 assigned","2026-08-29T13:17:59.3147423"
+"R303","READY_FOR_CHECK_IN","LCO","Late check-out requested - Ready for Check-In rolled back to LCO","2026-08-29T01:49:26.6270978"
+"R303","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-29T01:15:01.7535129"
+"R303","CLEANING_IN_PROGRESS","INSPECTED","Status advanced by supervisor","2026-08-29T01:14:57.9592887"
+"R303","DIRTY","CLEANING_IN_PROGRESS","Status advanced by supervisor","2026-08-29T01:14:52.4196883"
+"R304","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-29T01:14:37.7502517"
+"R304","CLEANING_IN_PROGRESS","INSPECTED","Status advanced by supervisor","2026-08-29T01:14:33.143303"
+"R303","OCCUPIED","DIRTY","On-time check-out at Front Desk | Member: LM002 | Check-in: 2026-08-29 00:21:00 AM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 01:05:47 AM","2026-08-29T01:05:47.8406279"
+"R303","READY_FOR_CHECK_IN","OCCUPIED","Guest checked in by VIP Allocation | Member: LM002 | Expected check-out: 2026-08-30 12:00","2026-08-29T00:21:00"
+"R501","OCCUPIED","DIRTY","On-time check-out at Front Desk | Member: LM002 | Check-in: 2026-08-28 15:00:00 PM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 00:21:17 AM","2026-08-29T00:21:17.1980944"
+"R601","READY_FOR_CHECK_IN","OCCUPIED","Guest checked in by VIP Allocation | Member: LM010 | Expected check-out: 2026-09-02 12:00","2026-08-29T00:09:00"
+"R403","READY_FOR_CHECK_IN","OCCUPIED","Guest checked in by VIP Allocation | Member: LM001 | Expected check-out: 2026-08-31 12:00","2026-08-29T00:03:00"
+"R402","OCCUPIED","DIRTY","On-time check-out at Front Desk | Member: LM001 | Check-in: 2026-08-28 14:10:00 PM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 00:03:12 AM","2026-08-29T00:03:12.8953825"
+"R401","OCCUPIED","DIRTY","On-time check-out at Front Desk | Member: LM008 | Check-in: 2026-08-28 13:20:00 PM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 00:02:52 AM","2026-08-29T00:02:52.2107441"
+"R202","OCCUPIED","DIRTY","On-time check-out at Front Desk | Member: LM004 | Check-in: 2026-08-28 09:15:00 AM | Expected check-out: 2026-08-30 12:00:00 PM | Actual check-out: 2026-08-29 00:02:30 AM","2026-08-29T00:02:30.0121496"
+"R101","CLEANING_IN_PROGRESS","DIRTY","Late check-out requested","2026-08-28T18:04:10.1898825"
+"R101","DIRTY","CLEANING_IN_PROGRESS","Cleaning task T1006 assigned","2026-08-28T14:30:56.8765683"
+"R103","CLEANING_IN_PROGRESS","INSPECTED","Status advanced by supervisor","2026-08-28T13:08:44.1929224"
+"R104","OCCUPIED","DIRTY","Guest checked out at Front Desk","2026-08-28T13:08:08.6790568"
+"R302","DIRTY","CLEANING_IN_PROGRESS","Cleaning task T1005 assigned","2026-08-28T13:06:14.5184146"
+"R301","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-24T16:17:26.440025"
+"R301","CLEANING_IN_PROGRESS","INSPECTED","Status advanced by supervisor","2026-08-24T16:17:12.5348216"
+"R304","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-24T16:17:00.0369722"
+"R402","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-24T16:16:49.8947778"
+"R103","READY_FOR_CHECK_IN","DIRTY","Late check-out requested","2026-08-23T23:20:19.164057"
+"R204","DIRTY","CLEANING_IN_PROGRESS","Cleaning task T1004 assigned","2026-08-23T13:53:05.5257748"
+"R502","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-23T13:19:04.3721922"
+"R301","DIRTY","CLEANING_IN_PROGRESS","Cleaning task T1001 assigned","2026-08-18T21:47:16.128"
+"R102","READY_FOR_CHECK_IN","DIRTY","Late check-out requested","2026-08-18T18:32:01.054"
+"R304","CLEANING_IN_PROGRESS","INSPECTED","Status advanced by supervisor","2026-08-18T18:31:13.752"
+"R301","READY_FOR_CHECK_IN","DIRTY","Late check-out requested","2026-08-18T01:09:34.6273861"
+"R502","CLEANING_IN_PROGRESS","INSPECTED","Status advanced by supervisor","2026-08-18T01:09:20.5573837"
+"R602","INSPECTED","READY_FOR_CHECK_IN","Status advanced by supervisor","2026-08-18T00:56:06.8704982"

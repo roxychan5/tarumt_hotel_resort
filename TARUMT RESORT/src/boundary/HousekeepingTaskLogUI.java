@@ -58,7 +58,7 @@ public class HousekeepingTaskLogUI {
   private void printMenu() {
     System.out.println();
     printBorder();
-    printTitle("HOUSEKEEPING  &  TASK LOG", "Module : Task Log & Room Workflow Management");
+    printTitle("HOUSEKEEPING  &  TASK LOG", "Module : Room Cleaning & Task Tracking");
     printBorder();
 
     printSectionLabel("TASK MANAGEMENT");
@@ -705,6 +705,25 @@ public class HousekeepingTaskLogUI {
     rowKVPair("Change", record.getPreviousStatus().getLabel(),
         record.getNewStatus().getLabel());
     closePanel();
+  }
+
+  /** Shows rooms with available history before a room-specific undo. */
+  public void displayUndoableRooms(String summary) {
+    System.out.println();
+    printBorder();
+    rowV("  " + C + B + "ROOMS AVAILABLE FOR UNDO" + R,
+        2 + "ROOMS AVAILABLE FOR UNDO".length());
+    printBorder();
+
+    String header = String.format("  %-10s %-24s %s", "Room", "Current Status", "Latest Change");
+    rowV(IB + B + header + R, header.length());
+    rowV("  " + rep('-', 82), 2 + 82);
+    for (String line : summary.split("\\r?\\n")) {
+      if (line.trim().isEmpty()) continue;
+      rowV("  " + WH + line + R, 2 + line.length());
+    }
+    printBorder();
+    System.out.println();
   }
 
   /** [7] Shows the latest change for a specific room before confirmation. */
