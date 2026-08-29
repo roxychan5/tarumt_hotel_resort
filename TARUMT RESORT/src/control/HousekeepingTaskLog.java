@@ -6,6 +6,7 @@ import adt.ListInterface;
 import adt.StackInterface;
 import boundary.HousekeepingTaskLogUI;
 import dao.HousekeepingDAO;
+import entity.DeletedHousekeepingTask;
 import entity.HousekeepingTask;
 import entity.Room;
 import entity.RoomStatus;
@@ -49,6 +50,8 @@ public class HousekeepingTaskLog {
   private final ListInterface<Room> roomList = new ArrayList<>();
   // Linear List ADT: each new cleaning task is APPENDED to the task log.
   private final ListInterface<HousekeepingTask> taskList = new ArrayList<>();
+  // Deleted tasks stay here temporarily so an accidental deletion can be restored.
+  private final ListInterface<DeletedHousekeepingTask> deletedTaskList = new ArrayList<>();
   // Stack ADT #1: most recent status change sits on TOP -> undo pops it first.
   private final StackInterface<StatusChangeRecord> undoStack = new LinkedStack<>();
 
@@ -112,7 +115,7 @@ public class HousekeepingTaskLog {
           advanceRoomStatus(); // move a room to its next cleaning stage
           break;
         case 4:
-          searchTaskById(); // find one task by its ID
+          searchTasks(); // find tasks by ID, room, or staff
           break;
         case 5:
           deleteTaskById(); // remove a task after confirmation
@@ -147,8 +150,11 @@ public class HousekeepingTaskLog {
         case 14:
           generateRoomReadinessReport(); // report 3 (console + PDF)
           break;
+        case 15:
+          manageDeletedTaskHistory();
+          break;
         default:
-          MessageUI.displayInvalidChoiceMessage(); // number outside 0-14
+          MessageUI.displayInvalidChoiceMessage(); // number outside 0-15
       }
     } while (choice != 0); // keep looping until the user says 0 (exit)
   }
@@ -295,31 +301,50 @@ public class HousekeepingTaskLog {
     return sb.toString(); // whole table as a String
   }
 
-  /** Option 4 - Search for a task by its ID using a simple LINEAR search. */
-  private void searchTaskById() {
-    // Show all tasks first so the user knows which IDs exist.
-    housekeepingUI.listTaskQueue(getAllTasks());
-    String query = housekeepingUI.inputTaskId("Search"); // e.g. T1002
-    if (query == null) {
+  /** Option 4 - Search tasks by ID, room number, or assigned staff (linear search). */
+  private void searchTasks() {
+    int searchType = housekeepingUI.inputTaskSearchType();
+    if (searchType == 0) {
       MessageUI.displayInfoMessage("Search cancelled.");
-      MessageUI.pressEnterToContinue();
       return;
     }
-    HousekeepingTask found = null; // nothing found yet
-    // Linear search: check position 1, 2, 3... until a match.
+
+    String query;
+    String searchLabel;
+    if (searchType == 1) {
+      query = housekeepingUI.inputTaskId("Search");
+      searchLabel = "Task ID";
+    } else if (searchType == 2) {
+      query = housekeepingUI.inputRoomNumber();
+      searchLabel = "Room";
+    } else {
+      query = housekeepingUI.inputSearchStaffId();
+      searchLabel = "Staff";
+    }
+    if (query == null) {
+      MessageUI.displayInfoMessage("Search cancelled.");
+      return;
+    }
+
+    // Linear search: check every task once and keep every matching result.
+    StringBuilder results = new StringBuilder();
+    int matches = 0;
     for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
-      HousekeepingTask t = taskList.getEntry(i);
-      if (t.getTaskId().equalsIgnoreCase(query)) {
-        found = t; // match!
-        break;     // stop looking
+      HousekeepingTask task = taskList.getEntry(i);
+      boolean matchesQuery = (searchType == 1 && task.getTaskId().equalsIgnoreCase(query))
+          || (searchType == 2 && task.getRoomNumber().equalsIgnoreCase(query))
+          || (searchType == 3 && task.getAssignedStaff().equalsIgnoreCase(query));
+      if (matchesQuery) {
+        results.append(task).append("\n");
+        matches++;
       }
     }
-    if (found == null) {
-      MessageUI.displayErrorMessage("No task found with ID: " + query);
+
+    if (matches == 0) {
+      MessageUI.displayErrorMessage("No tasks found for " + searchLabel + ": " + query + ".");
     } else {
-      housekeepingUI.displayTaskDetails(found, "SEARCH TASK RESULT",
-          "Task found using linear search.");
-      MessageUI.displaySuccessMessage("Task found.");
+      housekeepingUI.displayTaskSearchResults(searchLabel + ": " + query, results.toString());
+      MessageUI.displaySuccessMessage(matches + " matching task(s) found.");
     }
     MessageUI.pressEnterToContinue();
   }
@@ -363,6 +388,7 @@ public class HousekeepingTaskLog {
 
     String roomNumber = found.getRoomNumber(); // the room of the deleted task
     taskList.remove(foundIndex);               // remove from list (ArrayList ADT)
+    deletedTaskList.add(new DeletedHousekeepingTask(found, MalaysiaTime.now()));
 
     // If the room now has NO tasks left, put it back to DIRTY so
     // a new task can be created for it later.
@@ -382,8 +408,123 @@ public class HousekeepingTaskLog {
 
     saveData(); // write the change to disk
     MessageUI.displaySuccessMessage(
-        "Task " + found.getTaskId() + " deleted from the log.");
+        "Task " + found.getTaskId() + " moved to Deleted Task History. Restore is available for 30 days.");
     MessageUI.pressEnterToContinue();
+  }
+
+  /** Option 15 - shows the 30-day deleted-task history and restores a task when valid. */
+  private void manageDeletedTaskHistory() {
+    boolean expiredTasksRemoved = purgeExpiredDeletedTasks();
+    if (expiredTasksRemoved) {
+      saveData();
+    }
+
+    housekeepingUI.displayDeletedTaskHistory(getDeletedTaskHistory());
+    if (deletedTaskList.isEmpty()) {
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+    if (!housekeepingUI.confirmAction("Restore a deleted task?")) {
+      return;
+    }
+
+    String taskId = housekeepingUI.inputTaskId("Restore");
+    if (taskId == null) {
+      MessageUI.displayInfoMessage("Restore cancelled.");
+      return;
+    }
+    int deletedIndex = findDeletedTaskIndex(taskId);
+    if (deletedIndex == -1) {
+      MessageUI.displayErrorMessage("No restorable deleted task found with ID: " + taskId + ".");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    DeletedHousekeepingTask deletedTask = deletedTaskList.getEntry(deletedIndex);
+    HousekeepingTask task = deletedTask.getTask();
+    Room room = findRoom(task.getRoomNumber());
+    if (room == null) {
+      MessageUI.displayErrorMessage("Cannot restore: room " + task.getRoomNumber() + " no longer exists.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+    if (findTaskById(task.getTaskId()) != null) {
+      MessageUI.displayErrorMessage("Cannot restore: task ID " + task.getTaskId() + " already exists.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+    if (findActiveTaskForRoom(task.getRoomNumber()) != null) {
+      MessageUI.displayErrorMessage("Cannot restore: room already has an active housekeeping task.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+    if (room.getStatus() == RoomStatus.OCCUPIED || room.getStatus() == RoomStatus.LCO) {
+      MessageUI.displayErrorMessage("Cannot restore: the room is currently occupied.");
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
+    RoomStatus previousStatus = room.getStatus();
+    taskList.add(task);
+    deletedTaskList.remove(deletedIndex);
+    if (previousStatus != task.getCurrentStatus()) {
+      recordStatusChange(room.getRoomNumber(), previousStatus, task.getCurrentStatus(),
+          "Deleted task " + task.getTaskId() + " restored");
+      room.setStatus(task.getCurrentStatus());
+    }
+    saveData();
+
+    housekeepingUI.displayTaskDetails(task, "TASK RESTORED",
+        "Restored from Deleted Task History before the 30-day expiry.");
+    MessageUI.displaySuccessMessage("Task " + task.getTaskId() + " restored successfully.");
+    MessageUI.pressEnterToContinue();
+  }
+
+  /** Removes permanently expired recycle-bin records and returns whether anything was removed. */
+  private boolean purgeExpiredDeletedTasks() {
+    boolean removed = false;
+    for (int i = deletedTaskList.getNumberOfEntries(); i >= 1; i--) {
+      if (MalaysiaTime.now().isAfter(deletedTaskList.getEntry(i).getRestoreUntil())) {
+        deletedTaskList.remove(i);
+        removed = true;
+      }
+    }
+    return removed;
+  }
+
+  /** Finds a deleted record by Task ID using a linear search. */
+  private int findDeletedTaskIndex(String taskId) {
+    for (int i = 1; i <= deletedTaskList.getNumberOfEntries(); i++) {
+      if (deletedTaskList.getEntry(i).getTask().getTaskId().equalsIgnoreCase(taskId)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /** Finds an active task by ID so restoration never creates a duplicate ID. */
+  private HousekeepingTask findTaskById(String taskId) {
+    for (int i = 1; i <= taskList.getNumberOfEntries(); i++) {
+      HousekeepingTask task = taskList.getEntry(i);
+      if (task.getTaskId().equalsIgnoreCase(taskId)) {
+        return task;
+      }
+    }
+    return null;
+  }
+
+  /** Creates the deleted-task history table shown to the supervisor. */
+  private String getDeletedTaskHistory() {
+    StringBuilder output = new StringBuilder();
+    for (int i = deletedTaskList.getNumberOfEntries(); i >= 1; i--) {
+      DeletedHousekeepingTask deletedTask = deletedTaskList.getEntry(i);
+      HousekeepingTask task = deletedTask.getTask();
+      output.append(String.format("%-8s %-8s %-10s %-16s %-22s %-24s %-24s%n",
+          task.getTaskId(), task.getRoomNumber(), task.getAssignedStaff(), task.getTaskType(),
+          task.getCurrentStatus().getLabel(), MalaysiaTime.format(deletedTask.getDeletedAt()),
+          MalaysiaTime.format(deletedTask.getRestoreUntil())));
+    }
+    return output.toString();
   }
 
   /**
@@ -1685,9 +1826,10 @@ public class HousekeepingTaskLog {
    * restarting at T1001 and creating duplicates.
    */
   private void loadData() {
-    // Load the four collections from disk via the DAO.
+    // Load the saved collections from disk via the DAO.
     ListInterface<Room> loadedRooms = housekeepingDAO.retrieveRooms();
     ListInterface<HousekeepingTask> loadedTasks = housekeepingDAO.retrieveTasks();
+    ListInterface<DeletedHousekeepingTask> loadedDeletedTasks = housekeepingDAO.retrieveDeletedTasks();
     StackInterface<StatusChangeRecord> loadedHistory = housekeepingDAO.retrieveHistory();
 
     // Fill the room list with the loaded rooms.
@@ -1715,6 +1857,15 @@ public class HousekeepingTaskLog {
       }
     }
 
+    // Restore the recycle bin, then permanently remove anything older than 30 days.
+    deletedTaskList.clear();
+    for (int i = 1; i <= loadedDeletedTasks.getNumberOfEntries(); i++) {
+      deletedTaskList.add(loadedDeletedTasks.getEntry(i));
+    }
+    if (purgeExpiredDeletedTasks()) {
+      housekeepingDAO.saveDeletedTasks(deletedTaskList);
+    }
+
     // Restore the undo stack, preserving LIFO order.
     // (We pop from the loaded stack and push into a temp, then push back.)
     undoStack.clear();
@@ -1728,10 +1879,11 @@ public class HousekeepingTaskLog {
 
   }
 
-  /** Saves rooms, tasks, and the rollback history to disk. */
+  /** Saves rooms, active tasks, deleted-task history, and rollback history to disk. */
   private void saveData() {
     housekeepingDAO.saveRooms(roomList);        // rooms
     housekeepingDAO.saveTasks(taskList);        // tasks
+    housekeepingDAO.saveDeletedTasks(deletedTaskList); // recycle bin
     housekeepingDAO.saveHistory(undoStack);     // undo stack
   }
 }

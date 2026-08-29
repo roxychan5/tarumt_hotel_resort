@@ -5,6 +5,7 @@ import adt.LinkedStack;
 import adt.ListInterface;
 import adt.StackInterface;
 import entity.HousekeepingTask;
+import entity.DeletedHousekeepingTask;
 import entity.Room;
 import entity.RoomStatus;
 import entity.StatusChangeRecord;
@@ -45,6 +46,7 @@ public class HousekeepingDAO {
   private static final Path DATA_DIRECTORY = DataFiles.directory();
   private static final Path ROOM_FILE = DataFiles.resolve("rooms.txt");
   private static final Path TASK_FILE = DataFiles.resolve("housekeeping_tasks.txt");
+  private static final Path DELETED_TASK_FILE = DataFiles.resolve("deleted_housekeeping_tasks.txt");
   private static final Path HISTORY_FILE = DataFiles.resolve("status_history.txt");
   private static final Path REDO_FILE = DataFiles.resolve("redo_history.txt");
 
@@ -147,6 +149,48 @@ public class HousekeepingDAO {
       tasks.clear();
     }
     return tasks;
+  }
+
+  /** Saves deleted tasks so they can be restored within the 30-day retention period. */
+  public void saveDeletedTasks(ListInterface<DeletedHousekeepingTask> deletedTasks) {
+    try (BufferedWriter writer = openWriter(DELETED_TASK_FILE)) {
+      writer.write(CsvUtils.row("taskId", "roomNumber", "assignedStaff", "taskType", "status",
+          "loggedAt", "deletedAt"));
+      writer.newLine();
+      for (int i = 1; i <= deletedTasks.getNumberOfEntries(); i++) {
+        DeletedHousekeepingTask deletedTask = deletedTasks.getEntry(i);
+        HousekeepingTask task = deletedTask.getTask();
+        writer.write(CsvUtils.row(task.getTaskId(), task.getRoomNumber(), task.getAssignedStaff(),
+            task.getTaskType(), task.getCurrentStatus().name(), DATE_FORMAT.format(task.getLoggedAt()),
+            DATE_FORMAT.format(deletedTask.getDeletedAt())));
+        writer.newLine();
+      }
+    } catch (IOException ex) {
+      displaySaveError(DELETED_TASK_FILE, ex);
+    }
+  }
+
+  /** Loads the recycle-bin tasks saved by {@link #saveDeletedTasks(ListInterface)}. */
+  public ListInterface<DeletedHousekeepingTask> retrieveDeletedTasks() {
+    ListInterface<DeletedHousekeepingTask> deletedTasks = new ArrayList<>();
+    if (!Files.exists(DELETED_TASK_FILE)) return deletedTasks;
+    try (BufferedReader reader = Files.newBufferedReader(DELETED_TASK_FILE, StandardCharsets.UTF_8)) {
+      reader.readLine();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        String[] fields = CsvUtils.parse(line);
+        if (fields.length == 7) {
+          HousekeepingTask task = new HousekeepingTask(fields[0], fields[1], fields[2], fields[3],
+              RoomStatus.valueOf(fields[4]), LocalDateTime.parse(fields[5], DATE_FORMAT));
+          deletedTasks.add(new DeletedHousekeepingTask(task,
+              LocalDateTime.parse(fields[6], DATE_FORMAT)));
+        }
+      }
+    } catch (IOException | IllegalArgumentException ex) {
+      displayReadError(DELETED_TASK_FILE, ex);
+      deletedTasks.clear();
+    }
+    return deletedTasks;
   }
 
   // ═══════════════════════════════════════════════════════════════

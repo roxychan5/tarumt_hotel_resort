@@ -32,6 +32,7 @@ public class HousekeepingTaskLogUI {
   private static final int  ACTIVE_ROOMS_BOX_W = 100;
   // The five status-board columns total exactly 100 visible characters.
   private static final int  ROOM_STATUS_BOARD_BOX_W = 100;
+  private static final int  DELETED_TASK_HISTORY_BOX_W = 120;
   private static final int  LABEL_W = 30;   // visible width of label column
   private static final char HL    = '-';
   private static final char VL    = '|';
@@ -54,7 +55,7 @@ public class HousekeepingTaskLogUI {
     ConsoleUI.clearScreen();
     printMenu();
     return ConsoleUI.readMenuChoice(
-        "  " + SB + B + "  Select option (0-14) > " + R + " ");
+        "  " + SB + B + "  Select option (0-15) > " + R + " ");
   }
 
   private void printMenu() {
@@ -67,7 +68,7 @@ public class HousekeepingTaskLogUI {
     printEntry(" 1", "Open Task Log",            "Review tasks in logging order");
     printEntry(" 2", "Create Cleaning Task",     "Assign a cleaning task to staff");
     printEntry(" 3", "Advance Room Workflow",    "Move room to its next valid stage");
-    printEntry(" 4", "Search Task by ID",        "Linear search -> lookup any task");
+    printEntry(" 4", "Search Tasks",             "Search by ID, room, or staff");
     printEntry(" 5", "Delete Task by ID",        "Remove a task with confirmation");
     printBorder();
 
@@ -79,6 +80,7 @@ public class HousekeepingTaskLogUI {
     printBorder();
 
     printSectionLabel("OPERATIONS  &  REPORTS");
+    printEntry("15", "Deleted Task History", "Restore deleted tasks within 30 days");
     printEntry("10", "Late Check-Out History", "Front Desk updates: Occupied -> LCO");
     printEntry("11", "Room Status Board",        "Monitor every room at a glance");
     printEntryHighlight("12", "Report 1: Operational Summary",
@@ -378,10 +380,49 @@ public class HousekeepingTaskLogUI {
 
   /** Shows all cleaning tasks in the order they were created. */
   public void listTaskQueue(String output) {
+    displayTaskTable("HOUSEKEEPING TASK QUEUE", "Tasks in logging order.", output);
+  }
+
+  /** Displays only the task records that match a staff search. */
+  public void displayTaskSearchResults(String searchDescription, String output) {
+    displayTaskTable("TASK SEARCH RESULTS", "Search by " + searchDescription + ".", output);
+  }
+
+  /** Shows deleted tasks and the final date/time when each one may be restored. */
+  public void displayDeletedTaskHistory(String output) {
+    System.out.println();
+    printBorder(DELETED_TASK_HISTORY_BOX_W);
+    rowV("  " + C + B + "DELETED TASK HISTORY" + R,
+        2 + "DELETED TASK HISTORY".length(), DELETED_TASK_HISTORY_BOX_W);
+    rowV("  " + DM + "Tasks can be restored for 30 days. Expired records are removed permanently." + R,
+        2 + "Tasks can be restored for 30 days. Expired records are removed permanently.".length(),
+        DELETED_TASK_HISTORY_BOX_W);
+    printBorder(DELETED_TASK_HISTORY_BOX_W);
+
+    String header = String.format("  %-8s %-8s %-10s %-16s %-22s %-24s %-24s",
+        "Task ID", "Room", "Staff", "Task Type", "Status", "Deleted At", "Restore Until");
+    rowV(IB + B + header + R, header.length(), DELETED_TASK_HISTORY_BOX_W);
+    rowV("  " + rep('-', 118), 2 + 118, DELETED_TASK_HISTORY_BOX_W);
+    if (output.isEmpty()) {
+      String message = "  No deleted tasks are available for restoration.";
+      rowV(DM + message + R, message.length(), DELETED_TASK_HISTORY_BOX_W);
+    } else {
+      for (String line : output.split("\r?\n")) {
+        if (line.isEmpty()) continue;
+        line = line.replace("\r", "");
+        rowV("  " + WH + line + R, 2 + line.length(), DELETED_TASK_HISTORY_BOX_W);
+      }
+    }
+    printBorder(DELETED_TASK_HISTORY_BOX_W);
+    System.out.println();
+  }
+
+  /** Shared table layout for the task log and filtered task search results. */
+  private void displayTaskTable(String title, String subtitle, String output) {
     System.out.println();
     printBorder(ACTIVE_ROOMS_BOX_W);
-    rowV("  " + C + B + "HOUSEKEEPING TASK QUEUE" + R,
-        2 + "HOUSEKEEPING TASK QUEUE".length(), ACTIVE_ROOMS_BOX_W);
+    rowV("  " + C + B + title + R, 2 + title.length(), ACTIVE_ROOMS_BOX_W);
+    rowV("  " + DM + subtitle + R, 2 + subtitle.length(), ACTIVE_ROOMS_BOX_W);
     printBorder(ACTIVE_ROOMS_BOX_W);
 
     String hdr = String.format("  %-8s %-8s %-10s %-16s %-22s %s",
@@ -392,8 +433,9 @@ public class HousekeepingTaskLogUI {
       String message = "  (No tasks in queue)";
       rowV(DM + message + R, message.length(), ACTIVE_ROOMS_BOX_W);
     } else {
-      for (String aux : output.split("\n")) {
+      for (String aux : output.split("\r?\n")) {
         if (aux.isEmpty()) continue;
+        aux = aux.replace("\r", "");
         rowV("  " + WH + aux + R, 2 + aux.length(), ACTIVE_ROOMS_BOX_W);
       }
     }
@@ -428,6 +470,42 @@ public class HousekeepingTaskLogUI {
     }
     printBorder(ROOM_STATUS_BOARD_BOX_W);
     System.out.println();
+  }
+
+  /** Lets staff choose which task field to search without showing the full task log. */
+  public int inputTaskSearchType() {
+    System.out.println();
+    printBorder();
+    rowV("  " + C + B + "SEARCH TASKS" + R, 2 + "SEARCH TASKS".length());
+    rowV("  " + DM + "Find only the task records that match your search." + R,
+        2 + "Find only the task records that match your search.".length());
+    printBorder();
+    rowV("  " + WH + "[1] Search by Task ID" + R, 2 + "[1] Search by Task ID".length());
+    rowV("  " + WH + "[2] Search by Room Number" + R,
+        2 + "[2] Search by Room Number".length());
+    rowV("  " + WH + "[3] Search by Staff ID" + R, 2 + "[3] Search by Staff ID".length());
+    rowV("  " + DM + "[0] Cancel" + R, 2 + "[0] Cancel".length());
+    printBorder();
+
+    while (true) {
+      System.out.print("  " + SB + "Select search type (0-3) > " + R);
+      String input = ConsoleUI.readLine().trim();
+      if (input.matches("[0-3]")) return Integer.parseInt(input);
+      MessageUI.displayErrorMessage("Enter a number from 0 to 3.");
+    }
+  }
+
+  /** Asks for a housekeeping staff ID, or returns null when 0 cancels. */
+  public String inputSearchStaffId() {
+    System.out.println("  " + DM + "(Enter 0 to cancel)" + R);
+    while (true) {
+      System.out.print("  " + SB + "Staff ID" + R + " (e.g. HK001, 0 to cancel) > ");
+      String value = ConsoleUI.readLine().trim().toUpperCase();
+      if (value.equals("0")) return null;
+      if (value.matches("HK[0-9]{3,5}")) return value;
+      MessageUI.displayErrorMessage(
+          "Staff ID must be HK followed by 3-5 digits (e.g. HK001). Enter 0 to cancel.");
+    }
   }
 
   /** Shows the full details of one cleaning task. */
