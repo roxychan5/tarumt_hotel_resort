@@ -1,6 +1,7 @@
 package entity;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public class LoyaltyMember implements Comparable<LoyaltyMember> {
 
@@ -13,19 +14,22 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
   private final int arrivalSequence;
   private final LocalDate requestedCheckInDate;
   private final LocalDate waitingSince;
+  private final LocalDateTime waitingStartedAt;
 
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence) {
     this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence,
       "VIP-" + String.format("%04d", arrivalSequence),
-      String.format("%08d", arrivalSequence), LocalDate.now(), LocalDate.now());
+      String.format("%08d", arrivalSequence), LocalDate.now(), LocalDate.now(),
+      java.time.LocalDateTime.now());
   }
 
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence, LocalDate waitingSince) {
     this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence,
       "VIP-" + String.format("%04d", arrivalSequence),
-      String.format("%08d", arrivalSequence), LocalDate.now(), waitingSince);
+      String.format("%08d", arrivalSequence), LocalDate.now(), waitingSince,
+      waitingSince.atStartOfDay());
     }
 
     public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
@@ -33,19 +37,28 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
       LocalDate waitingSince) {
     this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence,
       "VIP-" + String.format("%04d", arrivalSequence),
-      String.format("%08d", arrivalSequence), requestedCheckInDate, waitingSince);
+      String.format("%08d", arrivalSequence), requestedCheckInDate, waitingSince,
+      waitingSince.atStartOfDay());
   }
 
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence, String bookingId,
       LocalDate requestedCheckInDate, LocalDate waitingSince) {
     this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence, bookingId,
-      String.format("%08d", arrivalSequence), requestedCheckInDate, waitingSince);
+      String.format("%08d", arrivalSequence), requestedCheckInDate, waitingSince,
+      waitingSince.atStartOfDay());
   }
 
   public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
       int numberOfNights, int arrivalSequence, String bookingId, String confirmationNumber,
       LocalDate requestedCheckInDate, LocalDate waitingSince) {
+    this(loyaltyMember, requestedRoomType, numberOfNights, arrivalSequence, bookingId,
+      confirmationNumber, requestedCheckInDate, waitingSince, waitingSince.atStartOfDay());
+  }
+
+  public LoyaltyMember(RewardsMember loyaltyMember, String requestedRoomType,
+      int numberOfNights, int arrivalSequence, String bookingId, String confirmationNumber,
+      LocalDate requestedCheckInDate, LocalDate waitingSince, LocalDateTime waitingStartedAt) {
     this.loyaltyMember = loyaltyMember;
     this.bookingId = bookingId;
     this.confirmationNumber = confirmationNumber;
@@ -54,6 +67,7 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
     this.arrivalSequence = arrivalSequence;
     this.requestedCheckInDate = requestedCheckInDate;
     this.waitingSince = waitingSince;
+    this.waitingStartedAt = waitingStartedAt == null ? waitingSince.atStartOfDay() : waitingStartedAt;
   }
 
   public RewardsMember getLoyaltyMember() { 
@@ -98,6 +112,10 @@ public class LoyaltyMember implements Comparable<LoyaltyMember> {
 
   public LocalDate getWaitingSince() {
     return waitingSince;
+  }
+
+  public LocalDateTime getWaitingStartedAt() {
+    return waitingStartedAt;
   }
 
   public LocalDate getRequestedCheckInDate() {
