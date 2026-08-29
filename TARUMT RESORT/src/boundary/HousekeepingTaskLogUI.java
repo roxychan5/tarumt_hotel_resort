@@ -32,7 +32,7 @@ public class HousekeepingTaskLogUI {
   private static final int  ACTIVE_ROOMS_BOX_W = 100;
   // The five status-board columns total exactly 100 visible characters.
   private static final int  ROOM_STATUS_BOARD_BOX_W = 100;
-  private static final int  DELETED_TASK_HISTORY_BOX_W = 120;
+  private static final int  DELETED_TASK_HISTORY_BOX_W = 100;
   private static final int  LABEL_W = 30;   // visible width of label column
   private static final char HL    = '-';
   private static final char VL    = '|';
@@ -398,10 +398,10 @@ public class HousekeepingTaskLogUI {
         DELETED_TASK_HISTORY_BOX_W);
     printBorder(DELETED_TASK_HISTORY_BOX_W);
 
-    String header = String.format("  %-8s %-8s %-10s %-16s %-22s %-24s %-24s",
-        "Task ID", "Room", "Staff", "Task Type", "Status", "Deleted At", "Restore Until");
+    String header = String.format("  %-8s %-8s %-10s %-24s %-24s",
+        "Task ID", "Room", "Staff", "Deleted At", "Restore Until");
     rowV(IB + B + header + R, header.length(), DELETED_TASK_HISTORY_BOX_W);
-    rowV("  " + rep('-', 118), 2 + 118, DELETED_TASK_HISTORY_BOX_W);
+    rowV("  " + rep('-', 78), 2 + 78, DELETED_TASK_HISTORY_BOX_W);
     if (output.isEmpty()) {
       String message = "  No deleted tasks are available for restoration.";
       rowV(DM + message + R, message.length(), DELETED_TASK_HISTORY_BOX_W);
@@ -435,7 +435,8 @@ public class HousekeepingTaskLogUI {
       for (String aux : output.split("\r?\n")) {
         if (aux.isEmpty()) continue;
         aux = aux.replace("\r", "");
-        rowV("  " + WH + aux + R, 2 + aux.length(), ACTIVE_ROOMS_BOX_W);
+        String colouredRow = colourTaskStatus(aux);
+        rowV("  " + WH + colouredRow + R, 2 + visLen(colouredRow), ACTIVE_ROOMS_BOX_W);
       }
     }
     printBorder(ACTIVE_ROOMS_BOX_W);
@@ -464,7 +465,9 @@ public class HousekeepingTaskLogUI {
       for (String aux : output.split("\r?\n")) {
         if (aux.isEmpty()) continue;
         aux = aux.replace("\r", ""); // keep Windows line endings out of the border width
-        rowV("  " + WH + aux + R, 2 + aux.length(), ROOM_STATUS_BOARD_BOX_W);
+        String colouredRow = colourTaskStatus(aux);
+        rowV("  " + WH + colouredRow + R, 2 + visLen(colouredRow),
+            ROOM_STATUS_BOARD_BOX_W);
       }
     }
     printBorder(ROOM_STATUS_BOARD_BOX_W);
@@ -526,13 +529,13 @@ public class HousekeepingTaskLogUI {
     String room = "  Room      : " + task.getRoomNumber();
     String staff = "  Staff     : " + task.getAssignedStaff();
     String taskType = "  Task Type : " + task.getTaskType();
-    String status = "  Status    : " + task.getCurrentStatus().getLabel();
     String loggedAt = "  Logged At : " + task.getLoggedAt().format(MalaysiaTime.FORMATTER);
     rowV("  Task ID   : " + C + B + task.getTaskId() + R, taskId.length());
     rowV(room, room.length());
     rowV(staff, staff.length());
     rowV(taskType, taskType.length());
-    rowV("  Status    : " + colorStatus(task.getCurrentStatus()), status.length());
+    String colouredStatus = "  Status    : " + colorStatus(task.getCurrentStatus());
+    rowV(colouredStatus, visLen(colouredStatus));
     rowV("  Logged At : " + DM + task.getLoggedAt().format(MalaysiaTime.FORMATTER) + R,
         loggedAt.length());
     printBorder();
@@ -903,6 +906,36 @@ public class HousekeepingTaskLogUI {
       case OCCUPIED:             return "\u001B[45m\u001B[97m OCCUPIED \u001B[0m";
       case LCO:                  return "\u001B[46m\u001B[30m LCO \u001B[0m";
       default:                   return status.getLabel();
+    }
+  }
+
+  /** Applies the same colour badge used in task details to a task-table status cell. */
+  private String colourTaskStatus(String row) {
+    for (RoomStatus status : RoomStatus.values()) {
+      if (row.contains(status.getLabel())) {
+        return row.replace(status.getLabel(), colourTaskStatusLabel(status));
+      }
+    }
+    return row;
+  }
+
+  /** Uses the status colours without adding spaces that would shift later table columns. */
+  private String colourTaskStatusLabel(RoomStatus status) {
+    switch (status) {
+      case DIRTY:
+        return "\u001B[41m\u001B[97m" + status.getLabel() + R;
+      case CLEANING_IN_PROGRESS:
+        return "\u001B[43m\u001B[30m" + status.getLabel() + R;
+      case INSPECTED:
+        return "\u001B[44m\u001B[97m" + status.getLabel() + R;
+      case READY_FOR_CHECK_IN:
+        return "\u001B[42m\u001B[97m" + status.getLabel() + R;
+      case OCCUPIED:
+        return "\u001B[45m\u001B[97m" + status.getLabel() + R;
+      case LCO:
+        return "\u001B[46m\u001B[30m" + status.getLabel() + R;
+      default:
+        return status.getLabel();
     }
   }
 

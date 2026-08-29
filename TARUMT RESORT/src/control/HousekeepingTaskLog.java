@@ -516,9 +516,9 @@ public class HousekeepingTaskLog {
     for (int i = deletedTaskList.getNumberOfEntries(); i >= 1; i--) {
       DeletedHousekeepingTask deletedTask = deletedTaskList.getEntry(i);
       HousekeepingTask task = deletedTask.getTask();
-      output.append(String.format("%-8s %-8s %-10s %-16s %-22s %-24s %-24s%n",
-          task.getTaskId(), task.getRoomNumber(), task.getAssignedStaff(), task.getTaskType(),
-          task.getCurrentStatus().getLabel(), MalaysiaTime.format(deletedTask.getDeletedAt()),
+      output.append(String.format("%-8s %-8s %-10s %-24s %-24s%n",
+          task.getTaskId(), task.getRoomNumber(), task.getAssignedStaff(),
+          MalaysiaTime.format(deletedTask.getDeletedAt()),
           MalaysiaTime.format(deletedTask.getRestoreUntil())));
     }
     return output.toString();
