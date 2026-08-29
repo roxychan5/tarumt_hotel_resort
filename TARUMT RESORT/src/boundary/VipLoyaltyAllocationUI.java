@@ -159,7 +159,7 @@ public class VipLoyaltyAllocationUI {
     }
   }
   public String inputRequestedRoomType() {
-    return inputRoomType("REQUESTED ROOM TYPE", "Select requested room type (1-6): ", false);
+    return inputRoomTypeWithPrice("REQUESTED ROOM TYPE", "Select requested room type (1-6): ", false);
   }
 
   public String inputPaymentMethod() {
@@ -274,10 +274,10 @@ public class VipLoyaltyAllocationUI {
 
   // Selects the room type that should be automatically assigned. //
   public String inputRoomTypeToAllocate() {
-    return inputRoomType("ROOM TYPE TO ALLOCATE", "Select room type to allocate (0-6): ", true);
+    return inputRoomTypeWithoutPrice("ROOM TYPE TO ALLOCATE", "Select room type to allocate (0-6): ", true);
   }
 
-  private String inputRoomType(String title, String prompt, boolean allowCancel) {
+  private String inputRoomTypeWithPrice(String title, String prompt, boolean allowCancel) {
     System.out.println(title + ":");
     System.out.println("  1. Standard      - RM 150.00 per night");
     System.out.println("  2. Deluxe        - RM 250.00 per night");
@@ -285,6 +285,34 @@ public class VipLoyaltyAllocationUI {
     System.out.println("  4. Family        - RM 350.00 per night");
     System.out.println("  5. Executive     - RM 550.00 per night");
     System.out.println("  6. Presidential  - RM 1000.00 per night");
+    if (allowCancel) System.out.println("  0. Cancel");
+    while (true) {
+      switch (readInt(prompt)) {
+        case 0:
+          if (allowCancel) return "";
+          break;
+        case 1: return "Standard";
+        case 2: return "Deluxe";
+        case 3: return "Suite";
+        case 4: return "Family";
+        case 5: return "Executive";
+        case 6: return "Presidential";
+        default: break;
+      }
+      System.out.println(allowCancel
+          ? "Please select a room type from 0 to 6."
+          : "Please select a room type from 1 to 6.");
+    }
+  }
+
+  private String inputRoomTypeWithoutPrice(String title, String prompt, boolean allowCancel) {
+    System.out.println(title + ":");
+    System.out.println("  1. Standard");
+    System.out.println("  2. Deluxe");
+    System.out.println("  3. Suite");
+    System.out.println("  4. Family");
+    System.out.println("  5. Executive");
+    System.out.println("  6. Presidential");
     if (allowCancel) System.out.println("  0. Cancel");
     while (true) {
       switch (readInt(prompt)) {

@@ -231,6 +231,7 @@ public class VipLoyaltyAllocation {
       return;
     }
 
+    vipUI.displayPriorityQueue(buildQueueDisplay());
     String roomType = vipUI.inputRoomTypeToAllocate();
     if (roomType == null || roomType.isEmpty()) {
       MessageUI.displayInfoMessage("Room allocation cancelled.");
@@ -238,7 +239,6 @@ public class VipLoyaltyAllocation {
       return;
     }
 
-    vipUI.displayPriorityQueue(buildQueueDisplay());
     LocalDate today = MalaysiaTime.now().toLocalDate();
     LoyaltyMember member = findHighestEligibleMemberForRoomType(roomType, today);
     if (member == null) {
