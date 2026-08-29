@@ -130,7 +130,7 @@ public class HousekeepingTaskLog {
         case 9:
           displayStackSummary(); // show how many undo/redo entries exist
           break;
-        // ── Operations & Reports (10-13) ───────────────────────────────
+        // ── Operations & Reports (10-14) ───────────────────────────────
         case 10:
           handleLateCheckout();
           break;
@@ -144,8 +144,11 @@ public class HousekeepingTaskLog {
         case 13:
           generateStaffWorkloadReport(); // report 2 (console + PDF)
           break;
+        case 14:
+          generateRoomReadinessReport(); // report 3 (console + PDF)
+          break;
         default:
-          MessageUI.displayInvalidChoiceMessage(); // number outside 0-13
+          MessageUI.displayInvalidChoiceMessage(); // number outside 0-14
       }
     } while (choice != 0); // keep looping until the user says 0 (exit)
   }
@@ -1319,6 +1322,176 @@ public class HousekeepingTaskLog {
         if (pdf != null) pdf.close(); // always close
       } catch (IOException ignored) {
         // Not important - main error message already shown
+      }
+    }
+  }
+
+  /**
+   * Report 3: management view of room readiness and the cleaning pipeline.
+   * It is room-based (not task-based), matching the operational summary
+   * expected by a housekeeping supervisor.
+   */
+  private void generateRoomReadinessReport() {
+    RoomStatus[] statuses = RoomStatus.values();
+    int[] statusCounts = new int[statuses.length];
+    ListInterface<String> roomTypes = new ArrayList<>();
+
+    for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
+      Room room = roomList.getEntry(index);
+      statusCounts[room.getStatus().ordinal()]++;
+      if (!roomTypes.contains(room.getRoomType())) {
+        roomTypes.add(room.getRoomType());
+      }
+    }
+
+    int totalRooms = roomList.getNumberOfEntries();
+    int dirty = statusCounts[RoomStatus.DIRTY.ordinal()];
+    int cleaning = statusCounts[RoomStatus.CLEANING_IN_PROGRESS.ordinal()];
+    int inspected = statusCounts[RoomStatus.INSPECTED.ordinal()];
+    int ready = statusCounts[RoomStatus.READY_FOR_CHECK_IN.ordinal()];
+    int occupied = statusCounts[RoomStatus.OCCUPIED.ordinal()];
+    int lateCheckout = statusCounts[RoomStatus.LCO.ordinal()];
+    int cleaningBacklog = dirty + cleaning + inspected;
+    boolean pipelineHealthy = ready > dirty;
+
+    StringBuilder report = new StringBuilder();
+    report.append("  ").append(repeatChar('-', 78)).append("\n");
+    report.append("  ROOM READINESS & STATUS DISTRIBUTION\n");
+    report.append("  ").append(repeatChar('-', 78)).append("\n\n");
+
+    report.append("  EXECUTIVE HIGHLIGHTS\n");
+    report.append("  ").append(repeatChar('-', 40)).append("\n");
+    report.append("  Room Readiness  : ").append(pipelineHealthy
+        ? "GOOD (More rooms are ready than dirty)"
+        : "NEEDS ATTENTION (Too many rooms are still dirty)").append("\n");
+    report.append("  Total Rooms     : ").append(totalRooms).append("\n");
+    report.append("  Cleaning Backlog: ").append(cleaningBacklog)
+        .append(" (Dirty + Cleaning + Inspected)\n");
+    report.append("  Guest Rooms     : ").append(occupied + lateCheckout)
+        .append(" (Occupied + Late Check-Out)\n\n");
+
+    report.append("  STATUS DISTRIBUTION\n");
+    report.append("  ").append(repeatChar('-', 40)).append("\n");
+    for (int index = 0; index < statuses.length; index++) {
+      report.append(String.format("  %-22s | %s (%d)%n", statuses[index].getLabel(),
+          repeatChar('*', statusCounts[index]), statusCounts[index]));
+    }
+    report.append("\n");
+
+    report.append("  ROOM STATUS BY TYPE\n");
+    report.append("  ").append(repeatChar('-', 96)).append("\n");
+    report.append(String.format("  %-14s %6s %10s %10s %8s %10s %6s %7s%n",
+        "Room Type", "Dirty", "Cleaning", "Inspected", "Ready", "Occupied", "LCO", "Total"));
+    report.append("  ").append(repeatChar('-', 96)).append("\n");
+    for (int typeIndex = 1; typeIndex <= roomTypes.getNumberOfEntries(); typeIndex++) {
+      String roomType = roomTypes.getEntry(typeIndex);
+      int[] typeCounts = countStatusesForRoomType(roomType, statuses);
+      int typeTotal = 0;
+      for (int count : typeCounts) typeTotal += count;
+      report.append(String.format("  %-14s %6d %10d %10d %8d %10d %6d %7d%n",
+          roomType, typeCounts[RoomStatus.DIRTY.ordinal()],
+          typeCounts[RoomStatus.CLEANING_IN_PROGRESS.ordinal()],
+          typeCounts[RoomStatus.INSPECTED.ordinal()],
+          typeCounts[RoomStatus.READY_FOR_CHECK_IN.ordinal()],
+          typeCounts[RoomStatus.OCCUPIED.ordinal()], typeCounts[RoomStatus.LCO.ordinal()], typeTotal));
+    }
+    if (roomTypes.isEmpty()) {
+      report.append("  (No rooms registered)\n");
+    }
+
+    housekeepingUI.displayReport("REPORT 3: ROOM READINESS & STATUS DISTRIBUTION",
+        report.toString());
+    if (housekeepingUI.confirmPdfExport()) {
+      exportRoomReadinessReport(roomTypes, statuses, statusCounts, totalRooms,
+          dirty, cleaningBacklog, ready, occupied, lateCheckout, pipelineHealthy);
+    }
+    MessageUI.pressEnterToContinue();
+  }
+
+  /** Counts every status for one room type, used by Report 3's cross-tab. */
+  private int[] countStatusesForRoomType(String roomType, RoomStatus[] statuses) {
+    int[] counts = new int[statuses.length];
+    for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
+      Room room = roomList.getEntry(index);
+      if (room.getRoomType().equalsIgnoreCase(roomType)) {
+        counts[room.getStatus().ordinal()]++;
+      }
+    }
+    return counts;
+  }
+
+  /** Exports Report 3 with the same summary and cross-tab data as the console report. */
+  private void exportRoomReadinessReport(ListInterface<String> roomTypes, RoomStatus[] statuses,
+      int[] statusCounts, int totalRooms, int dirty, int cleaningBacklog, int ready,
+      int occupied, int lateCheckout, boolean pipelineHealthy) {
+    PdfReportEngine pdf = null;
+    try {
+      String outDir = "output" + File.separator + "pdf";
+      new File(outDir).mkdirs();
+      String timestamp = MalaysiaTime.now().format(MalaysiaTime.FILE_FORMATTER);
+      String outPath = outDir + File.separator + "room_readiness_" + timestamp + ".pdf";
+      pdf = new PdfReportEngine();
+      pdf.addCoverPage("Room Readiness & Status Distribution",
+          "Room Readiness | Room Status Distribution | Room Type Cross-Tab",
+          "Current room status", "Housekeeping Supervisor");
+
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Executive Highlights");
+      pdf.addKpiRow("Room Readiness", pipelineHealthy ? "GOOD" : "NEEDS ATTENTION",
+          pipelineHealthy ? PdfReportEngine.SUCCESS : PdfReportEngine.WARNING);
+      pdf.addKpiRow("Total Rooms", String.valueOf(totalRooms), null);
+      pdf.addKpiRow("Cleaning Backlog", String.valueOf(cleaningBacklog),
+          cleaningBacklog > 0 ? PdfReportEngine.WARNING : PdfReportEngine.SUCCESS);
+      pdf.addKpiRow("Late Check-Out Rooms", String.valueOf(lateCheckout), null);
+      pdf.addDivider();
+      pdf.addSectionHeading("Room Status Indicators");
+      pdf.addKpiCards(new String[]{"Dirty", "Ready", "Occupied", "LCO"},
+          new String[]{String.valueOf(dirty), String.valueOf(ready), String.valueOf(occupied),
+              String.valueOf(lateCheckout)},
+          new Color[]{PdfReportEngine.DANGER, PdfReportEngine.SUCCESS,
+              PdfReportEngine.ACCENT_BLUE, PdfReportEngine.WARNING});
+      String[] labels = new String[statuses.length];
+      double[] values = new double[statuses.length];
+      for (int index = 0; index < statuses.length; index++) {
+        labels[index] = statuses[index].getLabel();
+        values[index] = statusCounts[index];
+      }
+      pdf.addSpace(10);
+      pdf.addBarChart("Room Status Distribution", labels, values, "Number of Rooms");
+
+      pdf.beginContentPage();
+      pdf.addSectionHeading("Room Status by Type");
+      pdf.addBodyText("Cross-tabulation of each room type across the housekeeping pipeline.", 9);
+      pdf.addSpace(6);
+      String[] headers = {"Room Type", "Dirty", "Cleaning", "Inspected", "Ready", "Occupied", "LCO", "Total"};
+      float[] widths = {78, 42, 52, 52, 42, 52, 36, 42};
+      java.util.List<String[]> rows = new java.util.ArrayList<>();
+      for (int typeIndex = 1; typeIndex <= roomTypes.getNumberOfEntries(); typeIndex++) {
+        String roomType = roomTypes.getEntry(typeIndex);
+        int[] counts = countStatusesForRoomType(roomType, statuses);
+        int total = 0;
+        for (int count : counts) total += count;
+        rows.add(new String[]{roomType, String.valueOf(counts[RoomStatus.DIRTY.ordinal()]),
+            String.valueOf(counts[RoomStatus.CLEANING_IN_PROGRESS.ordinal()]),
+            String.valueOf(counts[RoomStatus.INSPECTED.ordinal()]),
+            String.valueOf(counts[RoomStatus.READY_FOR_CHECK_IN.ordinal()]),
+            String.valueOf(counts[RoomStatus.OCCUPIED.ordinal()]),
+            String.valueOf(counts[RoomStatus.LCO.ordinal()]), String.valueOf(total)});
+      }
+      if (rows.isEmpty()) {
+        pdf.addBodyText("No rooms are registered.", 10);
+      } else {
+        pdf.addTable(headers, rows, widths);
+      }
+      pdf.save(outPath);
+      housekeepingUI.displayPdfExportSuccess(outPath);
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("PDF export failed: " + ex.getMessage());
+    } finally {
+      try {
+        if (pdf != null) pdf.close();
+      } catch (IOException ignored) {
+        // The primary export result has already been reported.
       }
     }
   }

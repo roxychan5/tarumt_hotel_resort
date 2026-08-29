@@ -28,7 +28,7 @@ import utility.MessageUI;
  */
 public class HousekeepingTaskLogUI {
 
-  private static final int  BOX_W  = 78;   // total visible chars inside | |
+  private static final int  BOX_W  = 86;   // total visible chars inside | |
   private static final int  ACTIVE_ROOMS_BOX_W = 100;
   private static final int  LABEL_W = 30;   // visible width of label column
   private static final char HL    = '-';
@@ -52,7 +52,7 @@ public class HousekeepingTaskLogUI {
     ConsoleUI.clearScreen();
     printMenu();
     return ConsoleUI.readMenuChoice(
-        "  " + SB + B + "  Select option (0-13) > " + R + " ");
+        "  " + SB + B + "  Select option (0-14) > " + R + " ");
   }
 
   private void printMenu() {
@@ -83,6 +83,8 @@ public class HousekeepingTaskLogUI {
         "Binary search + bubble sort | PDF");
     printEntryHighlight("13", "Report 2: Staff Workload",
         "Insertion sort ranking      | PDF");
+    printEntryHighlight("14", "Report 3: Room Readiness",
+        "Room readiness | status by room type | PDF");
     printBorder();
 
     printStatusLegend();
