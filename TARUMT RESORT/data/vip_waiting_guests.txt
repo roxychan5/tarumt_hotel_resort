@@ -1,4 +1,5 @@
-bookingId,confirmationNumber,memberId,memberName,roomType,nights,arrivalSequence,requestedCheckInDate,waitingSince
-VIP-0009,21496018,LM021,xiaoyu,Executive,7,9,2026-08-29,2026-08-29
-VIP-0007,00000007,LM009,ycc,Family,3,7,2026-08-28,2026-08-28
-VIP-0008,00000008,LM001,Huixuan,Executive,2,8,2026-08-29,2026-08-29
+"bookingId","confirmationNumber","memberId","memberName","roomType","nights","arrivalSequence","requestedCheckInDate","waitingSince"
+"VIP-0009","21496018","LM021","xiaoyu","Executive","7","9","2026-08-29","2026-08-29"
+"VIP-0010","77253678","LM020","emily","Suite","3","10","2026-08-30","2026-08-29"
+"VIP-0008","00000008","LM001","Huixuan","Executive","2","8","2026-08-29","2026-08-29"
+"VIP-0007","00000007","LM009","ycc","Family","3","7","2026-08-28","2026-08-28"

@@ -77,7 +77,7 @@ public class HousekeepingTaskLogUI {
     printBorder();
 
     printSectionLabel("OPERATIONS  &  REPORTS");
-    printEntry("10", "Record Late Check-Out",    "Ready -> LCO; Front Desk sets new date");
+    printEntry("10", "Record Late Check-Out",    "Ready -> Occupied; Front Desk sets new date");
     printEntry("11", "Room Status Board",        "Monitor every room at a glance");
     printEntryHighlight("12", "Report 1: Operational Summary",
         "Binary search + bubble sort | PDF");
@@ -265,7 +265,7 @@ public class HousekeepingTaskLogUI {
 
   /**
    * Shows EVERY room with its current status before recording a late
-   * check-out. Green = Ready for Check-In and can roll back to LCO.
+   * check-out. Green = Ready for Check-In and can roll back to Occupied.
    * Uses the text summary built by the controller.
    */
   public void displayLateCheckoutRooms(String summary) {
@@ -280,9 +280,8 @@ public class HousekeepingTaskLogUI {
       rowV(DM + msg + R, msg.length());
     } else {
       // Legend - explains the Action column
-      String legend = "  " + "\033[92m" + "Ready -> Mark LCO" + R
-          + " = guest extends stay   " + DM + "Not eligible" + R
-          + " = status must be Ready for Check-In";
+      String legend = "  " + "\033[92m" + "Ready -> Occupied" + R
+          + " = roll back schedule   " + DM + "Not eligible" + R;
       rowV(legend, visLen(legend));
       row();
 

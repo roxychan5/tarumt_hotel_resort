@@ -458,7 +458,7 @@ public class HousekeepingTaskLog {
       Room r = roomList.getEntry(i);
       RoomStatus s = r.getStatus();
       String action = (s == RoomStatus.READY_FOR_CHECK_IN)
-          ? "-> Mark LCO" : "Not eligible";
+          ? "-> Restore Occupied" : "Not eligible";
       // Same column layout as the Room Status Board + an Action column:
       sb.append(String.format("%-8s %-12s %-6d %-22s %s\n",
           r.getRoomNumber(), r.getRoomType(), r.getFloor(),
@@ -508,8 +508,9 @@ public class HousekeepingTaskLog {
   }
 
   /**
-   * Option 11 - roll a completed housekeeping schedule back when the guest
-   * extends the stay. Only READY_FOR_CHECK_IN rooms can be changed to LCO.
+   * Option 10 - roll a completed housekeeping schedule back when the guest
+   * requests a late check-out. Only READY_FOR_CHECK_IN rooms are restored
+   * to OCCUPIED; Front Desk then records the new checkout date and marks LCO.
    */
   private void handleLateCheckout() {
     // ── Show ALL rooms first so the supervisor picks the right one ─────────
@@ -530,26 +531,26 @@ public class HousekeepingTaskLog {
     RoomStatus previousStatus = room.getStatus();
     if (previousStatus != RoomStatus.READY_FOR_CHECK_IN) {
       MessageUI.displayErrorMessage(
-          "Only a room with status Ready for Check-In can be marked LCO. "
+          "Only a room with status Ready for Check-In can be restored to Occupied. "
           + "Current status: " + previousStatus.getLabel() + ".");
       MessageUI.pressEnterToContinue();
       return;
     }
 
     // Save the rollback so the supervisor can undo it if the request was incorrect.
-    recordStatusChange(roomNumber, previousStatus, RoomStatus.LCO,
-        "Late check-out requested - Ready for Check-In rolled back to LCO");
-    room.setStatus(RoomStatus.LCO);
-    syncTaskStatus(roomNumber, RoomStatus.LCO);
+    recordStatusChange(roomNumber, previousStatus, RoomStatus.OCCUPIED,
+        "Late check-out requested - schedule rolled back");
+    room.setStatus(RoomStatus.OCCUPIED);
+    syncTaskStatus(roomNumber, RoomStatus.OCCUPIED);
     saveData();
 
     housekeepingUI.displayRoomDetails(room);
     MessageUI.displaySuccessMessage(
-        "Late check-out recorded. Room changed from Ready for Check-In to LCO.");
+        "Schedule rolled back. Room restored to Occupied; continue in Front Desk to set LCO.");
     MessageUI.pressEnterToContinue();
   }
 
-  /** Option 10 - Show the whole change history, newest to oldest. */
+  /** Option 8 - Show the whole change history, newest to oldest. */
   private void displayStatusHistory() {
     List<StatusChangeRecord> history = copyUndoHistory(); // safe copy
     housekeepingUI.displayChangeHistory(history);          // show it
