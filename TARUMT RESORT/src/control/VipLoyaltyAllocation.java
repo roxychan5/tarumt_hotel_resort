@@ -55,6 +55,8 @@ public class VipLoyaltyAllocation {
   private static final Path WAITING_MEMBER_FILE = DataFiles.resolve("vip_waiting_members.txt");
   private static final Path CHECKIN_HISTORY_FILE = DataFiles.resolve("vip_checkin_history.txt");
   private static final Path PAYMENT_HISTORY_FILE = DataFiles.resolve("vip_payment_history.txt");
+  private static final Path CANCELLED_WAITING_BOOKINGS_FILE =
+      DataFiles.resolve("vip_cancelled_waiting_bookings.txt");
   private int arrivalSequence;
   private int allocationSequence;
 
@@ -191,6 +193,7 @@ public class VipLoyaltyAllocation {
     if (waitingMembers.removeEntry(booking)) {
       cancelledWaitingBookings.add(booking);
       saveWaitingMembers();
+      saveCancelledWaitingBookings();
       MessageUI.displaySuccessMessage("VIP booking cancelled for " + booking.getMemberName()
           + " (" + booking.getMemberId() + "). It has been recorded for the allocation report.");
     }
@@ -228,6 +231,7 @@ public class VipLoyaltyAllocation {
       return;
     }
 
+    vipUI.displayPriorityQueue(buildQueueDisplay());
     String roomType = vipUI.inputRoomTypeToAllocate();
     if (roomType == null || roomType.isEmpty()) {
       MessageUI.displayInfoMessage("Room allocation cancelled.");
@@ -235,7 +239,6 @@ public class VipLoyaltyAllocation {
       return;
     }
 
-    vipUI.displayPriorityQueue(buildQueueDisplay());
     LocalDate today = MalaysiaTime.now().toLocalDate();
     LoyaltyMember member = findHighestEligibleMemberForRoomType(roomType, today);
     if (member == null) {
@@ -814,6 +817,27 @@ public class VipLoyaltyAllocation {
     }
   }
 
+  private void saveCancelledWaitingBookings() {
+    try {
+      Files.createDirectories(CANCELLED_WAITING_BOOKINGS_FILE.getParent());
+      StringBuilder contents = new StringBuilder(CsvUtils.row("bookingId", "confirmationNumber",
+          "memberId", "memberName", "roomType", "nights", "arrivalSequence",
+          "requestedCheckInDate", "waitingSince", "waitingStartedAt", "cancelledAt")).append('\n');
+      for (int position = 1; position <= cancelledWaitingBookings.getNumberOfEntries(); position++) {
+        LoyaltyMember member = cancelledWaitingBookings.getEntry(position);
+        contents.append(CsvUtils.row(clean(member.getBookingId()), clean(member.getConfirmationNumber()),
+            clean(member.getMemberId()), clean(member.getMemberName()), clean(member.getRequestedRoomType()),
+            String.valueOf(member.getNumberOfNights()), String.valueOf(member.getArrivalSequence()),
+            String.valueOf(member.getRequestedCheckInDate()), String.valueOf(member.getWaitingSince()),
+            String.valueOf(member.getWaitingStartedAt()), MalaysiaTime.now().toString()))
+            .append('\n');
+      }
+      Files.write(CANCELLED_WAITING_BOOKINGS_FILE, contents.toString().getBytes(StandardCharsets.UTF_8));
+    } catch (IOException ex) {
+      MessageUI.displayErrorMessage("Could not save cancelled VIP waiting bookings: " + ex.getMessage());
+    }
+  }
+
   private String clean(String value) {
     return value == null ? "" : value.replace('\t', ' ').replace('\n', ' ').replace('\r', ' ');
   }
@@ -891,26 +915,39 @@ public class VipLoyaltyAllocation {
       return "  No loyalty members are registered. Enter 0 to cancel, then register a member in Loyalty & Rewards.";
     }
 
-    for (int index = 1; index < members.length; index++) {
-      RewardsMember current = members[index];
+    java.util.ArrayList<RewardsMember> availableMembers = new java.util.ArrayList<>();
+    for (RewardsMember member : members) {
+      if (isMemberWaiting(member.getMemberId())) continue;
+      if (findOccupiedRoomByMemberId(member.getMemberId()) != null) continue;
+      availableMembers.add(member);
+    }
+
+    if (availableMembers.isEmpty()) {
+      return "  No available loyalty members are eligible for the VIP priority queue. "
+          + "All registered members are either waiting, already allocated, or already checked in.";
+    }
+
+    RewardsMember[] eligibleMembers = availableMembers.toArray(new RewardsMember[0]);
+    for (int index = 1; index < eligibleMembers.length; index++) {
+      RewardsMember current = eligibleMembers[index];
       int previous = index - 1;
       while (previous >= 0
-          && members[previous].getMemberId().compareToIgnoreCase(current.getMemberId()) > 0) {
-        members[previous + 1] = members[previous];
+          && eligibleMembers[previous].getMemberId().compareToIgnoreCase(current.getMemberId()) > 0) {
+        eligibleMembers[previous + 1] = eligibleMembers[previous];
         previous--;
       }
-      members[previous + 1] = current;
+      eligibleMembers[previous + 1] = current;
     }
 
     StringBuilder list = new StringBuilder();
     list.append(String.format("%-12s %-24s %-12s %-8s%n",
         "Member ID", "Name", "Tier", "Points"));
     list.append("--------------------------------------------------------------\n");
-    for (RewardsMember member : members) {
+    for (RewardsMember member : eligibleMembers) {
       list.append(String.format("%-12s %-24s %-12s %-8d%n",
           member.getMemberId(), member.getName(), member.getTier(), member.getPoints()));
     }
-    list.append("\nTotal registered members: ").append(members.length)
+    list.append("\nAvailable members for VIP queue: ").append(eligibleMembers.length)
         .append("\nEnter a Member ID below, or 0 to cancel.");
     return list.toString();
   }

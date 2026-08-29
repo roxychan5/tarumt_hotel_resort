@@ -1,0 +1,2 @@
+"bookingId","confirmationNumber","memberId","memberName","roomType","nights","arrivalSequence","requestedCheckInDate","waitingSince","waitingStartedAt","cancelledAt"
+"VIP-0014","15418746","LM023","eric","Presidential","1","14","2026-09-01","2026-08-29","2026-08-29T16:52:07.155346100","2026-08-29T17:19:45.739770"
