@@ -1072,7 +1072,16 @@ public class FrontDeskService {
     for (String key : rows.keySet()) {
       output.append(String.format("  %-22s : %s%n", key, rows.get(key)));
     }
-    output.append("  ").append("-".repeat(title.length() + 8)).append("\n\n");
+    output.append("  ").append(repeatChar('-', title.length() + 8)).append("\n\n");
+  }
+
+  /** Java 8-compatible replacement for String.repeat(int). */
+  private static String repeatChar(char character, int count) {
+    StringBuilder result = new StringBuilder(count);
+    for (int index = 0; index < count; index++) {
+      result.append(character);
+    }
+    return result.toString();
   }
 
   private LocalDate[] promptForCheckoutHistoryDateRange() {

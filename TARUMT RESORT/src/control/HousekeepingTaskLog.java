@@ -131,7 +131,7 @@ public class HousekeepingTaskLog {
           displayStatusHistory(); // show the whole change history
           break;
         case 9:
-          displayStackSummary(); // show how many undo/redo entries exist
+          manageDeletedTaskHistory();
           break;
         // ── Operations & Reports (10-14) ───────────────────────────────
         case 10:
@@ -150,11 +150,8 @@ public class HousekeepingTaskLog {
         case 14:
           generateRoomReadinessReport(); // report 3 (console + PDF)
           break;
-        case 15:
-          manageDeletedTaskHistory();
-          break;
         default:
-          MessageUI.displayInvalidChoiceMessage(); // number outside 0-15
+          MessageUI.displayInvalidChoiceMessage(); // number outside 0-14
       }
     } while (choice != 0); // keep looping until the user says 0 (exit)
   }
@@ -689,14 +686,6 @@ public class HousekeepingTaskLog {
   private void displayStatusHistory() {
     List<StatusChangeRecord> history = copyUndoHistory(); // safe copy
     housekeepingUI.displayChangeHistory(history);          // show it
-    MessageUI.pressEnterToContinue();
-  }
-
-  /** Shows the number of available rollback changes and the latest entry. */
-  private void displayStackSummary() {
-    housekeepingUI.displayUndoSummary(
-        undoStack.getSize(),
-        undoStack.isEmpty() ? null : undoStack.peek());
     MessageUI.pressEnterToContinue();
   }
 

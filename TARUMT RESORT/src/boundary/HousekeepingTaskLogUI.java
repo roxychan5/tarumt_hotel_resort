@@ -55,7 +55,7 @@ public class HousekeepingTaskLogUI {
     ConsoleUI.clearScreen();
     printMenu();
     return ConsoleUI.readMenuChoice(
-        "  " + SB + B + "  Select option (0-15) > " + R + " ");
+        "  " + SB + B + "  Select option (0-14) > " + R + " ");
   }
 
   private void printMenu() {
@@ -76,11 +76,10 @@ public class HousekeepingTaskLogUI {
     printEntry(" 6", "Undo Latest Change",       "Reverse the most recent update");
     printEntry(" 7", "Undo Change for Room",     "Reverse a specific room's latest update");
     printEntry(" 8", "View Change History",      "See undo stack from TOP to BOTTOM");
-    printEntry(" 9", "View Undo Summary",        "Count of available rollback changes");
     printBorder();
 
     printSectionLabel("OPERATIONS  &  REPORTS");
-    printEntry("15", "Deleted Task History", "Restore deleted tasks within 30 days");
+    printEntry(" 9", "Deleted Task History", "Restore deleted tasks within 30 days");
     printEntry("10", "Late Check-Out History", "Front Desk updates: Occupied -> LCO");
     printEntry("11", "Room Status Board",        "Monitor every room at a glance");
     printEntryHighlight("12", "Report 1: Operational Summary",
@@ -805,23 +804,6 @@ public class HousekeepingTaskLogUI {
     row();
     panelText("Oldest", "");
     panelText("Viewing history does not modify any room status.", DM);
-    closePanel();
-  }
-
-  /** [10] Shows the current number of available rollback changes and the latest entry. */
-  public void displayUndoSummary(int undoCount, StatusChangeRecord latestUndo) {
-    openPanel("UNDO SUMMARY");
-    row();
-    rowKV("Available Undo Changes", String.valueOf(undoCount), true);
-    row();
-    panelText("Latest Undoable Change:", "");
-    if (latestUndo == null) {
-      panelText("None", WH);
-    } else {
-      rowText("Room " + latestUndo.getRoomNumber() + ": "
-          + latestUndo.getPreviousStatus().getLabel() + " -> "
-          + latestUndo.getNewStatus().getLabel(), WH);
-    }
     closePanel();
   }
 
