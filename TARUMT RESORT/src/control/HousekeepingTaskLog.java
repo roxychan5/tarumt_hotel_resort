@@ -990,9 +990,6 @@ public class HousekeepingTaskLog {
 
     // ── Step 7: Build the report text ──────────────────────────────────
     StringBuilder consoleReport = new StringBuilder();
-    consoleReport.append("  " + repeatChar('-', 66) + "\n");
-    consoleReport.append("  HOUSEKEEPING OPERATIONAL SUMMARY\n");
-    consoleReport.append("  " + repeatChar('-', 66) + "\n\n");
 
     // Report Overview (which filters were used)
     consoleReport.append("  REPORT OVERVIEW\n");
