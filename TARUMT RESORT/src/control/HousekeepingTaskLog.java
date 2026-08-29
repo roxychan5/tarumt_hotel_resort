@@ -1037,10 +1037,11 @@ public class HousekeepingTaskLog {
 
     // Detailed Task List (already sorted by status priority in step 5)
     consoleReport.append("  DETAILED TASK LIST (Sorted by Status Priority)\n");
-    consoleReport.append("  " + repeatChar('-', 66) + "\n");
+    // 91 characters covers every column through the Logged At timestamp.
+    consoleReport.append("  " + repeatChar('-', 91) + "\n");
     consoleReport.append(String.format("  %-8s %-8s %-10s %-16s %-22s %s%n",
         "Task ID", "Room", "Staff", "Task Type", "Status", "Logged At"));
-    consoleReport.append("  " + repeatChar('-', 66) + "\n");
+    consoleReport.append("  " + repeatChar('-', 91) + "\n");
     if (filtered.isEmpty()) {
       consoleReport.append("  (No tasks match the selected filter criteria)\n");
     } else {
@@ -1246,9 +1247,6 @@ public class HousekeepingTaskLog {
 
     // ── Step 5: Build the report text ────────────────────────────────────
     StringBuilder consoleReport = new StringBuilder();
-    consoleReport.append("  " + repeatChar('-', 66) + "\n");
-    consoleReport.append("  STAFF WORKLOAD & PERFORMANCE ANALYSIS\n");
-    consoleReport.append("  " + repeatChar('-', 66) + "\n\n");
 
     // Overview
     consoleReport.append("  REPORT OVERVIEW\n");
@@ -1502,12 +1500,8 @@ public class HousekeepingTaskLog {
     boolean pipelineHealthy = ready > dirty;
 
     StringBuilder report = new StringBuilder();
-    report.append("  ").append(repeatChar('-', 78)).append("\n");
-    report.append("  ROOM READINESS & STATUS DISTRIBUTION\n");
-    report.append("  ").append(repeatChar('-', 78)).append("\n\n");
-
     report.append("  EXECUTIVE HIGHLIGHTS\n");
-    report.append("  ").append(repeatChar('-', 40)).append("\n");
+    report.append("  ").append(repeatChar('-', 78)).append("\n");
     report.append("  Room Readiness  : ").append(pipelineHealthy
         ? "GOOD (More rooms are ready than dirty)"
         : "NEEDS ATTENTION (Too many rooms are still dirty)").append("\n");
