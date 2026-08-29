@@ -23,7 +23,7 @@ public class VipLoyaltyAllocationUI {
 
   public int getMenuChoice() {
     displayMenu();
-    return ConsoleUI.readMenuChoice("  " + SKY_BLUE + BOLD + "Select option (0-8) > " + RESET);
+    return ConsoleUI.readMenuChoice("  " + SKY_BLUE + BOLD + "Select option (0-9) > " + RESET);
   }
 
   // Displays the VIP Allocation menu without requesting another menu selection. //
@@ -49,6 +49,7 @@ public class VipLoyaltyAllocationUI {
     printSection("REPORTS & ANALYTICS");
     printHighlightEntry("7", "Priority Waiting List Report", "Filter guests by tier and room type");
     printHighlightEntry("8", "Allocation Performance Report", "Review completed VIP allocations");
+    printHighlightEntry("9", "Cancelled Waiting Bookings Report", "Track bookings cancelled before allocation");
     printBorder();
 
     printBack();
