@@ -215,9 +215,18 @@ public class FrontDeskServiceUI {
 
   public boolean confirmPdfExport() {
     System.out.println();
-    System.out.print("  " + C + B + "Export as professional PDF? (y/n) > " + R);
-    String answer = ConsoleUI.readLine().trim().toLowerCase();
-    return answer.equals("y") || answer.equals("yes");
+    return readYesNo("  " + C + B + "Export as professional PDF? (y/n) > " + R);
+  }
+
+  /** Reads a strict Y/N response and retries invalid input. */
+  private boolean readYesNo(String prompt) {
+    while (true) {
+      System.out.print(prompt);
+      String answer = ConsoleUI.readLine().trim();
+      if (answer.equalsIgnoreCase("y")) return true;
+      if (answer.equalsIgnoreCase("n")) return false;
+      System.out.println("  " + RD + "Enter Y or N only." + R);
+    }
   }
 
   public void displayPdfExportSuccess(String filePath) {

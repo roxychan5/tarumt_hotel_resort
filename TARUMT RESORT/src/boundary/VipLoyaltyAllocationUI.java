@@ -388,9 +388,18 @@ public class VipLoyaltyAllocationUI {
 
   public boolean confirmPdfExport() {
     System.out.println();
-    System.out.print("  " + CYAN + BOLD + "Export as professional PDF? (y/n) > " + RESET);
-    String answer = ConsoleUI.readLine().trim().toLowerCase();
-    return answer.equals("y") || answer.equals("yes");
+    return readYesNo("  " + CYAN + BOLD + "Export as professional PDF? (y/n) > " + RESET);
+  }
+
+  /** Reads a strict Y/N response and retries invalid input. */
+  private boolean readYesNo(String prompt) {
+    while (true) {
+      System.out.print(prompt);
+      String answer = ConsoleUI.readLine().trim();
+      if (answer.equalsIgnoreCase("y")) return true;
+      if (answer.equalsIgnoreCase("n")) return false;
+      System.out.println(RED + "Enter Y or N only." + RESET);
+    }
   }
 
   public void displayPdfExportSuccess(String filePath) {

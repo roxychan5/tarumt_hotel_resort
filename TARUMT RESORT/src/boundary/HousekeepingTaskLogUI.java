@@ -294,7 +294,7 @@ public class HousekeepingTaskLogUI {
     }
   }
 
-  /** Asks "are you sure?" before deleting something (only 'y' or 'yes' confirms). */
+  /** Asks "are you sure?" before deleting something. */
   public boolean confirmDelete(String target) {
     System.out.println();
     printBorder();
@@ -304,9 +304,7 @@ public class HousekeepingTaskLogUI {
     String warning = "  Delete " + target + "? This cannot be undone.";
     rowV(RD + warning + R, warning.length());
     printBorder();
-    System.out.print("  " + RD + B + "Confirm (y/n) > " + R);
-    String ans = ConsoleUI.readLine().trim().toLowerCase();
-    return ans.equals("y") || ans.equals("yes");
+    return readYesNo("  " + RD + B + "Confirm (y/n) > " + R);
   }
 
   /** Asks for a room number (e.g. R101), or returns null when 0 cancels. */
@@ -577,16 +575,29 @@ public class HousekeepingTaskLogUI {
         + "Room Type: 0=ALL  1=Standard  2=Deluxe  3=Suite" + R);
     System.out.println();
 
-    String from = inputOptionalDate("From date");
-    String to;
     while (true) {
-      to = inputOptionalDate("To date  ");
-      if (from.isEmpty() || to.isEmpty() || !LocalDate.parse(to).isBefore(LocalDate.parse(from))) {
-        break;
+      String from = inputOptionalDate("From date");
+      String to = inputOptionalDate("To date  ");
+
+      // Both blank means all dates. A partial range is rejected because it is
+      // unclear whether the missing date should be treated as open-ended.
+      if (from.isEmpty() && to.isEmpty()) {
+        return readReport1Filters(from, to);
+      }
+      if (from.isEmpty() || to.isEmpty()) {
+        MessageUI.displayErrorMessage(
+            "Enter both from and to dates, or press ENTER for both to include all dates.");
+        continue;
+      }
+      if (!LocalDate.parse(to).isBefore(LocalDate.parse(from))) {
+        return readReport1Filters(from, to);
       }
       MessageUI.displayErrorMessage("To date must be on or after the from date.");
     }
+  }
 
+  /** Collects the remaining Report 1 filters after a valid date range is entered. */
+  private String[] readReport1Filters(String from, String to) {
     String statusFilter;
     switch (readChoiceInRange("  Status filter     (0-5) > ", 0, 5)) {
       case 1:  statusFilter = "DIRTY"; break;
@@ -687,14 +698,23 @@ public class HousekeepingTaskLogUI {
     }
   }
 
-  /** Reads an optional calendar date and rejects impossible dates such as 2026-02-30. */
+  /**
+   * Reads an optional report date and rejects impossible or past dates.
+   * A report date may be today or any future day.
+   */
   private String inputOptionalDate(String label) {
     while (true) {
       System.out.print("  " + SB + label + R + " (yyyy-MM-dd or ENTER) > ");
       String value = ConsoleUI.readLine().trim();
       if (value.isEmpty()) return "";
       try {
-        return LocalDate.parse(value).toString();
+        LocalDate selectedDate = LocalDate.parse(value);
+        LocalDate today = MalaysiaTime.now().toLocalDate();
+        if (selectedDate.isBefore(today)) {
+          MessageUI.displayErrorMessage("Enter today's date or a future date only.");
+          continue;
+        }
+        return selectedDate.toString();
       } catch (DateTimeParseException ex) {
         MessageUI.displayErrorMessage("Enter a valid calendar date in yyyy-MM-dd format.");
       }
@@ -704,9 +724,18 @@ public class HousekeepingTaskLogUI {
   /** Asks whether the user wants to save the report as a PDF. */
   public boolean confirmPdfExport() {
     System.out.println();
-    System.out.print("  " + C + B + "Export as professional PDF? (y/n) > " + R);
-    String answer = ConsoleUI.readLine().trim().toLowerCase();
-    return answer.equals("y") || answer.equals("yes");
+    return readYesNo("  " + C + B + "Export as professional PDF? (y/n) > " + R);
+  }
+
+  /** Reads a strict y/n answer, accepting either lower- or uppercase letters. */
+  private boolean readYesNo(String prompt) {
+    while (true) {
+      System.out.print(prompt);
+      String answer = ConsoleUI.readLine().trim();
+      if (answer.equalsIgnoreCase("y")) return true;
+      if (answer.equalsIgnoreCase("n")) return false;
+      MessageUI.displayErrorMessage("Enter Y or N only.");
+    }
   }
 
   public void displayPdfExportSuccess(String filePath) {
@@ -742,11 +771,9 @@ public class HousekeepingTaskLogUI {
   /** Asks the user to confirm an action with a clear yes/no prompt. */
   public boolean confirmAction(String prompt) {
     System.out.println();
-    System.out.print("  " + WH + B + prompt + "  "
+    return readYesNo("  " + WH + B + prompt + "  "
         + SB + B + "[Y] Yes" + R + "    "
         + RD + B + "[N] No" + R + " > ");
-    String answer = ConsoleUI.readLine().trim().toLowerCase();
-    return answer.equals("y") || answer.equals("yes");
   }
 
   /** [6] Shows the latest change that will be undone before asking for confirmation. */
