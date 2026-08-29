@@ -140,7 +140,11 @@ public class FrontDeskService {
 
   private void checkOutRoom() {
     ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
-    frontDeskUI.displayCheckoutAvailability(formatRoomAvailabilityBoard(roomList));
+    frontDeskUI.displayCheckoutAvailability(formatCheckoutRoomBoard(roomList));
+    if (countActiveGuestRooms(roomList) == 0) {
+      MessageUI.pressEnterToContinue();
+      return;
+    }
     while (true) {
       String roomNumber = frontDeskUI.inputRoomNumber();
       if (roomNumber.equalsIgnoreCase("0")) {
@@ -197,7 +201,7 @@ public class FrontDeskService {
 
       frontDeskUI.displayCheckoutResult(formatCheckoutPreview(room, timeline,
           actualCheckoutAt, lateCheckout));
-      frontDeskUI.displayCheckoutAvailability(formatRoomAvailabilityBoard(roomList));
+      frontDeskUI.displayCheckoutAvailability(formatCheckoutRoomBoard(roomList));
       MessageUI.displaySuccessMessage(
           "Room " + room.getRoomNumber() + " checked out and marked Dirty for housekeeping.");
       MessageUI.pressEnterToContinue();
@@ -206,6 +210,13 @@ public class FrontDeskService {
   }
 
   private void handleLateCheckout() {
+    ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
+    frontDeskUI.displayLateCheckoutResult(formatLateCheckoutGuestList(roomList));
+    if (countActiveGuestRooms(roomList) == 0) {
+      MessageUI.pressEnterToContinue();
+      return;
+    }
+
     while (true) {
       String memberId = frontDeskUI.inputMemberId();
       if (memberId.equalsIgnoreCase("0")) {
@@ -226,7 +237,6 @@ public class FrontDeskService {
         continue;
       }
 
-      ListInterface<Room> roomList = housekeepingDAO.retrieveRooms();
       Room room = findOccupiedRoomByMemberId(roomList, memberId);
       if (room == null) {
         frontDeskUI.displayLateCheckoutResult(
@@ -754,14 +764,13 @@ public class FrontDeskService {
       ListInterface<VipCheckInRecord> checkInRecords) {
     StringBuilder output = new StringBuilder();
     output.append("  Search key          : ").append(searchKey).append("\n");
-    output.append("  Billing records     : ").append(records.getNumberOfEntries()).append("\n");
 
     for (int index = 1; index <= records.getNumberOfEntries(); index++) {
       VipPaymentRecord payment = records.getEntry(index);
       VipCheckInRecord checkInRecord = findCheckInRecord(payment, checkInRecords);
       RewardsMember memberRecord = memberSearchTree.search(payment.getMemberId().toUpperCase());
 
-      output.append("\n  --- BILLING RECORD ").append(index).append(" ---\n");
+      output.append("\n  --- BILLING RECORD ").append(" ---\n");
       appendBillingLine(output, "Payment ID", payment.getPaymentId());
       appendBillingLine(output, "Payment Status", "PAID");
       appendBillingLine(output, "Booking ID", payment.getBookingId());
@@ -793,7 +802,7 @@ public class FrontDeskService {
   private String formatRoomAvailabilityBoard(ListInterface<Room> roomList) {
     StringBuilder output = new StringBuilder();
     output.append(String.format("  %-8s %-12s %-7s %-20s %-18s %-18s %-24s%n",
-        "Room", "Type", "Floor", "Status", "Check-In", "Expected Out", "Availability"));
+        "Room", "Type", "Floor", "Status", "Check-In", "Expected Check-Out", "Availability"));
     output.append("  -------------------------------------------------------------------------------------------------------------\n");
 
     int totalRooms = 0;
@@ -831,6 +840,70 @@ public class FrontDeskService {
     output.append("  Late check-out rooms         : ").append(lateCheckoutRooms).append("\n");
     output.append("  Available for check-in rooms : ").append(availableRooms).append("\n");
     output.append("  Not available rooms          : ").append(unavailableRooms);
+    return output.toString();
+  }
+
+  private String formatCheckoutRoomBoard(ListInterface<Room> roomList) {
+    StringBuilder output = new StringBuilder();
+    output.append(String.format("  %-8s %-12s %-20s %-12s %-22s %-18s%n",
+        "Room", "Type", "Status", "Member ID", "Guest", "Expected Check-Out"));
+    output.append("  ------------------------------------------------------------------------------------------------\n");
+
+    int activeRooms = 0;
+    int lateCheckoutRooms = 0;
+    for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
+      Room room = roomList.getEntry(index);
+      if (!isActiveGuestRoom(room.getStatus())) {
+        continue;
+      }
+
+      if (room.getStatus() == RoomStatus.LCO) {
+        lateCheckoutRooms++;
+      }
+      activeRooms++;
+      output.append(String.format("  %-8s %-12s %-20s %-12s %-22s %-18s%n",
+          room.getRoomNumber(), room.getRoomType(), room.getStatus().getLabel(),
+          formatBoardText(room.getOccupantMemberId()), getGuestNameForRoom(room),
+          formatBoardDateTime(room.getExpectedCheckoutAt())));
+    }
+
+    if (activeRooms == 0) {
+      output.append("  No occupied or late check-out rooms are available for check-out.\n");
+    }
+
+    output.append("\n");
+    output.append("  Rooms available for check-out : ").append(activeRooms).append("\n");
+    output.append("  Late check-out rooms          : ").append(lateCheckoutRooms);
+    return output.toString();
+  }
+
+  private String formatLateCheckoutGuestList(ListInterface<Room> roomList) {
+    StringBuilder output = new StringBuilder();
+    output.append(String.format("  %-12s %-22s %-8s %-12s %-20s %-18s%n",
+        "Member ID", "Guest", "Room", "Type", "Status", "Expected Check-Out"));
+    output.append("  ------------------------------------------------------------------------------------------------\n");
+
+    int activeRooms = 0;
+    for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
+      Room room = roomList.getEntry(index);
+      if (!isActiveGuestRoom(room.getStatus())) {
+        continue;
+      }
+
+      activeRooms++;
+      output.append(String.format("  %-12s %-22s %-8s %-12s %-20s %-18s%n",
+          formatBoardText(room.getOccupantMemberId()), getGuestNameForRoom(room),
+          room.getRoomNumber(), room.getRoomType(), room.getStatus().getLabel(),
+          formatBoardDateTime(room.getExpectedCheckoutAt())));
+    }
+
+    if (activeRooms == 0) {
+      output.append("  No occupied or late check-out rooms are currently linked to guests.\n");
+    }
+
+    output.append("\n");
+    output.append("  Active guest rooms shown: ").append(activeRooms).append("\n");
+    output.append("  Enter the Member ID from this list to extend late check-out.");
     return output.toString();
   }
 
@@ -1169,6 +1242,16 @@ public class FrontDeskService {
       return room.getExpectedCheckoutAt() != null && room.getExpectedCheckoutAt().isBefore(now);
     }
     return false;
+  }
+
+  private int countActiveGuestRooms(ListInterface<Room> roomList) {
+    int count = 0;
+    for (int index = 1; index <= roomList.getNumberOfEntries(); index++) {
+      if (isActiveGuestRoom(roomList.getEntry(index).getStatus())) {
+        count++;
+      }
+    }
+    return count;
   }
 
   private int countCheckoutRecordsOnDate(StackInterface<StatusChangeRecord> history,
